@@ -108,16 +108,16 @@ def finalizar_nps(data: NPSRequest):
 
     y = height - 50
     c.setFont("Helvetica-Bold", 16)
-    c.drawString(40, y, "Pesquisa de SatisfaÃ§Ã£o (NPS)")
+    c.drawString(40, y, "Pesquisa de Satisfação (NPS)")
     y -= 40
 
     c.setFont("Helvetica", 12)
     c.drawString(40, y, f"NPS informado: {data.nps}")
     y -= 30
 
-    # AvaliaÃ§Ãµes
+    # Avaliações
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(40, y, "AvaliaÃ§Ãµes")
+    c.drawString(40, y, "Avaliações")
     y -= 20
 
     c.setFont("Helvetica", 10)
