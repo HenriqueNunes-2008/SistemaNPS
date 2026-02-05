@@ -62,8 +62,6 @@ def finalizar_nps(data: NPSRequest):
 
     if not termo_pdf_url:
         raise HTTPException(status_code=404, detail="Termo nÃ£o encontrado")
-    if not ressalvas_pdf_url:
-        raise HTTPException(status_code=404, detail="Ressalvas nÃ£o encontradas")
 
     def extract_storage_path(public_url: str) -> str | None:
         marker = "/storage/v1/object/public/processos/"
@@ -78,24 +76,27 @@ def finalizar_nps(data: NPSRequest):
 
     try:
         termo_bytes = download_pdf(termo_pdf_url)
-        ressalvas_bytes = download_pdf(ressalvas_pdf_url)
+        ressalvas_bytes = None
+        if ressalvas_pdf_url:
+            ressalvas_bytes = download_pdf(ressalvas_pdf_url)
     except Exception:
         # Fallback para bucket privado: usa download via Supabase
         termo_path = extract_storage_path(termo_pdf_url)
-        ressalvas_path = extract_storage_path(ressalvas_pdf_url)
+        ressalvas_path = extract_storage_path(ressalvas_pdf_url) if ressalvas_pdf_url else None
         try:
-            if not termo_path or not ressalvas_path:
+            if not termo_path:
                 raise Exception("URL de storage invÃ¡lida")
             termo_res = supabase.storage.from_("processos").download(termo_path)
-            ressalvas_res = supabase.storage.from_("processos").download(ressalvas_path)
-
             if hasattr(termo_res, "error") and termo_res.error:
                 raise Exception(termo_res.error.message)
-            if hasattr(ressalvas_res, "error") and ressalvas_res.error:
-                raise Exception(ressalvas_res.error.message)
 
             termo_bytes = termo_res
-            ressalvas_bytes = ressalvas_res
+            ressalvas_bytes = None
+            if ressalvas_path:
+                ressalvas_res = supabase.storage.from_("processos").download(ressalvas_path)
+                if hasattr(ressalvas_res, "error") and ressalvas_res.error:
+                    raise Exception(ressalvas_res.error.message)
+                ressalvas_bytes = ressalvas_res
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Falha ao baixar PDFs: {str(e)}")
 
@@ -155,11 +156,12 @@ def finalizar_nps(data: NPSRequest):
     nps_buffer.seek(0)
 
     # ===============================
-    # MERGE FINAL (3 PDFs)
+    # MERGE FINAL (2 OU 3 PDFs)
     # ===============================
     merger = PdfMerger()
     merger.append(BytesIO(termo_bytes))
-    merger.append(BytesIO(ressalvas_bytes))
+    if ressalvas_bytes:
+        merger.append(BytesIO(ressalvas_bytes))
     merger.append(nps_buffer)
     final_buffer = BytesIO()
     merger.write(final_buffer)
