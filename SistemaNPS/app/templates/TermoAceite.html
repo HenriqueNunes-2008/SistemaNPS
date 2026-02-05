@@ -757,8 +757,8 @@ button.loading {
 <section class="approval">
     <strong>APROVAÇÃO FINAL DO TERMO:</strong>
     <div class="approval-fields">
-        <input placeholder="REPRESENTANTE">
-        <input id="cpf" placeholder="CPF">
+        <span>REPRESENTANTE: _______________________________</span>
+        <span>CPF: _______________________________</span>
     </div>
 </section>
 </main>
@@ -882,11 +882,6 @@ function coletarCamposTermo() {
         }
     };
 
-    const aprovacao = {
-        representante: document.querySelector('section.approval input[placeholder="REPRESENTANTE"]')?.value || "",
-        cpf: document.querySelector('section.approval input[placeholder="CPF"]')?.value || ""
-    };
-
     return {
         data: {
             dia: diaInput.value,
@@ -894,8 +889,7 @@ function coletarCamposTermo() {
             ano: anoInput.value
         },
         campos,
-        assinaturas,
-        aprovacao
+        assinaturas
     };
 }
 

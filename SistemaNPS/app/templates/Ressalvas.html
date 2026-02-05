@@ -458,8 +458,8 @@ input.item-duplicado { border: 2px solid #dc2626; }
         <section class="approval">
             <strong>APROVAÇÃO FINAL DAS RESSALVAS:</strong>
             <div class="approval-fields">
-                <input placeholder="REPRESENTANTE">
-                <input id="cpf" placeholder="CPF">
+                <span>REPRESENTANTE: _______________________________</span>
+                <span>CPF: _______________________________</span>
             </div>
         </section>
     </div>
@@ -558,7 +558,7 @@ document.getElementById("btnSalvar").addEventListener("click", async function ()
         prazo: img.prazo || null,
         responsavel: img.responsavel,
         regiao_foto: img.regiao_foto,
-        aprovacao: img.aprovacao === true,
+        aprovacao: true,
         imagem_base64: img.imagem
     }))
 })
