@@ -546,11 +546,8 @@ document.getElementById("btnSalvar").addEventListener("click", async function ()
     headers: { "Content-Type": "application/json" },
    body: JSON.stringify({
     processo_id: processoId.trim(),
-    responsavel: document
-        .querySelector('input[placeholder="REPRESENTANTE"]')
-        .value
-        .trim(),
-    cpf: document.getElementById("cpf")?.value || "",
+    responsavel: "",
+    cpf: "",
     observacoes: null,
     imagens: imagens.map(img => ({
         item: String(img.item),
@@ -616,7 +613,6 @@ if (isEditMode) {
 
     
 const tableBody = document.getElementById('tableBody');
-const cpfInput = document.getElementById('cpf');
 const btnSalvar = document.getElementById('btnSalvar');
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -632,7 +628,7 @@ function addRow(item = null) {
     row.className = 'table-row';
     row.innerHTML = `
     <input placeholder="Descrição da ressalva">
-    <input placeholder="Prazo">
+    <input type="date" placeholder="Prazo">
     <input placeholder="Responsável">
 
     <div class="image-cell">
@@ -695,6 +691,14 @@ enableDragAndDrop(imageBox);
             btnSalvar.disabled = !validarFormulario();
         });
     });
+
+    // Add change listener to the select
+    const select = row.querySelector('.regiao-foto');
+    if (select) {
+        select.addEventListener('change', () => {
+            btnSalvar.disabled = !validarFormulario();
+        });
+    }
 
     if (item) {
         const rowInputs = row.querySelectorAll("input");
@@ -811,11 +815,6 @@ function validarCPF(cpf) {
 }
 
 function validarFormulario() {
-    const cpfVazio = cpfInput.value.trim() === "";
-    const cpfOk = cpfVazio || cpfInput.classList.contains("cpf-valido");
-    const representante = document.querySelector('input[placeholder="REPRESENTANTE"]').value.trim();
-    if (!representante) return false;
-
     const rows = document.querySelectorAll(".table-row");
     if (rows.length === 0) return false;
 
@@ -834,7 +833,7 @@ function validarFormulario() {
         }
     });
 
-    return cpfOk && temItemValido;
+    return temItemValido;
 }
 
 function setCPF(ok){
@@ -859,14 +858,6 @@ async function carregarEdicaoRessalvas() {
         const data = await res.json();
 
         const dados = data.ressalvas_dados;
-        if (dados?.responsavel) {
-            const rep = document.querySelector('input[placeholder="REPRESENTANTE"]');
-            if (rep) rep.value = dados.responsavel;
-        }
-        if (dados?.cpf) {
-            cpfInput.value = dados.cpf;
-            validarCPF(dados.cpf);
-        }
 
         tableBody.innerHTML = "";
         if (Array.isArray(dados?.itens) && dados.itens.length > 0) {
