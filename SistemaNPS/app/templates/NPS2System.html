@@ -111,6 +111,40 @@ body {
 
 .footer img { width: 420px; }
 
+/* ================= MODAL ================= */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: #4CAF50;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    color: white;
+    max-width: 300px;
+}
+
+.modal-content button {
+    margin-top: 10px;
+    padding: 10px 20px;
+    background: white;
+    color: #4CAF50;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
 
 /* ================= FORM ================= */
 .form-wrapper {
@@ -449,6 +483,14 @@ textarea {
 </form>
 </main>
 
+<!-- Modal -->
+<div id="successModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <p>Entrega finalizada com sucesso!</p>
+        <button onclick="window.location.href='/'">Finalizar</button>
+    </div>
+</div>
+
 <script>
 let npsSelecionado = null;
 
@@ -587,13 +629,15 @@ document.querySelector("form").addEventListener("submit", async (e) => {
             throw new Error(data.detail || "Erro ao finalizar NPS");
         }
 
-        if (isEditMode) {
-            alert("NPS atualizado com sucesso!");
-            window.location.href = returnTo || "/admin";
-        } else {
-            alert("Entrega finalizada com sucesso!");
-            window.open(data.pdf_final || data.entrega_final, "_blank");
-        }
+        const submitBtn = document.querySelector('.submit-btn');
+        submitBtn.textContent = 'SALVANDO...';
+
+        setTimeout(() => {
+            document.getElementById('successModal').style.display = 'flex';
+            if (data.pdf_final || data.entrega_final) {
+                window.open(data.pdf_final || data.entrega_final, "_blank");
+            }
+        }, 2000);
 
     } catch (err) {
         alert(err.message);

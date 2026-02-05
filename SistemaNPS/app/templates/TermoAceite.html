@@ -1190,11 +1190,19 @@ function stopCamera() {
             sessionStorage.setItem("nome_cliente", nome);
             sessionStorage.setItem("cpf", cpf);
 
-            if (isEditMode) {
-                window.location.href = returnTo || "/admin";
-            } else {
-                window.location.href = "/nps";
-            }
+            btnSalvar.textContent = "SALVANDO..";
+
+            setTimeout(() => {
+                if (isEditMode) {
+                    window.location.href = returnTo || "/admin";
+                } else {
+                    if (status === "concluido_com_ressalva") {
+                        window.location.href = "/ressalvas";
+                    } else {
+                        window.location.href = "/nps";
+                    }
+                }
+            }, 2000);
 
 
         } catch (err) {
