@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Ressalvas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+// const processoId = sessionStorage.getItem("processo_id");
+
+//if (!processoId || processoId === "undefined" || processoId === "null") {
+//    alert("Sessão inválida. Retorne ao Termo de Aceite.");
+//    sessionStorage.clear();
+//    window.location.href = "/termo";
+//}
+
+</script>
+
+<style>
+* { box-sizing: border-box; }
+/* ================= ACTION SHEET ================= */
+.sheet {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+}
+.sheet.active { display: flex; }
+
+.sheet-box {
+    background: #fff;
+    border-radius: 18px;
+    padding: 20px;
+    width: 280px;
+    text-align: center;
+}
+
+.sheet-box button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 10px;
+    border: none;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.btn-select { background:#4b49c8; color:#fff; 
+}
+.btn-camera { background:#0a287a; color:#fff; }
+.btn-cancel { background:#e5e7eb; }
+
+/* ================= FREEZE ANIMAÇÕES ================= */
+.freeze * {
+    animation: none !important;
+    transition: none !important;
+}
+/* ================= BODY ================= */
+body {
+    margin: 0;
+    font-family: 'Inter', Arial, sans-serif;
+    background: linear-gradient(90deg, #0093dd 30%, #5b2fa6);
+    padding-top: 120px;
+}
+
+/* ================= TOPBAR ================= */
+.topbar {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 120px;
+    background: #ffffff;
+    z-index: 40;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    border-radius: 0 0 50px 50px;
+}
+
+.logo-fixed {
+    position: absolute;
+    top: 50%;
+    left: 1%;
+    transform: translateY(-50%);
+    height: 255%;
+    pointer-events: none;
+}
+
+.logo-link {
+    position: absolute;
+    top: 50%;
+    left: calc(1% + 85px);
+    transform: translateY(-50%);
+    width: 190px;
+    height: 50px;
+    z-index: 45;
+    display: block;
+}
+
+.topbar-content {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 60px 0 200px;
+}
+
+.header-info {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 32px;                 /* espaço entre endereço e contato */
+    font-size: 14px;
+    margin-right: 5%;
+    color: #1e3a8a;
+    line-height: 1.4;
+}
+
+.header-info .address {
+    text-align: left;
+}
+@media (max-width: 1240px) {
+
+    .topbar {
+        height: 100px;
+        border-radius: 0 0 32px 32px;
+    }
+
+    .logo-fixed {
+        height: 200%;
+        left: 16px;
+    }
+    .logo-link { left: calc(16px + 75px); }
+
+    .header-info {
+        font-size: 12px;
+        gap: 16px;
+    }
+
+    .header-info .address {
+        line-height: 1.2;
+    }
+
+    .topbar-content {
+        padding: 0 24px 0 140px;
+    }
+}
+
+/* ================= CONTAINER PADRÃO ================= */
+.page-container {
+    max-width: 900px; /* mesmo valor usado no Termo de Aceite */
+    margin: 0 auto;
+    padding: 0;
+}
+
+/* ================= BREADCRUMB ================= */
+.breadcrumb-wrapper {
+    max-width: 900px;        /* MESMO valor do main */
+    margin: 24px auto 16px;  /* centraliza */
+    padding: 0;              /* igual ao main */
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.breadcrumb-item {
+    font-weight: 800;
+    color: #e0e7ff;
+    text-decoration: none;
+}
+
+.breadcrumb-item.active {
+    color: #fde047;
+}
+
+.breadcrumb-arrow {
+    width: 28px;
+    height: auto;
+}
+
+/* ================= TITULO ================= */
+.title h1 {
+    color: #ffffff;
+    font-size: 28px;
+    margin-bottom: 6px;
+}
+
+.title span {
+    background: #ffffff;
+    color: #411f7c;
+    font-weight: 800;
+    padding: 6px 14px;
+    display: inline-block;
+    font-size: 26px;
+    font-style: italic;
+}
+
+/* ================= CARD ================= */
+.card {
+    background: #e9f0fb;
+    border-radius: 26px;
+    padding: 32px;
+    margin-top: 30px;
+}
+
+/* ================= TABELA ================= */
+.table-header,
+.table-row {
+    display: grid;
+    grid-template-columns: 1fr 0.8fr 0.8fr 0.9fr 1fr;
+    gap: 8px;
+}
+
+.table-header {
+    font-size: 13px;
+    font-weight: 800;
+    color: #3b1fa7;
+    margin-bottom: 12px;
+}
+
+.table-row { height: 56px; }
+
+input {
+    width: 100%;
+    height: 48px;
+    border-radius: 10px;
+    border: none;
+    background: #b8c9e0;
+    padding: 10px 12px;
+}
+
+select.regiao-foto {
+    width: 100%;
+    height: 48px;
+    border-radius: 10px;
+    border: none;
+    background: #b8c9e0;
+    padding: 10px 12px;
+    font-family: 'Inter', Arial, sans-serif;
+}
+
+/* ================= IMAGE ================= */
+.image-box {
+    height: 48px;
+    background: #e5e7eb;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    padding-right: 15%;
+    padding-left: 15%;
+    text-align: center;
+}
+
+.image-box.drag-over {
+    outline: 3px dashed #4b49c8;
+    background: #eef2ff;
+}
+
+.image-cell {
+    display: flex;
+    align-items: center;   /* 🔥 isso resolve */
+    gap: 6px;
+    height: 48px;          /* igual aos inputs */
+}
+
+.image-cell .remove {
+    margin-top: 0;         /* remove empurrão vertical */
+}
+
+.remove {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #d1d5db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+/* ================= BOTÕES ================= */
+.add-item {
+    margin: 24px auto;
+    display: block;
+    background: #4b49c8;
+    color: #fff;
+    border: none;
+    padding: 12px 26px;
+    font-weight: 800;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+button.save {
+    background: #0a287a;
+    color: #fff;
+    border: none;
+    padding: 14px 28px;
+    font-weight: 800;
+    font-style: italic;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-left: 0;
+}
+#pdf-area {
+    background: transparent;  /* IMPORTANTE para PDF */
+    max-width: 900px;
+    margin: 0 auto 60px;
+    padding: 0;
+    border-radius: 0;           /* IMPORTANTE para PDF */
+    scale: 1;       /* força fundo até o fim */
+}
+
+.pdf-hide {
+    display: none !important;
+}
+
+
+button.save:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+}
+
+/* ================= CPF ================= */
+input.cpf-invalido { border: 2px solid #dc2626; }
+input.cpf-valido { border: 2px solid #16a34a; }
+
+/* ================= ITEM DUPLICADO ================= */
+input.item-duplicado { border: 2px solid #dc2626; }
+
+/* ================= APROVAÇÃO ================= */
+.approval {
+    margin-top: 28px;
+    background: #e9f0fb;
+    padding: 24px;
+    border-radius: 26px;
+}
+
+.approval-fields {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* ================= FOOTER ================= */
+.footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 900px;
+    margin: 20px auto 0;
+    padding: 0;
+}
+
+.footer img { width: 420px; }
+
+/* ================= CAPTURE MODE ================= */
+.capture-mode .breadcrumb-wrapper,
+.capture-mode .footer,
+.capture-mode .add-item,
+.capture-mode .remove {
+    display: none !important;
+}
+
+/* ================= MODAL ================= */
+.modal img {
+    background: #e5e7eb; /* cinza claro */
+    padding: 12px;
+    border-radius: 12px;
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+.modal.active { display: flex; }
+.modal img { max-width: 85vw; max-height: 85vh; }
+.close {
+    position: absolute;
+    top: 24px;
+    right: 32px;
+    font-size: 38px;
+    color: #fff;
+    cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="topbar">
+    <img src="/static/LogoFlexcolor2.png" class="logo-fixed" alt="Logo">
+    <a href="/" class="logo-link" aria-label="PÃ¡gina inicial"></a>
+    <div class="topbar-content">
+        <div class="header-info">
+            <div class="address">
+                R. José Antônio Valadares, 285 – Vila Liviero<br>
+                São Paulo – SP. CEP: 04185-020
+            </div>
+
+            <div class="contact">
+                <span class="email">comercial@soukure.com.br</span><br>
+                <span class="phone">(11) 2372-7444</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="breadcrumb-wrapper">
+    <nav class="breadcrumb">
+        <a href="/" class="breadcrumb-item">Página Inicial</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/termo" class="breadcrumb-item">Termo de Aceite</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <div class="breadcrumb-item active">Ressalva</div>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/nps" class="breadcrumb-item">NPS</a>
+    </nav>
+</div>
+
+<main id="pdf-area">
+    <div class="page-container">
+        <section class="title">
+            <h1>RESSALVAS ENCONTRADAS:</h1>
+        </section>
+
+        <section class="card">
+            <div class="table-header">
+            <div>DESCRIÇÃO</div>
+            <div>PRAZO</div>
+            <div>RESPONSÁVEL</div>
+            <div>
+                <div style="font-weight:800;margin-bottom:6px;">FOTOS</div>
+            </div>
+            <div>REGIÃO DA FOTO</div>
+        </div>
+            <div id="tableBody"></div>
+            <button class="add-item" onclick="addRow()">ADICIONAR ITEM +</button>
+        </section>
+
+        <section class="approval">
+            <strong>APROVAÇÃO FINAL DAS RESSALVAS:</strong>
+            <div class="approval-fields">
+                <input placeholder="REPRESENTANTE">
+                <input id="cpf" placeholder="CPF">
+            </div>
+        </section>
+    </div>
+</main>
+<div class="footer">
+    <button type="submit" id="btnSalvar" class="save" disabled>SALVAR RESSALVA</button>
+
+    <img src="/static/logozinha.png" alt="Fleximedical_logo" class="footer-logo">
+</div>
+<div class="modal" id="imageModal" onclick="closeModal()">
+    <span class="close">×</span>
+    <img id="modalImg">
+</div>
+<script>
+document.getElementById("btnSalvar").addEventListener("click", async function () {
+    if (this.disabled) return;
+
+    const btn = this;
+    btn.dataset.locked = "true";
+    btn.disabled = true;
+    btn.textContent = "SALVANDO...";
+
+    document.body.classList.add("freeze");
+
+    try {
+        /* 1. Captura área (SEM esconder UI ainda) */
+        const area = document.getElementById("pdf-area");
+
+        area.classList.add("capture-mode");
+        await new Promise(r => requestAnimationFrame(r));
+
+        const canvas = await html2canvas(area, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: "#ffffff",
+            ignoreElements: (el) => el.tagName === "VIDEO" || el.id === "video"
+        });
+
+        area.classList.remove("capture-mode");
+
+        const capturaBase64 = canvas.toDataURL("image/jpeg", 0.92);
+
+
+
+        /* 3. Coleta imagens */
+        const imagens = [];
+        document.querySelectorAll(".table-row").forEach((row, index) => {
+           const inputs = row.querySelectorAll("input");
+           const descricao = inputs[0]?.value || "";
+           const prazo = inputs[1]?.value || "";
+           const responsavel = inputs[2]?.value || "";
+           const regiao = row.querySelector(".regiao-foto")?.value || null;
+
+            const box = row.querySelector(".image-box");
+
+            imagens.push({
+                item: index + 1,
+                descricao,
+                prazo,
+                responsavel,
+                regiao_foto: regiao,
+                aprovacao: true,
+                imagem: box.dataset.image
+            });
+        });
+
+        /* 4. Valida processo_id antes de enviar */
+        const processoId = processoParam || sessionStorage.getItem("processo_id");
+        if (!processoId || processoId === "undefined" || processoId === "null") {
+            alert("Processo inválido. Refaça o Termo de Aceite.");
+
+            btn.disabled = false;
+            btn.textContent = "SALVAR RESSALVA";
+            delete btn.dataset.locked;
+            document.body.classList.remove("freeze");
+
+            return;
+        }
+
+        /* 5. Envia para backend */
+    const endpoint = isEditMode ? "/ressalvas/atualizar" : "/ressalvas/salvar";
+    const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+   body: JSON.stringify({
+    processo_id: processoId.trim(),
+    responsavel: document
+        .querySelector('input[placeholder="REPRESENTANTE"]')
+        .value
+        .trim(),
+    cpf: document.getElementById("cpf")?.value || "",
+    observacoes: null,
+    imagens: imagens.map(img => ({
+        item: String(img.item),
+        descricao: img.descricao,
+        prazo: img.prazo || null,
+        responsavel: img.responsavel,
+        regiao_foto: img.regiao_foto,
+        aprovacao: img.aprovacao === true,
+        imagem_base64: img.imagem
+    }))
+})
+});
+
+if (!response.ok) {
+    const result = await response.json();
+
+    let mensagem = "Erro ao salvar ressalvas";
+
+    if (Array.isArray(result?.detail)) {
+        mensagem = result.detail
+            .map(e => e.msg)
+            .join("\n");
+    } else if (typeof result?.detail === "string") {
+        mensagem = result.detail;
+    }
+
+    throw new Error(mensagem);
+}
+
+
+/* ✅ SUCESSO CONFIRMADO — agora sim pode esconder */
+document.querySelector(".breadcrumb-wrapper")?.classList.add("pdf-hide");
+
+/* redireciona */
+if (isEditMode) {
+    window.location.href = returnTo || "/admin";
+} else {
+    window.location.href = "/user";
+}
+
+
+
+    } catch (err) {
+    console.error(err);
+
+    alert(err.message || "Erro ao salvar ressalvas");
+
+    /* reativa botão */
+    btn.disabled = false;
+    btn.textContent = "SALVAR RESSALVA";
+    delete btn.dataset.locked;
+
+    document.body.classList.remove("freeze");
+
+    /* garante que UI esteja visível */
+    document.querySelector(".topbar")?.classList.remove("pdf-hide");
+    document.querySelector(".footer")?.classList.remove("pdf-hide");
+    document.querySelector(".breadcrumb-wrapper")?.classList.remove("pdf-hide");
+}
+});
+</script>
+<script>
+
+    
+const tableBody = document.getElementById('tableBody');
+const cpfInput = document.getElementById('cpf');
+const btnSalvar = document.getElementById('btnSalvar');
+
+const urlParams = new URLSearchParams(window.location.search);
+const processoParam = urlParams.get("processo");
+const returnTo = urlParams.get("return");
+const isEditMode = Boolean(processoParam);
+
+let currentBox = null;
+let stream = null;
+
+function addRow(item = null) {
+    const row = document.createElement('div');
+    row.className = 'table-row';
+    row.innerHTML = `
+    <input placeholder="Descrição da ressalva">
+    <input placeholder="Prazo">
+    <input placeholder="Responsável">
+
+    <div class="image-cell">
+    <div class="image-box" onclick="imageClick(this)">
+        + IMAGEM
+    </div>
+    <div class="remove"
+         onclick="this.closest('.table-row').remove(); btnSalvar.disabled = !validarFormulario();">
+        ×
+    </div>
+</div>
+
+    <select class="regiao-foto">
+        <option value="">Selecione</option>
+        <option value="frontal">Frontal</option>
+        <option value="traseira">Traseira</option>
+        <option value="lateral-esquerda">Lateral esquerda</option>
+        <option value="lateral-direita">Lateral direita</option>
+        <option value="superior">Superior</option>
+        <option value="inferior">Inferior</option>
+    </select>
+`;
+
+function enableDragAndDrop(box) {
+    box.addEventListener("dragover", e => {
+        e.preventDefault();
+        box.classList.add("drag-over");
+    });
+
+    box.addEventListener("dragleave", () => {
+        box.classList.remove("drag-over");
+    });
+
+    box.addEventListener("drop", e => {
+        e.preventDefault();
+        box.classList.remove("drag-over");
+
+        const file = e.dataTransfer.files[0];
+        if (!file || !file.type.startsWith("image/")) {
+            alert("Arraste apenas imagens");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = ev => {
+            box.dataset.image = ev.target.result;
+            box.textContent = "VER IMAGEM";
+            btnSalvar.disabled = !validarFormulario();
+        };
+        reader.readAsDataURL(file);
+    });
+}
+    tableBody.appendChild(row);
+const imageBox = row.querySelector(".image-box");
+enableDragAndDrop(imageBox);
+    // Add input listeners to the new row inputs
+    const inputs = row.querySelectorAll('input');
+    inputs.forEach(input => {
+        input.addEventListener('input', () => {
+            btnSalvar.disabled = !validarFormulario();
+        });
+    });
+
+    if (item) {
+        const rowInputs = row.querySelectorAll("input");
+        rowInputs[0].value = item.descricao || "";
+        rowInputs[1].value = item.prazo || "";
+        rowInputs[2].value = item.responsavel || "";
+        const regiao = row.querySelector(".regiao-foto");
+        if (regiao) regiao.value = item.regiao_foto || "";
+        if (item.imagem_base64) {
+            imageBox.dataset.image = item.imagem_base64;
+            imageBox.textContent = "VER IMAGEM";
+        }
+    }
+
+    btnSalvar.disabled = !validarFormulario();
+}
+
+function imageClick(box) {
+    currentBox = box;
+    if (!box.dataset.image) {
+        document.getElementById('actionSheet').classList.add('active');
+    } else {
+        document.getElementById('modalImg').src = box.dataset.image;
+        document.getElementById('imageModal').classList.add('active');
+    }
+}
+
+function selectFile() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => loadFile(input.files[0]);
+    input.click();
+    closeSheet();
+}
+
+function loadFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+        currentBox.dataset.image = e.target.result;
+        currentBox.textContent = 'VER IMAGEM';
+        btnSalvar.disabled = !validarFormulario();
+    };
+    reader.readAsDataURL(file);
+}
+
+function openCamera() {
+    closeSheet();
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(s => {
+            stream = s;
+            document.getElementById('video').srcObject = stream;
+            document.getElementById('cameraModal').classList.add('active');
+        })
+        .catch(() => alert('Câmera não disponível'));
+}
+
+function takePhoto() {
+    const video = document.getElementById('video');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    currentBox.dataset.image = canvas.toDataURL('image/png');
+    currentBox.textContent = 'VER IMAGEM';
+    closeCamera();
+    btnSalvar.disabled = !validarFormulario();
+}
+
+function closeCamera() {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    document.getElementById('cameraModal').classList.remove('active');
+}
+
+function closeSheet() {
+    document.getElementById('actionSheet').classList.remove('active');
+}
+
+function closeModal() {
+    document.getElementById('imageModal').classList.remove('active');
+}
+
+/* CPF */
+cpfInput.addEventListener('input', () => {
+    let v = cpfInput.value.replace(/\D/g, '').slice(0,11);
+    v = v.replace(/(\d{3})(\d)/, '$1.$2');
+    v = v.replace(/(\d{3})(\d)/, '$1.$2');
+    v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    cpfInput.value = v;
+
+    if (!v) {
+        cpfInput.classList.remove('cpf-valido');
+        cpfInput.classList.remove('cpf-invalido');
+        if (!btnSalvar.dataset.locked) {
+            btnSalvar.disabled = !validarFormulario();
+        }
+        return;
+    }
+
+    validarCPF(v);
+});
+
+function validarCPF(cpf) {
+    cpf = cpf.replace(/\D/g, '');
+    if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return setCPF(false);
+    let s = 0;
+    for (let i=0;i<9;i++) s += cpf[i]*(10-i);
+    let d1 = (s*10)%11; if (d1===10) d1=0;
+    if (d1!=cpf[9]) return setCPF(false);
+    s = 0;
+    for (let i=0;i<10;i++) s += cpf[i]*(11-i);
+    let d2 = (s*10)%11; if (d2===10) d2=0;
+    setCPF(d2==cpf[10]);
+}
+
+function validarFormulario() {
+    const cpfVazio = cpfInput.value.trim() === "";
+    const cpfOk = cpfVazio || cpfInput.classList.contains("cpf-valido");
+    const representante = document.querySelector('input[placeholder="REPRESENTANTE"]').value.trim();
+    if (!representante) return false;
+
+    const rows = document.querySelectorAll(".table-row");
+    if (rows.length === 0) return false;
+
+    let temItemValido = false;
+
+    rows.forEach(row => {
+        const inputs = row.querySelectorAll("input");
+        const descricao = inputs[0]?.value.trim();
+        const prazo = inputs[1]?.value.trim();
+        const responsavel = inputs[2]?.value.trim();
+        const img = row.querySelector(".image-box")?.dataset.image;
+        const regiao = row.querySelector(".regiao-foto")?.value;
+
+        if (descricao && prazo && responsavel && img && regiao) {
+            temItemValido = true;
+        }
+    });
+
+    return cpfOk && temItemValido;
+}
+
+function setCPF(ok){
+    if (cpfInput.value.trim() === "") {
+        cpfInput.classList.remove('cpf-valido');
+        cpfInput.classList.remove('cpf-invalido');
+    } else {
+        cpfInput.classList.toggle('cpf-valido', ok);
+        cpfInput.classList.toggle('cpf-invalido', !ok);
+    }
+
+    if (!btnSalvar.dataset.locked) {
+        btnSalvar.disabled = !validarFormulario();
+    }
+}
+
+async function carregarEdicaoRessalvas() {
+    if (!isEditMode) return;
+    try {
+        const res = await fetch(`/api/processos/${processoParam}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const dados = data.ressalvas_dados;
+        if (dados?.responsavel) {
+            const rep = document.querySelector('input[placeholder="REPRESENTANTE"]');
+            if (rep) rep.value = dados.responsavel;
+        }
+        if (dados?.cpf) {
+            cpfInput.value = dados.cpf;
+            validarCPF(dados.cpf);
+        }
+
+        tableBody.innerHTML = "";
+        if (Array.isArray(dados?.itens) && dados.itens.length > 0) {
+            dados.itens.forEach((item) => addRow(item));
+        } else {
+            addRow();
+        }
+
+        btnSalvar.disabled = !validarFormulario();
+    } catch (e) {
+        console.warn("Falha ao carregar edição", e);
+        addRow();
+    }
+}
+
+
+/* linha inicial */
+carregarEdicaoRessalvas();
+btnSalvar.disabled = !validarFormulario();
+</script>
+
+
+<!-- MODAL CAMERA -->
+<div class="modal" id="cameraModal">
+    <span class="close" onclick="closeCamera()">×</span>
+    <video id="video" autoplay></video>
+    <button onclick="takePhoto()" class="save" style="margin-top:20px;">TIRAR FOTO</button>
+</div>
+
+<!-- ACTION SHEET -->
+<div class="sheet" id="actionSheet">
+    <div class="sheet-box">
+        <button class="btn-select" onclick="selectFile()">Selecionar imagem</button>
+        <button class="btn-camera" onclick="openCamera()">Tirar foto</button>
+        <button class="btn-cancel" onclick="closeSheet()">Cancelar</button>
+    </div>
+</div>
+
+
+</body>
+</html>

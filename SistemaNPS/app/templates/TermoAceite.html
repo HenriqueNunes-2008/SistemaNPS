@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Termo de Aceite e Entrega</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+
+/* ================= RESET ================= */
+* {
+    box-sizing: border-box;
+}
+
+/* ================= BASE ================= */
+body {
+    margin: 0;
+    font-family: 'Inter', Arial, sans-serif;
+    background: linear-gradient(90deg, #0093dd 30%, #5b2fa6);
+    color: #0f172a;
+    padding-top: 120px;
+}
+
+/* ===== DATA COMPOSTA (DIA / MÊS / ANO) ===== */
+/* ===== DATA COMPOSTA COMPACTA (DIA / MÊS / ANO) ===== */
+.date-field {
+    position: relative;
+    display: flex;
+    gap: 12px;
+    padding: 10px 14px;
+    height: 70px;                 /* container menor */
+    border-radius: 12px;
+    background: #e9f0fb;
+    align-items: center;
+    max-width: 400px;
+}
+
+
+.date-field::after {
+    content: "";
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 10px;
+    height: 1px;
+    background: #94a3b8;
+    pointer-events: none;
+}
+
+.date-part {
+    position: relative;
+    flex: 1;
+    text-align: center;
+}
+
+.date-part label {
+    position: absolute;
+    top: 5px;                    /* label no meio do campo */
+    left: 45%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    font-weight: 800;
+    color: #392fad;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+.date-part input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-size: 15px;
+    text-align: center;
+    padding-top: 22px;            /* texto abaixo do label */
+}
+
+
+/* ================= TOPBAR ================= */
+.topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 120px;
+    background: #ffffff;
+    z-index: 40;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    border-radius: 0 0 50px 50px;
+
+}
+
+.logo-fixed {
+    position: absolute;
+    top: 50%;
+    left: 1%;
+    transform: translateY(-50%);
+    height: 255%;
+    pointer-events: none;
+}
+
+.logo-link {
+    position: absolute;
+    top: 50%;
+    left: calc(1% + 85px);
+    transform: translateY(-50%);
+    width: 190px;
+    height: 50px;
+    z-index: 45;
+    display: block;
+}
+
+.topbar-content {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 60px 0 200px;
+}
+
+.header-info {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 32px;                 /* espaço entre endereço e contato */
+    font-size: 14px;
+    margin-right: 5%;
+    color: #1e3a8a;
+    line-height: 1.4;
+}
+
+.header-info .address {
+    text-align: left;
+}
+@media (max-width: 1240px) {
+
+    .topbar {
+        height: 100px;
+        border-radius: 0 0 32px 32px;
+    }
+
+    .logo-fixed {
+        height: 200%;
+        left: 16px;
+    }
+    .logo-link { left: calc(16px + 75px); }
+
+    .header-info {
+        font-size: 12px;
+        gap: 16px;
+    }
+
+    .header-info .address {
+        line-height: 1.2;
+    }
+
+    .topbar-content {
+        padding: 0 24px 0 140px;
+    }
+}
+
+
+
+/* ================= MAIN ================= */
+main {
+    max-width: 900px;
+    margin: 0 auto 60px;
+    padding: 0;
+}
+/* CÂMERA */
+
+.image-dropzone {
+    border: 3px dashed #5b2fa6;
+    border-radius: 18px;
+    padding: 40px;
+    text-align: center;
+    background: #eee;
+    position: relative;
+    transition: 0.3s;
+}
+
+/* quando arrastar arquivo por cima */
+.image-dropzone.dragover {
+    background: #e0d8f5;
+    border-color: #3b1b7a;
+}
+
+.placeholder h3 {
+    color: #3b1b7a;
+    margin: -20px 0;
+}
+
+.placeholder button {
+    margin: 10px 5px;
+    padding: 10px 20px;
+    border-radius: 12px;
+    border: none;
+    background: #5b2fa6;
+    color: #fff;
+    cursor: pointer;
+}
+
+.preview img {
+    max-width: 100%;
+    border-radius: 12px;
+}
+
+.preview .remove {
+    position: relative;
+    background: red;
+    color: white;
+    border-radius: 100%;
+    border: none;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+}
+
+video {
+    width: 100%;
+    border-radius: 12px;
+    margin-top: 20px;
+}
+
+#captureBtn {
+    margin-top: 15px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    background: #0093dd;
+    color: #fff;
+}
+
+.hidden {
+    display: none;
+}
+
+/* ================= BREADCRUMB ================= */
+
+
+/* ================= BREADCRUMB ================= */
+
+.breadcrumb-wrapper {
+    max-width: 900px;        /* MESMO valor do main */
+    margin: 24px auto 16px;  /* centraliza */
+    padding: 0;              /* igual ao main */
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.breadcrumb-item {
+    font-weight: 800;
+    color: #e0e7ff;
+    text-decoration: none;
+}
+
+.breadcrumb-item.active {
+    color: #fde047;
+}
+
+.breadcrumb-arrow {
+    width: 28px;
+    height: auto;
+}
+
+/* ================= TÍTULO ================= */
+.title h1 {
+    color: #ffffff;
+    font-size: 28px;
+    margin-bottom: 6px;
+}
+
+.title span {
+    background: #ffffff;
+    color: #411f7c;
+    font-weight: 800;
+    padding: 6px 14px;
+    display: inline-block;
+    font-size: 26px;
+    font-style: italic;
+}
+
+/* ================= APROVAÇÃO ================= */
+.approval {
+    margin-top: 28px;
+    background: linear-gradient(90deg,#a6cbe3,#b3b7d1);
+    padding: 24px;
+    border-radius: 26px;
+}
+
+.approval-fields {
+    display: flex;
+    gap: 24px;
+}
+
+/* ================= FORM ================= */
+.form-box {
+    margin-top: 32px;
+    position: relative;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+input {
+    width: 100%;
+    margin-top: 8px;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    background: #e9f0fb;
+    font-size: 14px;
+}
+
+.row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.icon img {
+    width: 25%;
+    height: 25%;
+    margin-top: 50px;
+    
+}
+
+.Textoimagem {
+    color: #392fad;
+    font-size: 35px;
+}
+
+/* ===== INPUT COM LABEL INTERNO + LINHA CENTRAL ===== */
+.field {
+    position: relative;
+}
+
+.field label {
+    position: absolute;
+    top: 15px;
+    left: 16px;
+    font-size: 14px;           /* label maior */
+    font-weight: 800;
+    color: #392fad;
+    pointer-events: none;
+    text-transform: uppercase;
+    background: transparent;
+}
+
+.field input {
+    width: 100%;
+    height: 64px;              /* container mais alto */
+    padding: 30px 16px 10px;   /* espaço para o label */
+    border-radius: 12px;
+    border: none;
+    background: #e9f0fb;
+    font-size: 15px;
+}
+
+/* Linha abaixo do texto digitado */
+.field::after {
+    content: "";
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 14px;          /* controla a altura da linha */
+    height: 1px;
+    background: #94a3b8;
+    pointer-events: none;
+}
+
+
+
+/* ================= STATUS ================= */
+.status-title {
+    margin-top: 36px;
+    font-size: 22px;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.status-options {
+    display: flex;
+    gap: 24px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.status-card {
+    position: relative;
+    flex: 1;
+    min-width: 260px;
+    padding: 24px;
+    border-radius: 14px;
+    color: #ffffff;
+    cursor: pointer;
+    border: 3px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        border-color 0.18s ease;
+}
+
+.status-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 22px rgba(0,0,0,.18);
+}
+
+.status-card:active {
+    transform: scale(0.97);
+}
+
+.status-card.active {
+    border-color: #ffffff;
+    box-shadow:
+        0 0 0 3px rgba(255,255,255,.25),
+        0 12px 26px rgba(0,0,0,.25);
+}
+
+.status-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    background: rgba(255,255,255,.25);
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity .3s ease, transform .3s ease;
+    pointer-events: none;
+}
+
+.status-card.active::after {
+    opacity: .15;
+    transform: scale(1);
+}
+
+.status-green { background: #35c11f; }
+.status-orange { background: #ff7a1a; }
+
+/* ================= CHECKBOX GIRATÓRIO ================= */
+.container {
+    pointer-events: none;
+    position: relative;
+}
+
+.container input {
+    position: absolute;
+    opacity: 0;
+}
+
+.checkmark {
+    height: 2.3em;
+    width: 2.3em;
+    background-color: #ccc;
+    border-radius: 50%;
+    transition: .4s;
+}
+
+.status-card.active .checkmark {
+    background-color: limegreen;
+    transform: rotateX(360deg);
+}
+
+.status-card.status-orange.active .checkmark {
+    background-color: orange;
+}
+
+.checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+}
+
+.status-card.active .checkmark:after {
+    display: block;
+    left: 0.96em;
+    top: 0.7em;
+    width: 0.25em;
+    height: 0.5em;
+    border: solid white;
+    border-width: 0 0.15em 0.15em 0;
+    transform: rotate(45deg);
+}
+
+/* ================= ASSINATURAS ================= */
+.signature-box {
+    background: #e0e4e7d8;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.signature-box input {
+    background: transparent;
+    border-radius: 0;
+    border-bottom: 1px solid #94a3b8;
+    padding-left: 0;
+}
+
+/* ===== MODO CAPTURA (HTML2CANVAS SAFE) ===== */
+.capture-mode .status-card {
+    box-shadow: none !important;
+    transform: none !important;
+    filter: none !important;
+}
+
+.capture-mode .status-card::after {
+    content: none !important;   /* REMOVE o overlay */
+}
+
+.capture-mode .status-card:hover,
+.capture-mode .status-card:active {
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.capture-mode .checkmark {
+    transition: none !important;
+}
+
+/* ================= BOTÃO ================= */
+button {
+    margin-top: -70px;
+    width: 260px;
+    padding: 14px;
+    background: #0a287a;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 16px;
+    font-style: italic;
+    cursor: pointer;
+}
+
+.footer-logo {
+    width: 600px;
+    max-width: 100%;
+    height: auto;
+    margin-right: -10%;
+    margin-top: -70px;
+    z-index: -1;
+}
+
+input.cpf-invalido {
+    border: 2px solid #dc2626;
+}
+
+input.cpf-valido {
+    border: 2px solid #16a34a;
+}
+
+button:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+}
+
+button.loading {
+    background: #666;
+    cursor: not-allowed;
+}
+
+#capture-area {
+    background: linear-gradient(90deg, #0093dd 30%, #5b2fa6);
+}
+
+/* SOMENTE durante captura */
+#capture-area.capture-mode {
+    background: linear-gradient(90deg, #0093dd 30%, #5b2fa6) !important;
+    box-sizing: border-box;
+    padding: 40px 60px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+    <img src="/static/LogoFlexcolor2.png" class="logo-fixed" alt="Logo">
+    <a href="/" class="logo-link" aria-label="PÃ¡gina inicial"></a>
+    <div class="topbar-content">
+        <div class="header-info">
+            <div class="address">
+                R. José Antônio Valadares, 285 – Vila Liviero<br>
+                São Paulo – SP. CEP: 04185-020
+            </div>
+
+            <div class="contact">
+                <span class="email">comercial@soukure.com.br</span><br>
+                <span class="phone">(11) 2372-7444</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="breadcrumb-wrapper">
+    <nav class="breadcrumb">
+        <a href="/" class="breadcrumb-item">Página Inicial</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <div class="breadcrumb-item active">Termo de Aceite</div>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/ressalvas" class="breadcrumb-item">Ressalva</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/nps" class="breadcrumb-item">NPS</a>
+    </nav>
+</div>
+<main id="capture-area">
+<section class="title">
+    <h1>TERMO DE ACEITE E ENTREGA DE SERVIÇOS</h1>
+    <span>UNIDADES MÓVEIS</span>
+</section>
+
+<section class="form-box">
+
+ <div class="form-group">
+
+    <div class="date-field">
+
+        <div class="date-part">
+            <label>DIA</label>
+            <input type="number" id="dia-input" min="1" max="31">
+        </div>
+
+        <div class="date-part">
+            <label>MÊS</label>
+            <input type="number" id="mes-input" min="1" max="12">
+        </div>
+
+        <div class="date-part">
+            <label>ANO</label>
+            <input type="number" id="ano-input" min="0" max="9999">
+        </div>
+
+<span id="calendar-icon" style="position:relative; cursor:pointer;">
+    ☼
+</span>
+<input type="date" id="data-hidden"
+       style="position:absolute; opacity:0; pointer-events:none;">
+
+
+
+
+
+    </div>
+
+</div>
+
+
+
+    <div class="form-group field">
+    <label>NOME DO CLIENTE</label>
+    <input type="text" id="nome-cliente">
+</div>
+
+<div class="form-group field">
+    <label>EMPRESA</label>
+    <input type="text">
+</div>
+
+<div class="form-group field">
+    <label>PRODUTO E CÓDIGO DA ENTREGA</label>
+    <input type="text">
+</div>
+
+<div class="form-group field">
+    <label>RESPONSÁVEL PELA ENTREGA</label>
+    <input type="text">
+</div>
+
+<div class="form-group field">
+    <label>QUEM REALIZOU O ATENDIMENTO?</label>
+    <input type="text">
+</div>
+
+<div class="form-group field">
+    <label>LOCAL DA ENTREGA</label>
+    <input type="text">
+</div>
+
+    <div class="status-title">STATUS DA ENTREGA</div>
+
+    <div class="status-options">
+        <div class="status-card status-green" data-status="concluido" onclick="selectStatus(this)">
+            Concluído
+            <label class="container">
+                <input type="checkbox">
+                <div class="checkmark"></div>
+            </label>
+        </div>
+
+        <div class="status-card status-orange" data-status="concluido_com_ressalva" onclick="selectStatus(this)">
+            Concluído com Ressalva
+            <label class="container">
+                <input type="checkbox">
+                <div class="checkmark"></div>
+            </label>
+        </div>
+    </div>
+<div class="form-group">
+<p> </p>
+    <div class="image-dropzone" id="imageBox">
+
+        <input type="file" id="fileInput" accept="image/*" hidden>
+
+        <div class="placeholder" id="placeholder">
+            <div class="icon"><img src="/static/camera-icon.png"></div>
+            <h3 class="Textoimagem">Arraste sua imagem aqui!</h3>
+            <p class="Textoimagemsub" id="Textoimagemsub">JPEG ou PNG</p>
+
+            <button type="button" onclick="openFile()">Selecionar imagem</button>
+            <button type="button" onclick="openCamera()">Tirar foto</button>
+        </div>
+
+        <div class="preview hidden" id="preview">
+            <img id="previewImg">
+            <button type="button" class="remove" onclick="removeImage()">×</button>
+        </div>
+
+        <video id="video" class="hidden" autoplay></video>
+        <button id="captureBtn" class="hidden" onclick="takePhoto()">Capturar</button>
+
+    </div>
+</div>
+    <div class="row" style="margin-top:40px;">
+        <div class="signature-box" style="flex:1;">
+            <label>COMPRADOR</label>
+            <input type="text" placeholder="Nome completo">
+            <input type="text" id="rg-comprador" placeholder="CPF">
+        </div>
+
+        <div class="signature-box" style="flex:1;">
+            <label>REPRESENTANTE COMERCIAL</label>
+            <input type="text" placeholder="Nome completo">
+            <input type="text" id="rg-representante" placeholder="CPF">
+        </div>
+    </div>
+
+</section>
+<section class="approval">
+    <strong>APROVAÇÃO FINAL DO TERMO:</strong>
+    <div class="approval-fields">
+        <input placeholder="REPRESENTANTE">
+        <input id="cpf" placeholder="CPF">
+    </div>
+</section>
+</main>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding: 0 48px;">
+    <button type="submit" id="btnSalvar" disabled>SALVAR TERMO DE ACEITE</button>
+
+    <img src="/static/logozinha.png"
+ alt="Fleximedical_logo"
+ class="footer-logo">
+</div>
+
+<script>
+/* ================= CPF ================= */
+function validarCPF(cpf) {
+    cpf = cpf.replace(/\D/g, '');
+    if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
+
+    let s = 0;
+    for (let i = 0; i < 9; i++) s += cpf[i] * (10 - i);
+    let d1 = (s * 10) % 11;
+    if (d1 === 10) d1 = 0;
+    if (d1 != cpf[9]) return false;
+
+    s = 0;
+    for (let i = 0; i < 10; i++) s += cpf[i] * (11 - i);
+    let d2 = (s * 10) % 11;
+    if (d2 === 10) d2 = 0;
+
+    return d2 == cpf[10];
+}
+
+function maskCPF(value) {
+    value = value.replace(/\D/g, '').slice(0, 11);
+    value = value.replace(/(\d{3})(\d)/, '$1.$2');
+    value = value.replace(/(\d{3})(\d)/, '$1.$2');
+    value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    return value;
+}
+
+/* ================= VALIDAÇÃO DE DATA ================= */
+function validarData(dia, mes, ano) {
+    const data = new Date(ano, mes - 1, dia);
+    return data.getFullYear() === ano && data.getMonth() === mes - 1 && data.getDate() === dia;
+}
+
+/* ================= CAMPOS ================= */
+let cpfComprador, cpfRepresentante, nomeCliente, diaInput, mesInput, anoInput, btnSalvar;
+
+const urlParams = new URLSearchParams(window.location.search);
+const processoParam = urlParams.get("processo");
+const returnTo = urlParams.get("return");
+const isEditMode = Boolean(processoParam);
+
+/* ================= LOCK/UNLOCK BOTÃO ================= */
+function lockButton() {
+    btnSalvar.classList.add("loading");
+    btnSalvar.disabled = true;
+    btnSalvar.dataset.locked = "true";
+}
+
+function unlockButton() {
+    btnSalvar.classList.remove("loading");
+    btnSalvar.disabled = false;
+    delete btnSalvar.dataset.locked;
+}
+
+function atualizarEstadoBotao() {
+    const nomeValido = nomeCliente.value.trim() !== "";
+    const cpfCompradorValido = validarCPF(cpfComprador.value);
+    const cpfRepresentanteValido = validarCPF(cpfRepresentante.value);
+    const dataValida =
+    diaInput.value &&
+    mesInput.value &&
+    anoInput.value &&
+    validarData(
+        parseInt(diaInput.value),
+        parseInt(mesInput.value),
+        parseInt(anoInput.value)
+    );
+
+    const statusSelecionado = document.querySelector(".status-card.active") !== null;
+
+    const tudoValido = nomeValido && cpfCompradorValido && cpfRepresentanteValido && dataValida && statusSelecionado;
+
+    cpfComprador.classList.toggle("cpf-valido", cpfCompradorValido);
+    cpfComprador.classList.toggle("cpf-invalido", !cpfCompradorValido && cpfComprador.value !== "");
+
+    cpfRepresentante.classList.toggle("cpf-valido", cpfRepresentanteValido);
+    cpfRepresentante.classList.toggle("cpf-invalido", !cpfRepresentanteValido && cpfRepresentante.value !== "");
+
+    btnSalvar.disabled = !tudoValido;
+}
+
+/* ================= STATUS ================= */
+function selectStatus(el) {
+    document.querySelectorAll(".status-card")
+        .forEach(c => c.classList.remove("active"));
+    el.classList.add("active");
+    atualizarEstadoBotao();
+}
+
+function coletarCamposTermo() {
+    const campos = {};
+    document.querySelectorAll(".form-group.field").forEach((group) => {
+        const label = group.querySelector("label")?.textContent?.trim();
+        const input = group.querySelector("input, textarea, select");
+        if (!label || !input) return;
+        campos[label] = input.value;
+    });
+
+    const assinaturaBoxes = document.querySelectorAll(".signature-box");
+    const assinaturas = {
+        comprador: {
+            nome: assinaturaBoxes[0]?.querySelector('input[type="text"]')?.value || "",
+            cpf: assinaturaBoxes[0]?.querySelector('#rg-comprador')?.value || ""
+        },
+        representante: {
+            nome: assinaturaBoxes[1]?.querySelector('input[type="text"]')?.value || "",
+            cpf: assinaturaBoxes[1]?.querySelector('#rg-representante')?.value || ""
+        }
+    };
+
+    const aprovacao = {
+        representante: document.querySelector('section.approval input[placeholder="REPRESENTANTE"]')?.value || "",
+        cpf: document.querySelector('section.approval input[placeholder="CPF"]')?.value || ""
+    };
+
+    return {
+        data: {
+            dia: diaInput.value,
+            mes: mesInput.value,
+            ano: anoInput.value
+        },
+        campos,
+        assinaturas,
+        aprovacao
+    };
+}
+
+async function carregarEdicao() {
+    if (!isEditMode) return;
+    try {
+        const res = await fetch(`/api/processos/${processoParam}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.nome_cliente) nomeCliente.value = data.nome_cliente;
+        if (data.cpf) cpfComprador.value = maskCPF(data.cpf);
+
+        if (data.termo_dados?.data) {
+            diaInput.value = data.termo_dados.data.dia || "";
+            mesInput.value = data.termo_dados.data.mes || "";
+            anoInput.value = data.termo_dados.data.ano || "";
+        }
+
+        if (data.termo_dados?.campos) {
+            document.querySelectorAll(".form-group.field").forEach((group) => {
+                const label = group.querySelector("label")?.textContent?.trim();
+                const input = group.querySelector("input, textarea, select");
+                if (!label || !input) return;
+                if (data.termo_dados.campos[label] !== undefined) {
+                    input.value = data.termo_dados.campos[label];
+                }
+            });
+        }
+
+        if (data.termo_dados?.assinaturas) {
+            const assinaturaBoxes = document.querySelectorAll(".signature-box");
+            const compradorBox = assinaturaBoxes[0];
+            const representanteBox = assinaturaBoxes[1];
+            if (compradorBox) {
+                const nomeInput = compradorBox.querySelector('input[type="text"]');
+                const cpfInput = compradorBox.querySelector('#rg-comprador');
+                if (nomeInput) nomeInput.value = data.termo_dados.assinaturas.comprador?.nome || "";
+                if (cpfInput) cpfInput.value = data.termo_dados.assinaturas.comprador?.cpf || "";
+            }
+            if (representanteBox) {
+                const nomeInput = representanteBox.querySelector('input[type="text"]');
+                const cpfInput = representanteBox.querySelector('#rg-representante');
+                if (nomeInput) nomeInput.value = data.termo_dados.assinaturas.representante?.nome || "";
+                if (cpfInput) cpfInput.value = data.termo_dados.assinaturas.representante?.cpf || "";
+            }
+        }
+
+        if (data.termo_dados?.aprovacao) {
+            const rep = document.querySelector('section.approval input[placeholder="REPRESENTANTE"]');
+            const cpf = document.querySelector('section.approval input[placeholder="CPF"]');
+            if (rep) rep.value = data.termo_dados.aprovacao.representante || "";
+            if (cpf) cpf.value = data.termo_dados.aprovacao.cpf || "";
+        }
+
+        if (data.status_entrega) {
+            const card = document.querySelector(`.status-card[data-status="${data.status_entrega}"]`);
+            if (card) selectStatus(card);
+        }
+
+        atualizarEstadoBotao();
+    } catch (e) {
+        console.warn("Falha ao carregar edição", e);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    /* ================= CALENDÁRIO ================= */
+    const icon = document.getElementById("calendar-icon");
+    const dateInput = document.getElementById("data-hidden");
+    diaInput = document.getElementById("dia-input");
+    mesInput = document.getElementById("mes-input");
+    anoInput = document.getElementById("ano-input");
+
+    icon.addEventListener("click", () => {
+        if (dateInput.showPicker) {
+            dateInput.showPicker();
+        } else {
+            dateInput.click();
+        }
+    });
+
+    dateInput.addEventListener("change", () => {
+        if (!dateInput.value) return;
+
+        const [ano, mes, dia] = dateInput.value.split("-");
+
+        diaInput.value = parseInt(dia, 10);
+        mesInput.value = parseInt(mes, 10);
+        anoInput.value = parseInt(ano, 10);
+    });
+
+    /* ================= DROPZONE ================= */
+const dropzone = document.getElementById('imageBox');
+
+dropzone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+});
+
+dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('dragover');
+});
+
+dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+
+    const file = e.dataTransfer.files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+
+    const reader = new FileReader();
+    reader.onload = ev => showPreview(ev.target.result);
+    reader.readAsDataURL(file);
+});
+/* ================= IMAGEM / DROPZONE ================= */
+let stream = null;
+
+const fileInput = document.getElementById('fileInput');
+const placeholder = document.getElementById('placeholder');
+const preview = document.getElementById('preview');
+const previewImg = document.getElementById('previewImg');
+const video = document.getElementById('video');
+const captureBtn = document.getElementById('captureBtn');
+
+/* Upload por botão */
+window.openFile = function () {
+    fileInput.click();
+};
+
+fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+
+    const reader = new FileReader();
+    reader.onload = e => showPreview(e.target.result);
+    reader.readAsDataURL(file);
+});
+
+/* Câmera */
+window.openCamera = function () {
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(s => {
+            stream = s;
+            video.srcObject = stream;
+            placeholder.classList.add('hidden');
+            video.classList.remove('hidden');
+            captureBtn.classList.remove('hidden');
+        })
+        .catch(() => alert('Câmera não disponível'));
+};
+
+window.takePhoto = function () {
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+
+    const imgData = canvas.toDataURL('image/png');
+    stopCamera();
+    showPreview(imgData);
+};
+
+window.removeImage = function () {
+    previewImg.src = '';
+    preview.classList.add('hidden');
+    placeholder.classList.remove('hidden');
+};
+
+function showPreview(src) {
+    previewImg.src = src;
+    preview.classList.remove('hidden');
+    placeholder.classList.add('hidden');
+}
+
+function stopCamera() {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    video.classList.add('hidden');
+    captureBtn.classList.add('hidden');
+}
+    /* ================= CAMPOS ================= */
+    cpfComprador = document.getElementById("rg-comprador");
+    cpfRepresentante = document.getElementById("rg-representante");
+    nomeCliente = document.getElementById("nome-cliente");
+    btnSalvar = document.getElementById("btnSalvar");
+
+    cpfComprador.addEventListener("input", function () {
+        this.value = maskCPF(this.value);
+        atualizarEstadoBotao();
+    });
+
+    cpfRepresentante.addEventListener("input", function () {
+        this.value = maskCPF(this.value);
+        atualizarEstadoBotao();
+    });
+
+    nomeCliente.addEventListener("input", atualizarEstadoBotao);
+    diaInput.addEventListener("input", atualizarEstadoBotao);
+    mesInput.addEventListener("input", atualizarEstadoBotao);
+    anoInput.addEventListener("input", atualizarEstadoBotao);
+
+    carregarEdicao();
+
+    /* ================= SALVAR TERMO ================= */
+    btnSalvar.addEventListener("click", async (e) => {
+        e.preventDefault();
+
+        if (btnSalvar.dataset.locked) return;
+
+        lockButton();
+
+        try {
+            /* === VALIDAÇÕES COMPLETAS === */
+            const nome = nomeCliente.value.trim();
+            if (!nome) throw new Error("Nome do cliente é obrigatório");
+
+            const cpf = cpfComprador.value.replace(/\D/g, "");
+            if (!validarCPF(cpf)) throw new Error("CPF do comprador inválido");
+
+            const dia = parseInt(diaInput.value);
+            const mes = parseInt(mesInput.value);
+            const ano = parseInt(anoInput.value);
+            if (!dia || !mes || !ano || !validarData(dia, mes, ano)) throw new Error("Data inválida");
+
+            const statusCard = document.querySelector(".status-card.active");
+            if (!statusCard) throw new Error("Selecione o status da entrega");
+
+            const status = statusCard.dataset.status;
+            const termoDados = coletarCamposTermo();
+            const empresa = termoDados.campos?.["EMPRESA"] || "";
+
+            /* === COLETA IMAGENS === */
+            const imagens = [];
+
+            const previewImg = document.getElementById("previewImg");
+            if (previewImg && previewImg.src) {
+                imagens.push({
+                    item: 1,
+                    imagem_base64: previewImg.src
+                });
+            }
+            /* === CAPTURA COM BACKGROUND DETERMINÍSTICO === */
+            const area = document.getElementById("capture-area");
+            area.classList.add("capture-mode");
+
+            await new Promise(r => requestAnimationFrame(r));
+            if (document.fonts && document.fonts.ready) {
+                await document.fonts.ready;
+            }
+            await new Promise(r => setTimeout(r, 50));
+
+            const canvas = await html2canvas(area, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: null,
+                ignoreElements: (el) => el.tagName === "VIDEO" || el.id === "video"
+            });
+
+
+            const imagemBase64 = canvas.toDataURL("image/png");
+
+                                /* === ENVIA PARA O BACKEND === */
+                                const endpoint = isEditMode ? "/termo/atualizar" : "/termo/salvar";
+                                const response = await fetch(endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    processo_codigo: processoParam,
+                    cpf,
+                    nome_cliente: nome,
+                    empresa: empresa,
+                    status_entrega: status,
+                    imagem: imagemBase64,
+                    imagens: imagens,
+                    termo_dados: termoDados
+                })
+            });
+
+            const rawText = await response.text();
+
+            let result;
+            try {
+                result = rawText ? JSON.parse(rawText) : {};
+            } catch {
+                throw new Error(rawText || "Erro interno do servidor");
+            }
+
+            if (!response.ok) {
+                throw new Error(result.detail || "Erro ao salvar termo");
+            }
+
+            if (!result.processo_id) {
+                throw new Error("processo_id não retornado pelo backend");
+            }
+
+            /* sucesso */
+            sessionStorage.setItem("processo_id", result.processo_id);
+            sessionStorage.setItem("nome_cliente", nome);
+            sessionStorage.setItem("cpf", cpf);
+
+            if (isEditMode) {
+                window.location.href = returnTo || "/admin";
+            } else {
+                window.location.href = "/ressalvas";
+            }
+
+
+        } catch (err) {
+            alert(err.message || "Erro ao salvar termo");
+            unlockButton();
+        } finally {
+            /* === RESTAURA UI === */
+            const area = document.getElementById("capture-area");
+            area.classList.remove("capture-mode");
+        }
+    });
+});
+</script>
+
+</body>
+</html>

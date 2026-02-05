@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Avaliação – Fleximedical</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ===== RESET / BASE ===== */
+body {
+    margin: 0;
+    font-family: 'Inter', Arial, sans-serif;
+    background: linear-gradient(90deg, #0093dd 30%, #5b2fa6);
+    padding-top: 120px;
+    color: #1e3a8a;
+}
+
+/* ================= TOPBAR ================= */
+.topbar {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 120px;
+    background: #ffffff;
+    z-index: 40;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    border-radius: 0 0 50px 50px;
+}
+
+.logo-fixed {
+    position: absolute;
+    top: 50%;
+    left: 1%;
+    transform: translateY(-50%);
+    height: 255%;
+    pointer-events: none;
+}
+
+.logo-link {
+    position: absolute;
+    top: 50%;
+    left: calc(1% + 85px);
+    transform: translateY(-50%);
+    width: 310px;
+    height: 50px;
+    z-index: 45;
+    display: block;
+}
+
+.topbar-content {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 60px 0 200px;
+}
+
+.header-info {
+    display: flex;
+    gap: 32px;
+    font-size: 14px;
+    margin-right: 5%;
+    color: #1e3a8a;
+}
+
+@media (max-width: 1240px) {
+    .topbar { height: 100px; border-radius: 0 0 32px 32px; }
+    .logo-fixed { height: 200%; left: 16px; }
+    .logo-link { left: calc(16px + 75px); }
+    .header-info { font-size: 12px; gap: 16px; }
+    .topbar-content { padding: 0 24px 0 140px; }
+}
+
+/* ================= BREADCRUMB ================= */
+.breadcrumb-wrapper {
+    max-width: 900px;        /* MESMO valor do main */
+    margin: 24px auto 16px;  /* centraliza */
+    padding: 0;              /* igual ao main */
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.breadcrumb-item {
+    font-weight: 800;
+    color: #e0e7ff;
+    text-decoration: none;
+}
+
+.breadcrumb-item.active {
+    color: #fde047;
+}
+
+.breadcrumb-arrow {
+    width: 28px;
+    height: auto;
+}
+
+/* ================= FOOTER ================= */
+.footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 30px;
+}
+
+.footer img { width: 420px; }
+
+
+/* ================= FORM ================= */
+.form-wrapper {
+    max-width: 900px;
+    margin: 0 auto 60px;
+    padding: 0;
+    background: transparent;
+}
+
+/* ================= SECTIONS ================= */
+.section-box {
+    background: #f8fafc;
+    border-radius: 28px;
+    padding: 32px 40px 40px;
+    margin-bottom: 32px;
+}
+
+.section-title {
+    font-size: 24px;
+    font-weight: 900;
+    margin-bottom: 20px;
+}
+
+/* ================= TEXT ================= */
+.subtitle {
+    font-size: 20px;
+    line-height: 1.2;
+}
+
+/* ================= QUESTIONS ================= */
+.question {
+    margin-bottom: 28px;
+    border: 1px solid #e0e7ff;
+    border-radius: 12px;
+    padding: 20px;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    text-align: center;
+}
+
+.question-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #1e3a8a;
+}
+
+/* ================= RATING SCALE ================= */
+.rating-scale {
+    display: flex;
+    justify-content: center;   /* ← centraliza o texto */
+    gap: 15px;                 /* ← mesmo espaçamento das estrelas */
+    font-size: 12px;
+    color: #666;
+}
+
+/* ================= STARS ================= */
+.rating {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-direction: row-reverse; /* <<< ESSENCIAL */
+    --stroke: #666;
+    --fill: #ffc73a;
+    margin-bottom: 6px;
+}
+
+
+.rating input { appearance: none; }
+
+.rating label { cursor: pointer; }
+
+.rating svg {
+    width: 2rem;
+    height: 2rem;
+    fill: transparent;
+    stroke: var(--stroke);
+    stroke-dasharray: 2;
+    animation: idle 6s linear infinite;
+    transition: stroke 0.2s, fill 0.5s;
+}
+
+@keyframes idle {
+    from { stroke-dashoffset: 24; }
+}
+
+.rating label:hover svg {
+    stroke: var(--fill);
+}
+
+.rating input:checked ~ label svg {
+    fill: var(--fill);
+    stroke: var(--fill);
+    stroke-opacity: 0;
+    stroke-dasharray: 0;
+    animation: idle 4s linear infinite, yippee .75s backwards;
+}
+
+@keyframes yippee {
+    0% { transform: scale(1); fill-opacity: 0; }
+    60% { transform: scale(1.2); fill-opacity: 1; }
+}
+
+/* ================= NPS ================= */
+.nps-wrapper {
+    display: flex;
+    gap: 44px;
+    flex-wrap: wrap;
+}
+
+.nps-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+}
+
+.nps-btn:hover {
+    transform: translateY(-2px);
+}
+
+.nps-btn.selected {
+    box-shadow: 0 0 0 4px rgba(0,0,0,.15);
+}
+
+/* ================= FEEDBACK ================= */
+.feedback-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 40px;
+    row-gap: 48px;
+}
+
+@media (max-width: 768px) {
+    .feedback-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+textarea {
+    width: 100%;
+    min-height: 140px;
+    resize: vertical;
+    border-radius: 12px;
+    border: none;
+    padding: 14px;
+    font-family: inherit;
+    background: #eef2f7;
+    font-size: 14px;
+}
+
+/* ================= SUBMIT ================= */
+.submit-btn {
+    background: #1d4ed8;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 40px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="topbar">
+    <img src="static/LogoFlexcolor2.png" class="logo-fixed" alt="Logo">
+    <a href="/" class="logo-link" aria-label="PÃ¡gina inicial"></a>
+    <div class="topbar-content">
+        <div class="header-info">
+            <div>
+                R. José Antônio Valadares, 285 – Vila Liviero<br>
+                São Paulo – SP. CEP: 04185-020
+            </div>
+            <div>
+                comercial@soukure.com.br<br>
+                (11) 2372-7444
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="breadcrumb-wrapper">
+    <nav class="breadcrumb">
+        <a href="/" class="breadcrumb-item">Página Inicial</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/termo" class="breadcrumb-item">Termo de Aceite</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/ressalvas" class="breadcrumb-item">Ressalva</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <div class="breadcrumb-item active">NPS</div>
+    </nav>
+</div>
+
+<main>
+
+<form class="form-wrapper">
+
+<div class="section-box">
+    <div class="section-title">Pesquisa de Satisfação</div>
+    <p class="subtitle">
+        <strong>Olá! Sua voz nos ajuda a levar cuidado cada vez mais longe.</strong>
+        Queremos ouvir você para seguir aprimorando nossas soluções.
+        <br><br>
+        A pesquisa é rápida <strong>(menos de 2 minutos)</strong>.
+        <br><br>
+        <strong>Obrigado por caminhar com a gente nessa jornada de transformação!</strong>
+    </p>
+</div>
+<div class="section-box">
+ <div class="section-title">Avaliação de Experiência</div>
+        <div class="experience-box">
+
+
+        <div class="question">
+            <label class="question-label">1. Clareza das informações fornecidas pelo vendedor?</label>
+            <div class="rating">
+                <input type="radio" id="star1-5" name="star1" value="5"><label for="star1-5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star1-4" name="star1" value="4"><label for="star1-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star1-3" name="star1" value="3"><label for="star1-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star1-2" name="star1" value="2"><label for="star1-2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star1-1" name="star1" value="1"><label for="star1-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+            </div>
+        </div>
+
+        <div class="question">
+            <label class="question-label">2. O vendedor compreendeu suas necessidades e apresentou soluções adequadas?</label>
+            <div class="rating">
+                <input type="radio" id="star2-5" name="star2" value="5"><label for="star2-5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star2-4" name="star2" value="4"><label for="star2-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star2-3" name="star2" value="3"><label for="star2-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star2-2" name="star2" value="2"><label for="star2-2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star2-1" name="star2" value="1"><label for="star2-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+            </div>
+        </div>
+
+        <div class="question">
+            <label class="question-label">3. Cordialidade e profissionalismo do vendedor?</label>
+            <div class="rating">
+                <input type="radio" id="star3-5" name="star3" value="5"><label for="star3-5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star3-4" name="star3" value="4"><label for="star3-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star3-3" name="star3" value="3"><label for="star3-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star3-2" name="star3" value="2"><label for="star3-2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star3-1" name="star3" value="1"><label for="star3-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+            </div>
+        </div>
+
+        <div class="question">
+            <label class="question-label">4. Rapidez e eficiência no atendimento?</label>
+            <div class="rating">
+                <input type="radio" id="star4-5" name="star4" value="5"><label for="star4-5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star4-4" name="star4" value="4"><label for="star4-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star4-3" name="star4" value="3"><label for="star4-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star4-2" name="star4" value="2"><label for="star4-2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star4-1" name="star4" value="1"><label for="star4-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+            </div>
+        </div>
+
+        <div class="question">
+            <label class="question-label">5. Confiabilidade das informações fornecidas?</label>
+            <div class="rating">
+                <input type="radio" id="star5-5" name="star5" value="5"><label for="star5-5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star5-4" name="star5" value="4"><label for="star5-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star5-3" name="star5" value="3"><label for="star5-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star5-2" name="star5" value="2"><label for="star5-2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star5-1" name="star5" value="1"><label for="star5-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+            </div>
+        </div>
+
+        <div class="question">
+            <label class="question-label">6. Qualidade da unidade móvel entregue?</label>
+            <div class="rating">
+                <input type="radio" id="star6-5" name="star6" value="5"><label for="star6-5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star6-4" name="star6" value="4"><label for="star6-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star6-3" name="star6" value="3"><label for="star6-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star6-2" name="star6" value="2"><label for="star6-2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star6-1" name="star6" value="1"><label for="star6-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+            </div>
+        </div>
+        <div class="question">
+            <label class="question-label">7. Satisfação sobre o valor da unidade?</label>
+            <div class="rating">
+                <input type="radio" id="star7-5" name="star7" value="5"><label for="star7-5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star7-4" name="star7" value="4"><label for="star7-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star7-3" name="star7" value="3"><label for="star7-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star7-2" name="star7" value="2"><label for="star7-2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star7-1" name="star7" value="1"><label for="star7-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+            </div>
+        </div>
+        <div class="question">
+            <label class="question-label">8. O que você achou do prazo de entrega?</label>
+            <div class="rating">
+                <input type="radio" id="star8-5" name="star8" value="5"><label for="star8-5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star8-4" name="star8" value="4"><label for="star8-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star8-3" name="star8" value="3"><label for="star8-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star8-2" name="star8" value="2"><label for="star8-2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+                <input type="radio" id="star8-1" name="star8" value="1"><label for="star8-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg></label>
+            </div>
+        </div>
+        </div>
+</div>
+<div class="section-box">
+    <div class="section-title">Pesquisa de Satisfação</div>
+    <label class="question-label">Em uma escala de 1 a 10, qual a probabilidade de você recomendar nossos serviços?</label>
+    <div class="nps-wrapper" id="nps-wrapper"></div>
+</div>
+
+<div class="section-box">
+    <div class="section-title">Feedback Aberto</div>
+    <div class="feedback-grid">
+        <div>
+            <label class="question-label">Observações:</label>
+            <textarea id="fb_observacoes"></textarea>
+
+        </div>
+        <div>
+            <label class="question-label">Qual o objetivo da compra?</label>
+            <textarea id="fb_objetivo"></textarea>
+
+        </div>
+    </div>
+</div>
+
+
+<div class="footer">
+    <button class="submit-btn" type="submit">SALVAR PESQUISA</button>
+    <img src="/static/logozinha.png">
+</div>
+</form>
+</main>
+
+<script>
+let npsSelecionado = null;
+
+const urlParams = new URLSearchParams(window.location.search);
+const processoParam = urlParams.get("processo");
+const returnTo = urlParams.get("return");
+const isEditMode = Boolean(processoParam);
+
+// -------------------------
+// NPS (1 a 10)
+// -------------------------
+const npsWrapper = document.getElementById('nps-wrapper');
+
+for (let i = 1; i <= 10; i++) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'nps-btn';
+    btn.textContent = i;
+
+    if (i <= 3) btn.style.background = '#dc2626';
+    else if (i <= 6) btn.style.background = '#f97316';
+    else if (i <= 8) btn.style.background = '#facc15';
+    else btn.style.background = '#16a34a';
+
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.nps-btn')
+            .forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        npsSelecionado = i;
+    });
+
+    npsWrapper.appendChild(btn);
+}
+
+function setNpsSelecionado(value) {
+    const btns = document.querySelectorAll('.nps-btn');
+    btns.forEach(b => b.classList.remove('selected'));
+    const target = Array.from(btns).find(b => Number(b.textContent) === Number(value));
+    if (target) {
+        target.classList.add('selected');
+        npsSelecionado = Number(value);
+    }
+}
+
+function setStar(name, value) {
+    if (!value) return;
+    const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+    if (el) el.checked = true;
+}
+
+async function carregarEdicaoNps() {
+    if (!isEditMode) return;
+    try {
+        const res = await fetch(`/api/processos/${processoParam}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const nps = data.nps_dados;
+        if (!nps) return;
+
+        if (nps.nps) setNpsSelecionado(nps.nps);
+
+        if (nps.avaliacoes) {
+            setStar("star1", nps.avaliacoes.clareza);
+            setStar("star2", nps.avaliacoes.solucao);
+            setStar("star3", nps.avaliacoes.cordialidade);
+            setStar("star4", nps.avaliacoes.rapidez);
+            setStar("star5", nps.avaliacoes.confiabilidade);
+            setStar("star6", nps.avaliacoes.qualidade);
+            setStar("star7", nps.avaliacoes.valor);
+            setStar("star8", nps.avaliacoes.prazo);
+        }
+
+        if (nps.feedback) {
+            document.getElementById("fb_observacoes").value = nps.feedback.observacoes || "";
+            document.getElementById("fb_objetivo").value = nps.feedback.objetivo || "";
+        }
+    } catch (e) {
+        console.warn("Falha ao carregar edição", e);
+    }
+}
+
+// -------------------------
+// SUBMIT
+// -------------------------
+document.querySelector("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const processoId = processoParam || sessionStorage.getItem("processo_id");
+
+    if (!processoId) {
+        alert("Processo não encontrado.");
+        return;
+    }
+
+    if (!npsSelecionado) {
+        alert("Selecione uma nota NPS.");
+        return;
+    }
+
+    // Captura estrelas
+    function getStar(name) {
+        const el = document.querySelector(`input[name="${name}"]:checked`);
+        return el ? Number(el.value) : null;
+    }
+
+    const payload = {
+        processo_id: processoId,
+        nps: npsSelecionado,
+        avaliacoes: {
+            clareza: getStar("star1"),
+            solucao: getStar("star2"),
+            cordialidade: getStar("star3"),
+            rapidez: getStar("star4"),
+            confiabilidade: getStar("star5"),
+            qualidade: getStar("star6"),
+            valor: getStar("star7"),
+            prazo: getStar("star8")
+        },
+        feedback: {
+            observacoes: document.getElementById("fb_observacoes").value,
+            objetivo: document.getElementById("fb_objetivo").value
+        }
+    };
+
+    try {
+        const endpoint = isEditMode ? "/nps/atualizar" : "/nps/finalizar";
+        const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.detail || "Erro ao finalizar NPS");
+        }
+
+        if (isEditMode) {
+            alert("NPS atualizado com sucesso!");
+            window.location.href = returnTo || "/admin";
+        } else {
+            alert("Entrega finalizada com sucesso!");
+            window.open(data.pdf_final || data.entrega_final, "_blank");
+        }
+
+    } catch (err) {
+        alert(err.message);
+        console.error(err);
+    }
+});
+
+carregarEdicaoNps();
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - NPS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', Arial, sans-serif;
+            background: linear-gradient(90deg, #0093dd 30%, #5b2fa6);
+            color: #0f172a;
+            padding-top: 120px;
+        }
+
+        /* ================= TOPBAR ================= */
+        .topbar {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 120px;
+            background: #ffffff;
+            z-index: 40;
+            box-shadow: 0 2px 8px rgba(0,0,0,.08);
+            border-radius: 0 0 50px 50px;
+        }
+
+.logo-fixed {
+    position: absolute;
+    top: 50%;
+    left: 1%;
+    transform: translateY(-50%);
+    height: 255%;
+    pointer-events: none;
+}
+
+.logo-link {
+    position: absolute;
+    top: 50%;
+    left: calc(1% + 85px);
+    transform: translateY(-50%);
+    width: 190px;
+    height: 50px;
+    z-index: 45;
+    display: block;
+}
+
+        .topbar-content {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 60px 0 200px;
+        }
+
+        .header-info {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 32px;
+            font-size: 14px;
+            margin-right: 5%;
+            color: #1e3a8a;
+            line-height: 1.4;
+        }
+
+        @media (max-width: 1240px) {
+            .topbar { height: 100px; border-radius: 0 0 32px 32px; }
+            .logo-fixed { height: 200%; left: 16px; }
+            .logo-link { left: calc(16px + 75px); }
+            .header-info { font-size: 12px; gap: 16px; }
+            .topbar-content { padding: 0 24px 0 140px; }
+        }
+
+        /* ================= BREADCRUMB ================= */
+        .breadcrumb-wrapper {
+            max-width: 1100px;
+            margin: 24px auto 16px;
+            padding: 0;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .breadcrumb-item {
+            font-weight: 800;
+            color: #e0e7ff;
+            text-decoration: none;
+        }
+
+        .breadcrumb-item.active {
+            color: #fde047;
+        }
+
+        .breadcrumb-arrow {
+            width: 28px;
+            height: auto;
+        }
+
+        /* ================= MAIN ================= */
+        main {
+            max-width: 1100px;
+            margin: 0 auto 60px;
+            padding: 0;
+        }
+
+        .title {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 800;
+            margin: 0 0 12px;
+        }
+
+        .subtitle {
+            color: #e2e8f0;
+            margin: 0 0 24px;
+        }
+
+        .card {
+            background: #f8fafc;
+            border-radius: 18px;
+            padding: 20px 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .search-bar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .search-bar input {
+            flex: 1;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid #cbd5f5;
+            background: #ffffff;
+            font-size: 14px;
+        }
+
+        .search-bar button {
+            padding: 12px 18px;
+            border-radius: 12px;
+            border: none;
+            background: #0a287a;
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+
+        .stat {
+            background: #e9f0fb;
+            border-radius: 16px;
+            padding: 14px 16px;
+        }
+
+        .stat h4 {
+            margin: 0 0 6px;
+            color: #1e3a8a;
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .stat .value {
+            font-size: 22px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .stat .hint {
+            font-size: 12px;
+            color: #475569;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #ffffff;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        th {
+            background: #eef2ff;
+            font-weight: 800;
+            color: #1e3a8a;
+        }
+
+        tr:last-child td { border-bottom: none; }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 8px 12px;
+            border-radius: 10px;
+            background: #4b49c8;
+            color: #fff;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .btn.secondary { background: #0a287a; }
+        .btn.light { background: #94a3b8; }
+
+        @media (max-width: 900px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            table, thead, tbody, th, td, tr { display: block; }
+            th { position: sticky; top: 0; }
+            td { border-bottom: 1px solid #e2e8f0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <img src="/static/LogoFlexcolor2.png" class="logo-fixed" alt="Logo">
+    <a href="/" class="logo-link" aria-label="PÃ¡gina inicial"></a>
+    <div class="topbar-content">
+        <div class="header-info">
+            <div class="address">
+                R. José Antônio Valadares, 285 – Vila Liviero<br>
+                São Paulo – SP. CEP: 04185-020
+            </div>
+            <div class="contact">
+                <span class="email">comercial@soukure.com.br</span><br>
+                <span class="phone">(11) 2372-7444</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="breadcrumb-wrapper">
+    <nav class="breadcrumb">
+        <a href="/" class="breadcrumb-item">Página Inicial</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <div class="breadcrumb-item active">Dashboard</div>
+    </nav>
+    </div>
+
+<main>
+    <h1 class="title">Dashboard de NPS</h1>
+    <p class="subtitle">Edite Termo, Ressalvas e NPS a partir do cliente e empresa.</p>
+
+    <div class="card">
+        <form class="search-bar" method="get" action="/admin">
+            <input type="text" name="q" placeholder="Buscar por código, cliente ou empresa" value="{{ q }}">
+            <button type="submit">Buscar</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="stats-grid">
+            <div class="stat">
+                <h4>Total de processos</h4>
+                <div class="value">{{ stats.total }}</div>
+                <div class="hint">Com termo: {{ stats.com_termo }} • Com ressalvas: {{ stats.com_ressalvas }} • Com NPS: {{ stats.com_nps }}</div>
+            </div>
+            <div class="stat">
+                <h4>Média negativas (0-6)</h4>
+                <div class="value">{{ stats.media_negativas if stats.media_negativas is not none else "-" }}</div>
+                <div class="hint">{{ stats.count_negativas }} respostas</div>
+            </div>
+            <div class="stat">
+                <h4>Média neutras (7-8) / positivas (9-10)</h4>
+                <div class="value">
+                    {{ stats.media_neutras if stats.media_neutras is not none else "-" }}
+                    /
+                    {{ stats.media_positivas if stats.media_positivas is not none else "-" }}
+                </div>
+                <div class="hint">{{ stats.count_neutras }} neutras • {{ stats.count_positivas }} positivas</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        {% if processos %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Cliente</th>
+                    <th>Empresa</th>
+                    <th>Status</th>
+                    <th>NPS</th>
+                    <th>Criado</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for p in processos %}
+                <tr>
+                    <td>{{ p.codigo }}</td>
+                    <td>{{ p.nome_cliente or "-" }}</td>
+                    <td>{{ p.empresa or "-" }}</td>
+                    <td>{{ p.status_entrega or p.status or "-" }}</td>
+                    <td>{{ p.nps_nota if p.nps_nota is not none else "-" }}</td>
+                    <td>{{ p.criado_em or "-" }}</td>
+                    <td>
+                        <div class="actions">
+                            <a class="btn" href="/termo?processo={{ p.codigo }}&return=/admin">Editar Termo</a>
+                            <a class="btn" href="/ressalvas?processo={{ p.codigo }}&return=/admin">Editar Ressalvas</a>
+                            <a class="btn" href="/nps?processo={{ p.codigo }}&return=/admin">Editar NPS</a>
+                            {% if p.termo_pdf %}<a class="btn secondary" href="/pdf/termo/{{ p.codigo }}" target="_blank">PDF Termo</a>{% endif %}
+                            {% if p.pdf_ressalvas %}<a class="btn secondary" href="/pdf/ressalvas/{{ p.codigo }}" target="_blank">PDF Ressalvas</a>{% endif %}
+                            {% if p.pdf_final %}<a class="btn secondary" href="/pdf/final/{{ p.codigo }}" target="_blank">PDF Final</a>{% endif %}
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>Nenhum processo encontrado.</p>
+        {% endif %}
+    </div>
+</main>
+
+</body>
+</html>
