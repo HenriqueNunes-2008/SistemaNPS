@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         * { box-sizing: border-box; }
@@ -301,6 +302,21 @@
         </div>
     </div>
 
+    <div class="card" style="max-width: 500px; margin-bottom: 30px; padding: 20px;">
+        <div style="display: flex; align-items: flex-start; gap: 20px;">
+             <div style= "flex: 0 0 100px; font-size: 16px; font-weight: bold; color: #1e3a8a; padding-top: 10px;">Total de <br> processos: <br>
+                <span style="font-size: 28px; color: #1e3a8a;">{{ stats.total }}</span> 
+            </div>
+           <div style="flex: 1; min-width: 0;">
+            <div style="position: relative; height: 250px; width: 100%;">
+            <canvas id="npsChart"></canvas>
+            </div>
+           </div> 
+            
+            </div>
+        
+    </div>
+
     <div class="card">
         {% if processos %}
         <table>
@@ -343,6 +359,51 @@
         {% endif %}
     </div>
 </main>
+
+<script>
+    var statsData = JSON.parse('{{ stats | tojson | safe }}');
+
+    const ctx = document.getElementById('npsChart').getContext('2d');
+    const npsChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Negativas (0-6)', 'Neutras (7-8)', 'Positivas (9-10)'],
+            datasets: [{
+                data: [statsData.count_negativas, statsData.count_neutras, statsData.count_positivas],
+                backgroundColor: ['#ff0000', '#808080', '#00ff00'],
+                hoverBackgroundColor: ['#ff0000', '#808080', '#00ff00']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    labels: {
+                        generateLabels: function(chart) {
+                            const data = chart.data;
+                            return data.labels.map((label, i) => {
+                                const value = data.datasets[0].data[i];
+                                let text = label + ' (' + value + ')';
+                                if (i === 0 && statsData.media_negativas !== null) {
+                                    text += ' - Média: ' + statsData.media_negativas;
+                                }
+                                if (i === 2 && statsData.media_positivas !== null) {
+                                    text += ' - Média: ' + statsData.media_positivas;
+                                }
+                                return {
+                                    text: text,
+                                    fillStyle: data.datasets[0].backgroundColor[i],
+                                    hidden: false,
+                                    index: i
+                                };
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
 
 </body>
 </html>
