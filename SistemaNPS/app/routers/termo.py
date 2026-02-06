@@ -86,6 +86,7 @@ def _draw_termo_content(c, width: float, height: float, data) -> None:
     y = content_top(height)
 
     # Title
+    y += 8
     c.setFont("Helvetica-Bold", 16)
     c.drawString(margin_x, y, "TERMO DE ACEITE E ENTREGA DE SERVIÇOS")
     y -= 22

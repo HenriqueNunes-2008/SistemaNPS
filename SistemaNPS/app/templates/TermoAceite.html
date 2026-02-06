@@ -326,6 +326,17 @@ input {
     font-size: 14px;
 }
 
+select.regiao-foto {
+    width: 100%;
+    height: 48px;
+    margin-top: 8px;
+    border-radius: 10px;
+    border: none;
+    background: #b8c9e0;
+    padding: 10px 12px;
+    font-family: 'Inter', Arial, sans-serif;
+}
+
 .row {
     display: flex;
     gap: 24px;
@@ -716,6 +727,16 @@ button.loading {
     </div>
 <div class="form-group">
 <p> </p>
+    <label>REGIÃO DA FOTO</label>
+    <select class="regiao-foto" id="regiao-foto">
+        <option value="">Selecione</option>
+        <option value="frontal">Frontal</option>
+        <option value="traseira">Traseira</option>
+        <option value="lateral-esquerda">Lateral esquerda</option>
+        <option value="lateral-direita">Lateral direita</option>
+        <option value="superior">Superior</option>
+        <option value="inferior">Inferior</option>
+    </select>
     <div class="image-dropzone" id="imageBox">
 
         <input type="file" id="fileInput" accept="image/*" hidden>
@@ -869,6 +890,10 @@ function coletarCamposTermo() {
         if (!label || !input) return;
         campos[label] = input.value;
     });
+    const regiaoFoto = document.getElementById("regiao-foto");
+    if (regiaoFoto) {
+        campos["REGIÃO DA FOTO"] = regiaoFoto.value;
+    }
 
     const assinaturaBoxes = document.querySelectorAll(".signature-box");
     const assinaturas = {
@@ -918,6 +943,10 @@ async function carregarEdicao() {
                     input.value = data.termo_dados.campos[label];
                 }
             });
+            const regiaoFoto = document.getElementById("regiao-foto");
+            if (regiaoFoto && data.termo_dados.campos["REGIÃO DA FOTO"] !== undefined) {
+                regiaoFoto.value = data.termo_dados.campos["REGIÃO DA FOTO"];
+            }
         }
 
         if (data.termo_dados?.assinaturas) {
