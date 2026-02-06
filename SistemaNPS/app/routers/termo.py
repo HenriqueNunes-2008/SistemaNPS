@@ -12,6 +12,8 @@ from io import BytesIO
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.lib.utils import ImageReader
+import math
 
 from app.services.upload import upload_pdf
 from app.services.supabase_client import supabase
@@ -135,6 +137,67 @@ def _draw_termo_content(c, width: float, height: float, data) -> None:
             draw_header_footer(c, width, height)
             y = content_top(height)
         y = _draw_label_value(c, margin_x, y, max_width, "STATUS DA ENTREGA", status_label)
+
+    # Fotos (se houver)
+    imagens = list(data.imagens or [])
+    if imagens:
+        imagens = sorted(imagens, key=lambda i: i.get("item", 0))
+        gap = 10
+        cols = 3
+        cell_w = (max_width - gap * (cols - 1)) / cols
+        cell_h = 120
+        label_h = 12
+        rows = int(math.ceil(len(imagens) / cols))
+        total_h = 16 + (rows * (cell_h + label_h + gap))
+
+        if y - total_h < content_bottom():
+            c.showPage()
+            draw_header_footer(c, width, height)
+            y = content_top(height)
+
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(margin_x, y, "FOTOS")
+        y -= 16
+
+        label_map = {
+            "frontal": "Frontal",
+            "traseira": "Traseira",
+            "lateral-esquerda": "Lateral esquerda",
+            "lateral-direita": "Lateral direita",
+            "superior": "Superior",
+            "inferior": "Inferior",
+        }
+
+        start_y = y
+        for idx, img_data in enumerate(imagens):
+            col = idx % cols
+            row = idx // cols
+            x = margin_x + col * (cell_w + gap)
+            y_top = start_y - row * (cell_h + label_h + gap)
+
+            regiao = img_data.get("regiao_foto")
+            label = label_map.get(regiao, regiao or f"Foto {idx + 1}")
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(x, y_top, label)
+
+            if img_data.get("imagem_base64"):
+                try:
+                    _, img_b64 = img_data["imagem_base64"].split(",", 1)
+                    img_bytes = base64.b64decode(img_b64)
+                    img_reader = ImageReader(BytesIO(img_bytes))
+                    c.drawImage(
+                        img_reader,
+                        x,
+                        y_top - label_h - cell_h,
+                        width=cell_w,
+                        height=cell_h,
+                        preserveAspectRatio=True,
+                        anchor="c"
+                    )
+                except Exception:
+                    pass
+
+        y = start_y - rows * (cell_h + label_h + gap) - 8
 
     # Signatures
     comprador = assinaturas.get("comprador") or {}

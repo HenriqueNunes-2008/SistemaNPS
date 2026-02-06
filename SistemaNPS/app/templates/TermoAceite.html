@@ -234,6 +234,42 @@ video {
     color: #fff;
 }
 
+.foto-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.foto-item {
+    background: #e9f0fb;
+    border-radius: 12px;
+    padding: 10px;
+    text-align: center;
+}
+
+.foto-item h4 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: #392fad;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.foto-item img {
+    width: 100%;
+    height: 110px;
+    object-fit: cover;
+    border-radius: 10px;
+    background: #dbe3f3;
+}
+
+.foto-item .foto-vazia {
+    font-size: 11px;
+    color: #64748b;
+    padding: 36px 0;
+}
+
 .hidden {
     display: none;
 }
@@ -759,6 +795,32 @@ button.loading {
         <button id="captureBtn" class="hidden" onclick="takePhoto()">Capturar</button>
 
     </div>
+    <div class="foto-grid" id="fotoGrid">
+        <div class="foto-item" data-regiao="frontal">
+            <h4>Frontal</h4>
+            <div class="foto-vazia">Sem foto</div>
+        </div>
+        <div class="foto-item" data-regiao="traseira">
+            <h4>Traseira</h4>
+            <div class="foto-vazia">Sem foto</div>
+        </div>
+        <div class="foto-item" data-regiao="lateral-esquerda">
+            <h4>Lateral esquerda</h4>
+            <div class="foto-vazia">Sem foto</div>
+        </div>
+        <div class="foto-item" data-regiao="lateral-direita">
+            <h4>Lateral direita</h4>
+            <div class="foto-vazia">Sem foto</div>
+        </div>
+        <div class="foto-item" data-regiao="superior">
+            <h4>Superior</h4>
+            <div class="foto-vazia">Sem foto</div>
+        </div>
+        <div class="foto-item" data-regiao="inferior">
+            <h4>Inferior</h4>
+            <div class="foto-vazia">Sem foto</div>
+        </div>
+    </div>
 </div>
     <div class="row" style="margin-top:40px;">
         <div class="signature-box" style="flex:1;">
@@ -828,6 +890,7 @@ function validarData(dia, mes, ano) {
 
 /* ================= CAMPOS ================= */
 let cpfComprador, cpfRepresentante, nomeCliente, diaInput, mesInput, anoInput, btnSalvar;
+let fotoPorRegiao = {};
 
 const urlParams = new URLSearchParams(window.location.search);
 const processoParam = urlParams.get("processo");
@@ -862,8 +925,9 @@ function atualizarEstadoBotao() {
     );
 
     const statusSelecionado = document.querySelector(".status-card.active") !== null;
+    const fotosCompletas = todasFotosPreenchidas();
 
-    const tudoValido = nomeValido && cpfCompradorValido && cpfRepresentanteValido && dataValida && statusSelecionado;
+    const tudoValido = nomeValido && cpfCompradorValido && cpfRepresentanteValido && dataValida && statusSelecionado && fotosCompletas;
 
     cpfComprador.classList.toggle("cpf-valido", cpfCompradorValido);
     cpfComprador.classList.toggle("cpf-invalido", !cpfCompradorValido && cpfComprador.value !== "");
@@ -872,6 +936,18 @@ function atualizarEstadoBotao() {
     cpfRepresentante.classList.toggle("cpf-invalido", !cpfRepresentanteValido && cpfRepresentante.value !== "");
 
     btnSalvar.disabled = !tudoValido;
+}
+
+function todasFotosPreenchidas() {
+    const regioes = [
+        "frontal",
+        "traseira",
+        "lateral-esquerda",
+        "lateral-direita",
+        "superior",
+        "inferior"
+    ];
+    return regioes.every(r => Boolean(fotoPorRegiao[r]));
 }
 
 /* ================= STATUS ================= */
@@ -979,6 +1055,25 @@ async function carregarEdicao() {
             if (card) selectStatus(card);
         }
 
+        if (Array.isArray(data.imagens) && data.imagens.length > 0) {
+            data.imagens.forEach((img) => {
+                if (img?.regiao_foto && img?.imagem_base64) {
+                    fotoPorRegiao[img.regiao_foto] = img.imagem_base64;
+                }
+            });
+            renderFotoGrid();
+            const regiaoSelecionada = document.getElementById("regiao-foto")?.value;
+            if (regiaoSelecionada && fotoPorRegiao[regiaoSelecionada]) {
+                previewImg.src = fotoPorRegiao[regiaoSelecionada];
+                preview.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            } else {
+                previewImg.src = '';
+                preview.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+            }
+        }
+
         atualizarEstadoBotao();
     } catch (e) {
         console.warn("Falha ao carregar edição", e);
@@ -1013,6 +1108,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     /* ================= DROPZONE ================= */
 const dropzone = document.getElementById('imageBox');
+const regiaoSelect = document.getElementById('regiao-foto');
+const fotoGrid = document.getElementById('fotoGrid');
 
 dropzone.addEventListener('dragover', e => {
     e.preventDefault();
@@ -1046,6 +1143,10 @@ const captureBtn = document.getElementById('captureBtn');
 
 /* Upload por botão */
 window.openFile = function () {
+    if (!regiaoSelect?.value) {
+        alert("Selecione a regi??o da foto antes de enviar.");
+        return;
+    }
     fileInput.click();
 };
 
@@ -1060,6 +1161,10 @@ fileInput.addEventListener('change', () => {
 
 /* Câmera */
 window.openCamera = function () {
+    if (!regiaoSelect?.value) {
+        alert("Selecione a regi??o da foto antes de tirar a foto.");
+        return;
+    }
     navigator.mediaDevices.getUserMedia({ video: true })
         .then(s => {
             stream = s;
@@ -1083,21 +1188,63 @@ window.takePhoto = function () {
 };
 
 window.removeImage = function () {
+    const regiao = regiaoSelect?.value;
+    if (regiao && fotoPorRegiao[regiao]) {
+        delete fotoPorRegiao[regiao];
+        renderFotoGrid();
+    }
     previewImg.src = '';
     preview.classList.add('hidden');
     placeholder.classList.remove('hidden');
+    atualizarEstadoBotao();
 };
 
 function showPreview(src) {
+    const regiao = regiaoSelect?.value;
+    if (!regiao) {
+        alert("Selecione a região da foto antes de enviar.");
+        return;
+    }
+    fotoPorRegiao[regiao] = src;
     previewImg.src = src;
     preview.classList.remove('hidden');
     placeholder.classList.add('hidden');
+    renderFotoGrid();
+    atualizarEstadoBotao();
 }
 
 function stopCamera() {
     if (stream) stream.getTracks().forEach(t => t.stop());
     video.classList.add('hidden');
     captureBtn.classList.add('hidden');
+}
+
+function renderFotoGrid() {
+    if (!fotoGrid) return;
+    fotoGrid.querySelectorAll(".foto-item").forEach((item) => {
+        const regiao = item.getAttribute("data-regiao");
+        const existente = item.querySelector("img");
+        const vazio = item.querySelector(".foto-vazia");
+        const imgSrc = fotoPorRegiao[regiao];
+        if (imgSrc) {
+            if (vazio) vazio.remove();
+            if (existente) {
+                existente.src = imgSrc;
+            } else {
+                const img = document.createElement("img");
+                img.src = imgSrc;
+                item.appendChild(img);
+            }
+        } else {
+            if (existente) existente.remove();
+            if (!vazio) {
+                const v = document.createElement("div");
+                v.className = "foto-vazia";
+                v.textContent = "Sem foto";
+                item.appendChild(v);
+            }
+        }
+    });
 }
     /* ================= CAMPOS ================= */
     cpfComprador = document.getElementById("rg-comprador");
@@ -1119,6 +1266,21 @@ function stopCamera() {
     diaInput.addEventListener("input", atualizarEstadoBotao);
     mesInput.addEventListener("input", atualizarEstadoBotao);
     anoInput.addEventListener("input", atualizarEstadoBotao);
+    if (regiaoSelect) {
+        regiaoSelect.addEventListener("change", () => {
+            const regiao = regiaoSelect.value;
+            if (regiao && fotoPorRegiao[regiao]) {
+                previewImg.src = fotoPorRegiao[regiao];
+                preview.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            } else {
+                previewImg.src = '';
+                preview.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+            }
+            atualizarEstadoBotao();
+        });
+    }
 
     carregarEdicao();
 
@@ -1153,12 +1315,26 @@ function stopCamera() {
             /* === COLETA IMAGENS === */
             const imagens = [];
 
-            const previewImg = document.getElementById("previewImg");
-            if (previewImg && previewImg.src) {
-                imagens.push({
-                    item: 1,
-                    imagem_base64: previewImg.src
-                });
+            const ordemRegioes = [
+                "frontal",
+                "traseira",
+                "lateral-esquerda",
+                "lateral-direita",
+                "superior",
+                "inferior"
+            ];
+            ordemRegioes.forEach((regiao, index) => {
+                if (fotoPorRegiao[regiao]) {
+                    imagens.push({
+                        item: index + 1,
+                        regiao_foto: regiao,
+                        imagem_base64: fotoPorRegiao[regiao]
+                    });
+                }
+            });
+
+            if (imagens.length !== 6) {
+                throw new Error("Tire as 6 fotos antes de salvar o termo");
             }
             /* === CAPTURA COM BACKGROUND DETERMINÍSTICO === */
             const area = document.getElementById("capture-area");
