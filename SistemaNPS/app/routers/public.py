@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse
 from app.services.supabase_client import supabase
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory="app/templates", auto_reload=True)
 
 
 def _extract_storage_path(public_url: str) -> str | None:
@@ -29,8 +29,20 @@ def _download_pdf(url: str) -> bytes:
     return res
 
 @router.get("/", response_class=HTMLResponse)
+def login(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@router.get("/login", response_class=HTMLResponse)
+def login_alias(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@router.get("/index", response_class=HTMLResponse)
 def index(request: Request):
     return templates.TemplateResponse("Index.html", {"request": request})
+
+@router.get("/cadastro", response_class=HTMLResponse)
+def cadastro(request: Request):
+    return templates.TemplateResponse("cadastro.html", {"request": request})
 
 @router.get("/termo", response_class=HTMLResponse)
 def termo(request: Request):
