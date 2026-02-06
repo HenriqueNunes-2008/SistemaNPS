@@ -10,12 +10,155 @@ from datetime import datetime
 from io import BytesIO
 
 from reportlab.pdfgen import canvas
-from reportlab.lib.utils import ImageReader
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.colors import HexColor
+from reportlab.pdfbase.pdfmetrics import stringWidth
 
 from app.services.upload import upload_pdf
 from app.services.supabase_client import supabase
+from app.services.pdf_layout import draw_header_footer, content_top, content_bottom
+
+
+def _wrap_text(text: str, max_width: float, font_name: str, font_size: int) -> list[str]:
+    if not text:
+        return [""]
+    words = str(text).split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        test = f"{current} {word}".strip()
+        if stringWidth(test, font_name, font_size) <= max_width:
+            current = test
+        else:
+            if current:
+                lines.append(current)
+            current = word
+    if current or not lines:
+        lines.append(current)
+    return lines
+
+
+def _draw_label_value(
+    c,
+    x: float,
+    y: float,
+    max_width: float,
+    label: str,
+    value: str,
+    font_label: str = "Helvetica-Bold",
+    font_value: str = "Helvetica",
+    size_label: int = 11,
+    size_value: int = 11,
+    line_height: int = 14
+) -> float:
+    c.setFont(font_label, size_label)
+    c.drawString(x, y, label)
+    y -= line_height
+    c.setFont(font_value, size_value)
+    for line in _wrap_text(value, max_width, font_value, size_value):
+        c.drawString(x, y, line)
+        y -= line_height
+    y -= 8
+    return y
+
+
+def _draw_termo_content(c, width: float, height: float, data) -> None:
+    margin_x = 40
+    max_width = width - (margin_x * 2)
+    termo_dados = data.termo_dados or {}
+    campos = dict(termo_dados.get("campos") or {})
+    assinaturas = termo_dados.get("assinaturas") or {}
+    data_info = termo_dados.get("data") or {}
+
+    if data.nome_cliente and "NOME DO CLIENTE" not in campos:
+        campos["NOME DO CLIENTE"] = data.nome_cliente
+    if data.empresa and "EMPRESA" not in campos:
+        campos["EMPRESA"] = data.empresa
+
+    fields_order = [
+        "NOME DO CLIENTE",
+        "EMPRESA",
+        "PRODUTO E CÓDIGO DA ENTREGA",
+        "RESPONSÁVEL PELA ENTREGA",
+        "QUEM REALIZOU O ATENDIMENTO?",
+        "LOCAL DA ENTREGA",
+    ]
+
+    y = content_top(height)
+
+    # Title
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(margin_x, y, "TERMO DE ACEITE E ENTREGA DE SERVIÇOS")
+    y -= 22
+    c.setFont("Helvetica-Oblique", 12)
+    c.drawString(margin_x, y, "UNIDADES MÓVEIS")
+    y -= 22
+
+    # Date
+    dia = data_info.get("dia")
+    mes = data_info.get("mes")
+    ano = data_info.get("ano")
+    if dia or mes or ano:
+        data_str = f"{dia or ''}/{mes or ''}/{ano or ''}".strip("/")
+    else:
+        data_str = ""
+    y = _draw_label_value(c, margin_x, y, max_width, "DATA", data_str)
+
+    # Fields
+    for key in fields_order:
+        if key in campos:
+            if y < content_bottom():
+                c.showPage()
+                draw_header_footer(c, width, height)
+                y = content_top(height)
+            y = _draw_label_value(c, margin_x, y, max_width, key, str(campos.get(key, "")))
+
+    # Any extra fields
+    for key, value in campos.items():
+        if key in fields_order:
+            continue
+        if y < content_bottom():
+            c.showPage()
+            draw_header_footer(c, width, height)
+            y = content_top(height)
+        y = _draw_label_value(c, margin_x, y, max_width, key, str(value))
+
+    # Status
+    status_map = {
+        "concluido": "Concluído",
+        "concluido_com_ressalva": "Concluído com Ressalva",
+    }
+    status_label = status_map.get(data.status_entrega, data.status_entrega or "")
+    if status_label:
+        if y < content_bottom():
+            c.showPage()
+            draw_header_footer(c, width, height)
+            y = content_top(height)
+        y = _draw_label_value(c, margin_x, y, max_width, "STATUS DA ENTREGA", status_label)
+
+    # Signatures
+    comprador = assinaturas.get("comprador") or {}
+    representante = assinaturas.get("representante") or {}
+    assinatura_lines = [
+        ("COMPRADOR - NOME", comprador.get("nome", "")),
+        ("COMPRADOR - CPF", comprador.get("cpf", "")),
+        ("REPRESENTANTE COMERCIAL - NOME", representante.get("nome", "")),
+        ("REPRESENTANTE COMERCIAL - CPF", representante.get("cpf", "")),
+    ]
+
+    if y < content_bottom():
+        c.showPage()
+        draw_header_footer(c, width, height)
+        y = content_top(height)
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(margin_x, y, "ASSINATURAS")
+    y -= 18
+
+    for label, value in assinatura_lines:
+        if y < content_bottom():
+            c.showPage()
+            draw_header_footer(c, width, height)
+            y = content_top(height)
+        y = _draw_label_value(c, margin_x, y, max_width, label, value)
 
 router = APIRouter(prefix="/termo", tags=["Termo"])
 
@@ -80,34 +223,15 @@ def salvar_termo(data: TermoRequest):
         processo_uuid = str(uuid.uuid4())  # ✅ UUID REAL (IMPORTANTE)
 
         # ====================================================
-        # 3. DECODE DA IMAGEM
-        # ====================================================
-        try:
-            _, img_b64 = data.imagem.split(",", 1)
-            img_bytes = base64.b64decode(img_b64)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Falha ao decodificar imagem")
-
-        # ====================================================
         # 4. GERA PDF EM MEMÓRIA
         # ====================================================
         buffer = BytesIO()
         c = canvas.Canvas(buffer, pagesize=A4)
         width, height = A4
 
-        # Fundo roxo
-        c.setFillColor(HexColor("#5b2fa6"))
-        c.rect(0, 0, width, height, stroke=0, fill=1)
-
-        # Imagem capturada
-        c.drawImage(
-            ImageReader(BytesIO(img_bytes)),
-            0,
-            0,
-            width=width,
-            height=height,
-            mask="auto"
-        )
+        # PDF do termo com dados informados
+        draw_header_footer(c, width, height)
+        _draw_termo_content(c, width, height, data)
 
         c.showPage()
         c.save()
@@ -240,17 +364,9 @@ def atualizar_termo(data: TermoUpdateRequest):
         c = canvas.Canvas(buffer, pagesize=A4)
         width, height = A4
 
-        c.setFillColor(HexColor("#5b2fa6"))
-        c.rect(0, 0, width, height, stroke=0, fill=1)
-
-        c.drawImage(
-            ImageReader(BytesIO(img_bytes)),
-            0,
-            0,
-            width=width,
-            height=height,
-            mask="auto"
-        )
+        # PDF do termo com dados informados
+        draw_header_footer(c, width, height)
+        _draw_termo_content(c, width, height, data)
 
         c.showPage()
         c.save()

@@ -9,6 +9,8 @@ from PyPDF2 import PdfWriter, PdfReader
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 
+from app.services.pdf_layout import draw_header_footer, content_top, content_bottom
+
 router = APIRouter(prefix="/finalizacao")
 templates = Jinja2Templates(directory="app/templates")
 
@@ -44,7 +46,8 @@ def gerar_pdf_final(processo_id: str):
     c = canvas.Canvas(nps_pdf_path, pagesize=A4)
     width, height = A4
 
-    y = height - 40
+    draw_header_footer(c, width, height)
+    y = content_top(height)
     c.setFont("Helvetica-Bold", 16)
     c.drawString(40, y, "Pesquisa NPS")
     y -= 40
@@ -56,6 +59,10 @@ def gerar_pdf_final(processo_id: str):
     for k, v in nps["avaliacoes"].items():
         c.drawString(40, y, f"{k.upper()}: {v}")
         y -= 20
+        if y < content_bottom():
+            c.showPage()
+            draw_header_footer(c, width, height)
+            y = content_top(height)
 
     y -= 20
     for titulo, texto in nps["feedback"].items():
@@ -65,6 +72,10 @@ def gerar_pdf_final(processo_id: str):
         c.setFont("Helvetica", 10)
         c.drawString(40, y, texto[:300])
         y -= 30
+        if y < content_bottom():
+            c.showPage()
+            draw_header_footer(c, width, height)
+            y = content_top(height)
 
     c.showPage()
     c.save()

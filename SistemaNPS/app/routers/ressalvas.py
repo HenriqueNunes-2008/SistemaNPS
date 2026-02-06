@@ -12,6 +12,7 @@ from io import BytesIO
 
 from app.services.supabase_client import supabase
 from app.services.upload import upload_pdf
+from app.services.pdf_layout import draw_header_footer, content_top, content_bottom
 
 router = APIRouter(prefix="/ressalvas", tags=["Ressalvas"])
 
@@ -100,7 +101,8 @@ def gerar_pdf_ressalvas(
 
     largura, altura = A4
     margem_x = 40
-    y = altura - 50
+    draw_header_footer(c, largura, altura)
+    y = content_top(altura)
 
     c.setFont("Helvetica-Bold", 14)
     c.drawString(margem_x, y, "RELATÓRIO DE RESSALVAS")
@@ -127,9 +129,10 @@ def gerar_pdf_ressalvas(
         y -= 25
 
     for idx, img in enumerate(imagens, start=1):
-        if y < 220:
+        if y < content_bottom():
             c.showPage()
-            y = altura - 50
+            draw_header_footer(c, largura, altura)
+            y = content_top(altura)
 
         c.setFont("Helvetica-Bold", 11)
         c.drawString(margem_x, y, f"Item {idx}: {img.item}")

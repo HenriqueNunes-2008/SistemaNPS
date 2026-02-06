@@ -11,6 +11,7 @@ from PyPDF2 import PdfMerger
 
 from app.services.upload import upload_pdf
 from app.services.supabase_client import supabase
+from app.services.pdf_layout import draw_header_footer, content_top, content_bottom
 
 router = APIRouter(prefix="/nps", tags=["NPS"])
 
@@ -108,7 +109,8 @@ def finalizar_nps(data: NPSRequest):
         c = canvas.Canvas(nps_buffer, pagesize=A4)
         width, height = A4
 
-        y = height - 50
+        draw_header_footer(c, width, height)
+        y = content_top(height)
         c.setFont("Helvetica-Bold", 16)
         c.drawString(40, y, "Pesquisa de Satisfação (NPS)")
         y -= 40
@@ -126,9 +128,10 @@ def finalizar_nps(data: NPSRequest):
         for k, v in data.avaliacoes.items():
             c.drawString(40, y, f"{k}: {v}")
             y -= 15
-            if y < 80:
+            if y < content_bottom():
                 c.showPage()
-                y = height - 50
+                draw_header_footer(c, width, height)
+                y = content_top(height)
                 c.setFont("Helvetica", 10)
 
         # Feedback
@@ -145,9 +148,10 @@ def finalizar_nps(data: NPSRequest):
             for linha in texto.split("\n"):
                 c.drawString(50, y, linha[:110])
                 y -= 14
-                if y < 80:
+                if y < content_bottom():
                     c.showPage()
-                    y = height - 50
+                    draw_header_footer(c, width, height)
+                    y = content_top(height)
                     c.setFont("Helvetica", 10)
 
             y -= 10
