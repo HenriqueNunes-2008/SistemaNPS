@@ -353,6 +353,19 @@ input.item-duplicado { border: 2px solid #dc2626; }
     align-items: center;
     justify-content: space-between;
 }
+.approval-fields label {
+    font-size: 12px;
+    font-weight: 800;
+    color: #1f2937;
+}
+.approval-fields input {
+    flex: 1;
+    border: none;
+    border-bottom: 1px solid #64748b;
+    background: transparent;
+    padding: 6px 4px;
+    font-size: 14px;
+}
 
 /* ================= FOOTER ================= */
 .footer {
@@ -455,11 +468,13 @@ input.item-duplicado { border: 2px solid #dc2626; }
             <button class="add-item" onclick="addRow()">ADICIONAR ITEM +</button>
         </section>
 
-        <section class="approval">
+        <section class="approval admin-only">
             <strong>APROVAÇÃO FINAL DAS RESSALVAS:</strong>
             <div class="approval-fields">
-                <span>REPRESENTANTE: _______________________________</span>
-                <span>CPF: _______________________________</span>
+                <label>REPRESENTANTE</label>
+                <input type="text" placeholder="REPRESENTANTE">
+                <label>CPF</label>
+                <input type="text" placeholder="CPF">
             </div>
         </section>
     </div>
@@ -546,8 +561,8 @@ document.getElementById("btnSalvar").addEventListener("click", async function ()
     headers: { "Content-Type": "application/json" },
    body: JSON.stringify({
     processo_id: processoId.trim(),
-    responsavel: "",
-    cpf: "",
+    responsavel: isAdmin ? (document.querySelector('section.approval input[placeholder="REPRESENTANTE"]')?.value || "") : "",
+    cpf: isAdmin ? (document.querySelector('section.approval input[placeholder="CPF"]')?.value || "") : "",
     observacoes: null,
     imagens: imagens.map(img => ({
         item: String(img.item),
@@ -619,6 +634,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const processoParam = urlParams.get("processo");
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
+const isAdmin = returnTo === "/admin";
 
 let currentBox = null;
 let stream = null;
@@ -859,6 +875,13 @@ async function carregarEdicaoRessalvas() {
 
         const dados = data.ressalvas_dados;
 
+        if (isAdmin && (dados?.responsavel || dados?.cpf)) {
+            const rep = document.querySelector('section.approval input[placeholder="REPRESENTANTE"]');
+            const cpf = document.querySelector('section.approval input[placeholder="CPF"]');
+            if (rep) rep.value = dados.responsavel || "";
+            if (cpf) cpf.value = dados.cpf || "";
+        }
+
         tableBody.innerHTML = "";
         if (Array.isArray(dados?.itens) && dados.itens.length > 0) {
             dados.itens.forEach((item) => addRow(item));
@@ -877,6 +900,15 @@ async function carregarEdicaoRessalvas() {
 /* linha inicial */
 carregarEdicaoRessalvas();
 btnSalvar.disabled = !validarFormulario();
+
+if (!isAdmin) {
+    document.querySelectorAll(".admin-only").forEach((el) => {
+        el.style.display = "none";
+    });
+    document.querySelectorAll(".admin-only input").forEach((el) => {
+        el.disabled = true;
+    });
+}
 </script>
 
 
