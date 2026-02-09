@@ -113,21 +113,27 @@
         }
 
         .user-illustration {
-            width: 380px;
-            height: 380px;
+            width: 260px;
+            height: 260px;
             object-fit: contain;
+        }
+
+        .welcome-copy {
+            transform: translateY(-30px);
         }
 
         .welcome-title {
             font-size: 28px;
             font-weight: 700;
             letter-spacing: 0.5px;
+            margin-top: -14px;
         }
 
         .welcome-text {
             color: var(--text-muted);
-            font-size: 15px;
+            font-size: 20px;
             line-height: 1.6;
+            margin-top: 6px;
             max-width: 360px;
         }
 
@@ -135,6 +141,8 @@
             width: 160px;
             height: auto;
             opacity: 0.95;
+            transform: translateX(30px) scale(1.46);
+            transform-origin: left center;
         }
 
         .right-panel {
@@ -292,8 +300,8 @@
 
     <main class="login-card">
         <section class="left-panel">
-            <img src="/static/Cliente.png" alt="Usuário" class="user-illustration">
-            <div>
+            <img src="/static/cliente.png" alt="Usuário" class="user-illustration">
+            <div class="welcome-copy">
                 <div class="welcome-title">BEM-VINDO(A)!</div>
                 <p class="welcome-text">
                     Acesse para gerenciar Termos de Aceite, Ressalvas e Pesquisas NPS
