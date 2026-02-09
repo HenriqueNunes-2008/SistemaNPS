@@ -336,6 +336,19 @@ video {
     display: flex;
     gap: 24px;
 }
+.approval-fields label {
+    font-size: 12px;
+    font-weight: 800;
+    color: #1f2937;
+}
+.approval-fields input {
+    flex: 1;
+    border: none;
+    border-bottom: 1px solid #64748b;
+    background: transparent;
+    padding: 6px 4px;
+    font-size: 14px;
+}
 
 /* ================= FORM ================= */
 .form-box {
@@ -583,10 +596,26 @@ select.regiao-foto {
     transition: none !important;
 }
 
+/* Oculta apenas a seleção de região no PDF */
+#capture-area.capture-mode .regiao-field {
+    display: none !important;
+}
+
+/* ================= FOOTER ================= */
+.footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 900px;
+    margin: 20px auto 0;
+    padding: 0;
+}
+
 /* ================= BOTÃO ================= */
-button {
+#btnSalvar {
     margin-top: 0;
-    padding: 14px 28px;
+    width: 260px;
+    padding: 14px 24px;
     background: #0a287a;
     color: #ffffff;
     border: none;
@@ -603,15 +632,6 @@ button {
     height: auto;
 }
 
-.footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    max-width: 900px;
-    margin: 20px auto 0;
-    padding: 0;
-}
-
 input.cpf-invalido {
     border: 2px solid #dc2626;
 }
@@ -620,12 +640,12 @@ input.cpf-valido {
     border: 2px solid #16a34a;
 }
 
-button:disabled {
+#btnSalvar:disabled {
     background: #94a3b8;
     cursor: not-allowed;
 }
 
-button.loading {
+#btnSalvar.loading {
     background: #666;
     cursor: not-allowed;
 }
@@ -675,7 +695,6 @@ button.loading {
 <main id="capture-area">
 <section class="title">
     <h1>TERMO DE ACEITE E ENTREGA DE SERVIÇOS</h1>
-    <span>UNIDADES MÓVEIS</span>
 </section>
 
 <section class="form-box">
@@ -736,7 +755,7 @@ button.loading {
 </div>
 
 <div class="form-group field">
-    <label>QUEM REALIZOU O ATENDIMENTO?</label>
+    <label>QUEM REALIZOU O ATENDIMENTO</label>
     <input type="text">
 </div>
 
@@ -764,8 +783,9 @@ button.loading {
             </label>
         </div>
     </div>
-<div class="form-group">
+<div class="form-group foto-section">
 <p> </p>
+    <div class="regiao-field">
     <label>REGIÃO DA FOTO</label>
     <select class="regiao-foto" id="regiao-foto">
         <option value="">Selecione</option>
@@ -776,6 +796,7 @@ button.loading {
         <option value="superior">Superior</option>
         <option value="inferior">Inferior</option>
     </select>
+    </div>
     <div class="image-dropzone" id="imageBox">
 
         <input type="file" id="fileInput" accept="image/*" hidden>
@@ -832,7 +853,7 @@ button.loading {
             <input type="text" id="rg-comprador" placeholder="CPF">
         </div>
 
-        <div class="signature-box" style="flex:1;">
+        <div class="signature-box admin-only" style="flex:1;">
             <label>REPRESENTANTE COMERCIAL</label>
             <input type="text" placeholder="Nome completo">
             <input type="text" id="rg-representante" placeholder="CPF">
@@ -840,11 +861,13 @@ button.loading {
     </div>
 
 </section>
-<section class="approval">
+<section class="approval admin-only">
     <strong>APROVAÇÃO FINAL DO TERMO:</strong>
     <div class="approval-fields">
-        <span>REPRESENTANTE: _______________________________</span>
-        <span>CPF: _______________________________</span>
+        <label>REPRESENTANTE</label>
+        <input type="text" placeholder="REPRESENTANTE">
+        <label>CPF</label>
+        <input type="text" placeholder="CPF">
     </div>
 </section>
 </main>
@@ -916,7 +939,7 @@ function unlockButton() {
 function atualizarEstadoBotao() {
     const nomeValido = nomeCliente.value.trim() !== "";
     const cpfCompradorValido = validarCPF(cpfComprador.value);
-    const cpfRepresentanteValido = validarCPF(cpfRepresentante.value);
+    const cpfRepresentanteValido = isEditMode ? validarCPF(cpfRepresentante.value) : true;
     const dataValida =
     diaInput.value &&
     mesInput.value &&
@@ -936,7 +959,7 @@ function atualizarEstadoBotao() {
     cpfComprador.classList.toggle("cpf-invalido", !cpfCompradorValido && cpfComprador.value !== "");
 
     cpfRepresentante.classList.toggle("cpf-valido", cpfRepresentanteValido);
-    cpfRepresentante.classList.toggle("cpf-invalido", !cpfRepresentanteValido && cpfRepresentante.value !== "");
+    cpfRepresentante.classList.toggle("cpf-invalido", isEditMode && !cpfRepresentanteValido && cpfRepresentante.value !== "");
 
     btnSalvar.disabled = !tudoValido;
 }
@@ -986,6 +1009,11 @@ function coletarCamposTermo() {
         }
     };
 
+    const aprovacao = {
+        representante: document.querySelector('section.approval input[placeholder="REPRESENTANTE"]')?.value || "",
+        cpf: document.querySelector('section.approval input[placeholder="CPF"]')?.value || ""
+    };
+
     return {
         data: {
             dia: diaInput.value,
@@ -993,7 +1021,8 @@ function coletarCamposTermo() {
             ano: anoInput.value
         },
         campos,
-        assinaturas
+        assinaturas,
+        aprovacao
     };
 }
 
@@ -1269,6 +1298,14 @@ function renderFotoGrid() {
     diaInput.addEventListener("input", atualizarEstadoBotao);
     mesInput.addEventListener("input", atualizarEstadoBotao);
     anoInput.addEventListener("input", atualizarEstadoBotao);
+    if (!isEditMode) {
+        document.querySelectorAll(".admin-only").forEach((el) => {
+            el.style.display = "none";
+        });
+        document.querySelectorAll(".admin-only input").forEach((el) => {
+            el.disabled = true;
+        });
+    }
     if (regiaoSelect) {
         regiaoSelect.addEventListener("change", () => {
             const regiao = regiaoSelect.value;
@@ -1295,6 +1332,7 @@ function renderFotoGrid() {
 
         lockButton();
 
+        let regiaoFieldDisplay = "";
         try {
             /* === VALIDAÇÕES COMPLETAS === */
             const nome = nomeCliente.value.trim();
@@ -1342,6 +1380,9 @@ function renderFotoGrid() {
             /* === CAPTURA COM BACKGROUND DETERMINÍSTICO === */
             const area = document.getElementById("capture-area");
             area.classList.add("capture-mode");
+            const regiaoField = document.querySelector(".regiao-field");
+            regiaoFieldDisplay = regiaoField ? regiaoField.style.display : "";
+            if (regiaoField) regiaoField.style.display = "none";
 
             await new Promise(r => requestAnimationFrame(r));
             if (document.fonts && document.fonts.ready) {
@@ -1349,12 +1390,12 @@ function renderFotoGrid() {
             }
             await new Promise(r => setTimeout(r, 50));
 
-            const canvas = await html2canvas(area, {
-                scale: 2,
-                useCORS: true,
-                backgroundColor: null,
-                ignoreElements: (el) => el.tagName === "VIDEO" || el.id === "video"
-            });
+    const canvas = await html2canvas(area, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+        ignoreElements: (el) => el.tagName === "VIDEO" || el.id === "video" || el.classList?.contains("regiao-field")
+    });
 
 
             const imagemBase64 = canvas.toDataURL("image/png");
@@ -1420,6 +1461,8 @@ function renderFotoGrid() {
             /* === RESTAURA UI === */
             const area = document.getElementById("capture-area");
             area.classList.remove("capture-mode");
+            const regiaoField = document.querySelector(".regiao-field");
+            if (regiaoField) regiaoField.style.display = regiaoFieldDisplay || "";
         }
     });
 });
