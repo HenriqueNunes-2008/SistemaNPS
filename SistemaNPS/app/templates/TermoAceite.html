@@ -21,7 +21,7 @@
 body {
     margin: 0;
     font-family: 'Inter', Arial, sans-serif;
-    background: #0093dd;
+    background: linear-gradient(90deg, #0093dd 30%, #5b2fa6);
     color: #0f172a;
     padding-top: 120px;
 }
@@ -585,9 +585,8 @@ select.regiao-foto {
 
 /* ================= BOTÃO ================= */
 button {
-    margin-top: -70px;
-    width: 260px;
-    padding: 14px;
+    margin-top: 0;
+    padding: 14px 28px;
     background: #0a287a;
     color: #ffffff;
     border: none;
@@ -599,12 +598,18 @@ button {
 }
 
 .footer-logo {
-    width: 600px;
+    width: 420px;
     max-width: 100%;
     height: auto;
-    margin-right: -10%;
-    margin-top: -70px;
-    z-index: -1;
+}
+
+.footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 900px;
+    margin: 20px auto 0;
+    padding: 0;
 }
 
 input.cpf-invalido {
@@ -844,7 +849,7 @@ button.loading {
 </section>
 </main>
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding: 0 48px;">
+<div class="footer">
     <button type="submit" id="btnSalvar" disabled>SALVAR TERMO DE ACEITE</button>
 
     <img src="/static/logozinha.png"
