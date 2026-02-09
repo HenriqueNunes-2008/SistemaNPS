@@ -340,6 +340,7 @@ def salvar_termo(data: TermoRequest):
                     if img_url:
                         imagens_urls.append({
                             "item": img_data["item"],
+                            "regiao_foto": img_data.get("regiao_foto"),
                             "url": img_url
                         })
                 except Exception as e:
@@ -405,7 +406,7 @@ def atualizar_termo(data: TermoUpdateRequest):
         proc = (
             supabase
             .table("processos")
-            .select("id")
+            .select("id,imagens_termo")
             .eq("codigo", data.processo_codigo)
             .single()
             .execute()
@@ -464,10 +465,25 @@ def atualizar_termo(data: TermoUpdateRequest):
                     if img_url:
                         imagens_urls.append({
                             "item": img_data["item"],
+                            "regiao_foto": img_data.get("regiao_foto"),
                             "url": img_url
                         })
                 except Exception as e:
                     print(f"Erro ao processar imagem {img_data['item']}: {e}")
+
+        # Mantém imagens existentes quando não houver novas ou para mesclar por região
+        imagens_existentes = proc.data.get("imagens_termo") or []
+        if imagens_urls:
+            existentes_map = {}
+            for img in imagens_existentes:
+                key = img.get("regiao_foto") or f"item:{img.get('item')}"
+                existentes_map[key] = img
+            for img in imagens_urls:
+                key = img.get("regiao_foto") or f"item:{img.get('item')}"
+                existentes_map[key] = img
+            imagens_urls = list(existentes_map.values())
+        else:
+            imagens_urls = imagens_existentes or None
 
         supabase.table("processos").update({
             "nome_cliente": data.nome_cliente,
