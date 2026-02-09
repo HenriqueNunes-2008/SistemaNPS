@@ -12,7 +12,7 @@ def obter_processo(codigo: str):
         .table("processos")
         .select(
             "codigo,nome_cliente,empresa,cpf,status_entrega,"
-            "termo_dados,ressalvas_dados,nps_dados"
+            "termo_dados,ressalvas_dados,nps_dados,imagens_termo"
         )
         .eq("codigo", codigo)
         .single()
