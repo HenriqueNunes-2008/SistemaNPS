@@ -1087,10 +1087,20 @@ async function carregarEdicao() {
             if (card) selectStatus(card);
         }
 
-        if (Array.isArray(data.imagens) && data.imagens.length > 0) {
-            data.imagens.forEach((img) => {
-                if (img?.regiao_foto && img?.imagem_base64) {
-                    fotoPorRegiao[img.regiao_foto] = img.imagem_base64;
+        if (Array.isArray(data.imagens_termo) && data.imagens_termo.length > 0) {
+            const ordemRegioes = [
+                "frontal",
+                "traseira",
+                "lateral-esquerda",
+                "lateral-direita",
+                "superior",
+                "inferior"
+            ];
+            data.imagens_termo.forEach((img, idx) => {
+                const regiao = img?.regiao_foto || ordemRegioes[idx];
+                const url = img?.url;
+                if (regiao && url) {
+                    fotoPorRegiao[regiao] = url;
                 }
             });
             renderFotoGrid();
@@ -1365,11 +1375,12 @@ function renderFotoGrid() {
                 "inferior"
             ];
             ordemRegioes.forEach((regiao, index) => {
-                if (fotoPorRegiao[regiao]) {
+                const imgSrc = fotoPorRegiao[regiao];
+                if (imgSrc && imgSrc.startsWith("data:")) {
                     imagens.push({
                         item: index + 1,
                         regiao_foto: regiao,
-                        imagem_base64: fotoPorRegiao[regiao]
+                        imagem_base64: imgSrc
                     });
                 }
             });
