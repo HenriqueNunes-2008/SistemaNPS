@@ -1,10 +1,30 @@
-from fastapi import APIRouter, Request, HTTPException, Response
+import re
+from urllib.parse import quote_plus
+
+from fastapi import APIRouter, Request, HTTPException, Response, Form, status
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from app.services.supabase_client import supabase
+from supabase import create_client
+import os
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates", auto_reload=True)
+
+
+def _new_supabase_client():
+    return create_client(
+        os.getenv("SUPABASE_URL"),
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    )
+
+
+def _password_is_valid(password: str) -> bool:
+    return (
+        len(password) >= 6
+        and bool(re.search(r"[A-Za-z]", password))
+        and bool(re.search(r"\d", password))
+    )
 
 
 def _extract_storage_path(public_url: str) -> str | None:
@@ -30,11 +50,60 @@ def _download_pdf(url: str) -> bytes:
 
 @router.get("/", response_class=HTMLResponse)
 def login(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    erro = request.query_params.get("erro")
+    sucesso = request.query_params.get("sucesso")
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "erro": erro,
+            "sucesso": sucesso
+        }
+    )
 
 @router.get("/login", response_class=HTMLResponse)
 def login_alias(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    erro = request.query_params.get("erro")
+    sucesso = request.query_params.get("sucesso")
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "erro": erro,
+            "sucesso": sucesso
+        }
+    )
+
+
+@router.post("/login")
+def login_submit(
+    email: str = Form(...),
+    password: str = Form(...)
+):
+    email = email.strip().lower()
+    auth_client = _new_supabase_client()
+
+    try:
+        auth_response = auth_client.auth.sign_in_with_password(
+            {
+                "email": email,
+                "password": password
+            }
+        )
+    except Exception:
+        auth_response = None
+
+    if not auth_response or not getattr(auth_response, "session", None):
+        erro = quote_plus("Email ou senha invalidos.")
+        return RedirectResponse(
+            url=f"/login?erro={erro}",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+
+    return RedirectResponse(
+        url="/index",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
 
 @router.get("/index", response_class=HTMLResponse)
 def index(request: Request):
@@ -42,7 +111,171 @@ def index(request: Request):
 
 @router.get("/cadastro", response_class=HTMLResponse)
 def cadastro(request: Request):
-    return templates.TemplateResponse("cadastro.html", {"request": request})
+    erro = request.query_params.get("erro")
+    sucesso = request.query_params.get("sucesso")
+    return templates.TemplateResponse(
+        "cadastro.html",
+        {
+            "request": request,
+            "erro": erro,
+            "sucesso": sucesso
+        }
+    )
+
+
+@router.post("/cadastro")
+def cadastro_submit(
+    nome: str = Form(...),
+    sobrenome: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...)
+):
+    nome = nome.strip()
+    sobrenome = sobrenome.strip()
+    email = email.strip().lower()
+    if not _password_is_valid(password):
+        erro = quote_plus("A senha deve ter no minimo 6 caracteres e incluir letras e numeros.")
+        return RedirectResponse(
+            url=f"/cadastro?erro={erro}",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+
+    auth_client = _new_supabase_client()
+
+    try:
+        auth_client.auth.admin.create_user(
+            {
+                "email": email,
+                "password": password,
+                "email_confirm": True,
+                "user_metadata": {
+                    "nome": nome,
+                    "sobrenome": sobrenome
+                }
+            }
+        )
+    except Exception:
+        erro = quote_plus("Nao foi possivel concluir o cadastro. Verifique os dados.")
+        return RedirectResponse(
+            url=f"/cadastro?erro={erro}",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+
+    return RedirectResponse(
+        url="/login",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
+@router.get("/esqueci-senha", response_class=HTMLResponse)
+def esqueci_senha(request: Request):
+    erro = request.query_params.get("erro")
+    sucesso = request.query_params.get("sucesso")
+    return templates.TemplateResponse(
+        "esqueci_senha.html",
+        {
+            "request": request,
+            "erro": erro,
+            "sucesso": sucesso
+        }
+    )
+
+
+@router.post("/esqueci-senha")
+def esqueci_senha_submit(
+    request: Request,
+    email: str = Form(...)
+):
+    email = email.strip().lower()
+    auth_client = _new_supabase_client()
+    redirect_to = str(request.url_for("redefinir_senha"))
+
+    try:
+        auth_client.auth.reset_password_for_email(
+            email,
+            {"redirect_to": redirect_to}
+        )
+    except Exception:
+        pass
+
+    sucesso = quote_plus(
+        "Se o email estiver cadastrado, voce recebera um link para redefinir a senha."
+    )
+    return RedirectResponse(
+        url=f"/esqueci-senha?sucesso={sucesso}",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
+@router.get("/redefinir-senha", response_class=HTMLResponse)
+def redefinir_senha(request: Request):
+    erro = request.query_params.get("erro")
+    return templates.TemplateResponse(
+        "redefinir_senha.html",
+        {
+            "request": request,
+            "erro": erro
+        }
+    )
+
+
+@router.post("/redefinir-senha", response_class=HTMLResponse)
+def redefinir_senha_submit(
+    request: Request,
+    access_token: str = Form(""),
+    refresh_token: str = Form(""),
+    password: str = Form(...),
+    password_confirm: str = Form(...)
+):
+    if password != password_confirm:
+        return templates.TemplateResponse(
+            "redefinir_senha.html",
+            {
+                "request": request,
+                "erro": "As senhas nao conferem.",
+                "access_token": access_token,
+                "refresh_token": refresh_token
+            }
+        )
+
+    if not _password_is_valid(password):
+        return templates.TemplateResponse(
+            "redefinir_senha.html",
+            {
+                "request": request,
+                "erro": "A nova senha deve ter no minimo 6 caracteres e incluir letras e numeros.",
+                "access_token": access_token,
+                "refresh_token": refresh_token
+            }
+        )
+
+    if not access_token or not refresh_token:
+        return templates.TemplateResponse(
+            "redefinir_senha.html",
+            {
+                "request": request,
+                "erro": "Link invalido. Solicite um novo link de recuperacao."
+            }
+        )
+
+    auth_client = _new_supabase_client()
+    try:
+        auth_client.auth.set_session(access_token, refresh_token)
+        auth_client.auth.update_user({"password": password})
+    except Exception:
+        return templates.TemplateResponse(
+            "redefinir_senha.html",
+            {
+                "request": request,
+                "erro": "Nao foi possivel redefinir a senha. Solicite um novo link."
+            }
+        )
+
+    sucesso = quote_plus("Senha atualizada com sucesso. Faca login novamente.")
+    return RedirectResponse(
+        url=f"/login?sucesso={sucesso}",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
 
 @router.get("/termo", response_class=HTMLResponse)
 def termo(request: Request):
