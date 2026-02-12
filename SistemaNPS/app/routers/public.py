@@ -467,3 +467,13 @@ def pdf_final(codigo: str):
 @router.get("/.well-known/appspecific/com.chrome.devtools.json")
 def chrome_devtools():
     return {}
+
+@router.get("/logout")
+def logout():
+    response = RedirectResponse(
+        url="/login",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
+    # Remove o cookie de autenticação para encerrar a sessão
+    response.delete_cookie("nps_user")
+    return response
