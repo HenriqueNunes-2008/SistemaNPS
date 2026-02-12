@@ -83,10 +83,17 @@ def login_submit(
     email = email.strip().lower()
 
     if email == "admin@gmail.com" and password == "Senha123":
-        return RedirectResponse(
+        response = RedirectResponse(
             url="/admin",
             status_code=status.HTTP_303_SEE_OTHER
         )
+        response.set_cookie(
+            key="nps_user",
+            value=email,
+            max_age=60 * 60 * 24 * 30,
+            samesite="lax"
+        )
+        return response
 
     auth_client = _new_supabase_client()
 
@@ -107,10 +114,17 @@ def login_submit(
             status_code=status.HTTP_303_SEE_OTHER
         )
 
-    return RedirectResponse(
+    response = RedirectResponse(
         url="/index",
         status_code=status.HTTP_303_SEE_OTHER
     )
+    response.set_cookie(
+        key="nps_user",
+        value=email,
+        max_age=60 * 60 * 24 * 30,
+        samesite="lax"
+    )
+    return response
 
 @router.get("/index", response_class=HTMLResponse)
 def index(request: Request):
