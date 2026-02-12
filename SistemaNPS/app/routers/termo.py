@@ -69,6 +69,7 @@ def _draw_termo_content(c, width: float, height: float, data) -> None:
     termo_dados = data.termo_dados or {}
     campos = dict(termo_dados.get("campos") or {})
     assinaturas = termo_dados.get("assinaturas") or {}
+    aprovacao = termo_dados.get("aprovacao") or {}
     data_info = termo_dados.get("data") or {}
 
     if data.nome_cliente and "NOME DO CLIENTE" not in campos:
@@ -224,6 +225,35 @@ def _draw_termo_content(c, width: float, height: float, data) -> None:
             y = content_top(height)
         y = _draw_label_value(c, margin_x, y, max_width, label, value)
 
+    # Final approval (admin area)
+    aprovacao_representante = aprovacao.get("representante", "")
+    aprovacao_cpf = aprovacao.get("cpf", "")
+    if aprovacao_representante or aprovacao_cpf:
+        if y < content_bottom():
+            c.showPage()
+            draw_header_footer(c, width, height)
+            y = content_top(height)
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(margin_x, y, "APROVACAO FINAL DO TERMO")
+        y -= 18
+
+        y = _draw_label_value(
+            c,
+            margin_x,
+            y,
+            max_width,
+            "APROVACAO - REPRESENTANTE",
+            str(aprovacao_representante),
+        )
+        y = _draw_label_value(
+            c,
+            margin_x,
+            y,
+            max_width,
+            "APROVACAO - CPF",
+            str(aprovacao_cpf),
+        )
+
 router = APIRouter(prefix="/termo", tags=["Termo"])
 
 
@@ -327,8 +357,13 @@ def salvar_termo(data: TermoRequest):
         imagens_urls = []
         if data.imagens:
             for img_data in data.imagens:
+                img_data_base64 = img_data.get("imagem_base64")
+                if not img_data_base64:
+                    continue
+
+                img_url = None
                 try:
-                    _, img_b64 = img_data["imagem_base64"].split(",", 1)
+                    _, img_b64 = img_data_base64.split(",", 1)
                     img_bytes = base64.b64decode(img_b64)
                     img_buffer = BytesIO(img_bytes)
                     img_base64 = (
@@ -336,15 +371,16 @@ def salvar_termo(data: TermoRequest):
                         + base64.b64encode(img_buffer.read()).decode()
                     )
                     img_folder = f"{processo_uuid}/termo/imagens"
-                    img_url = upload_pdf(img_base64, img_folder)  # reuse upload_pdf for images
-                    if img_url:
-                        imagens_urls.append({
-                            "item": img_data["item"],
-                            "regiao_foto": img_data.get("regiao_foto"),
-                            "url": img_url
-                        })
+                    img_url = upload_pdf(img_base64, img_folder)  # best effort
                 except Exception as e:
-                    print(f"Erro ao processar imagem {img_data['item']}: {e}")
+                    print(f"Erro ao subir imagem {img_data.get('item')}: {e}")
+
+                imagens_urls.append({
+                    "item": img_data.get("item"),
+                    "regiao_foto": img_data.get("regiao_foto"),
+                    "url": img_url,
+                    "imagem_base64": img_data_base64
+                })
 
         # ====================================================
         # 8. INSERE PROCESSO NO BANCO
@@ -452,8 +488,13 @@ def atualizar_termo(data: TermoUpdateRequest):
         imagens_urls = []
         if data.imagens:
             for img_data in data.imagens:
+                img_data_base64 = img_data.get("imagem_base64")
+                if not img_data_base64:
+                    continue
+
+                img_url = None
                 try:
-                    _, img_b64 = img_data["imagem_base64"].split(",", 1)
+                    _, img_b64 = img_data_base64.split(",", 1)
                     img_bytes = base64.b64decode(img_b64)
                     img_buffer = BytesIO(img_bytes)
                     img_base64 = (
@@ -461,15 +502,16 @@ def atualizar_termo(data: TermoUpdateRequest):
                         + base64.b64encode(img_buffer.read()).decode()
                     )
                     img_folder = f"{processo_uuid}/termo/imagens"
-                    img_url = upload_pdf(img_base64, img_folder)
-                    if img_url:
-                        imagens_urls.append({
-                            "item": img_data["item"],
-                            "regiao_foto": img_data.get("regiao_foto"),
-                            "url": img_url
-                        })
+                    img_url = upload_pdf(img_base64, img_folder)  # best effort
                 except Exception as e:
-                    print(f"Erro ao processar imagem {img_data['item']}: {e}")
+                    print(f"Erro ao subir imagem {img_data.get('item')}: {e}")
+
+                imagens_urls.append({
+                    "item": img_data.get("item"),
+                    "regiao_foto": img_data.get("regiao_foto"),
+                    "url": img_url,
+                    "imagem_base64": img_data_base64
+                })
 
         # Mantém imagens existentes quando não houver novas ou para mesclar por região
         imagens_existentes = proc.data.get("imagens_termo") or []
