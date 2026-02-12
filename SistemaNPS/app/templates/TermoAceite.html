@@ -1087,7 +1087,16 @@ async function carregarEdicao() {
             if (card) selectStatus(card);
         }
 
-        if (Array.isArray(data.imagens_termo) && data.imagens_termo.length > 0) {
+        let imagensTermo = data.imagens_termo;
+        if (typeof imagensTermo === "string") {
+            try {
+                imagensTermo = JSON.parse(imagensTermo);
+            } catch {
+                imagensTermo = [];
+            }
+        }
+
+        if (Array.isArray(imagensTermo) && imagensTermo.length > 0) {
             const ordemRegioes = [
                 "frontal",
                 "traseira",
@@ -1096,9 +1105,9 @@ async function carregarEdicao() {
                 "superior",
                 "inferior"
             ];
-            data.imagens_termo.forEach((img, idx) => {
+            imagensTermo.forEach((img, idx) => {
                 const regiao = img?.regiao_foto || ordemRegioes[idx];
-                const url = img?.url;
+                const url = img?.imagem_base64 || img?.url || img?.imagem;
                 if (regiao && url) {
                     fotoPorRegiao[regiao] = url;
                 }
@@ -1365,6 +1374,7 @@ function renderFotoGrid() {
 
             /* === COLETA IMAGENS === */
             const imagens = [];
+            let fotosPreenchidas = 0;
 
             const ordemRegioes = [
                 "frontal",
@@ -1376,6 +1386,9 @@ function renderFotoGrid() {
             ];
             ordemRegioes.forEach((regiao, index) => {
                 const imgSrc = fotoPorRegiao[regiao];
+                if (imgSrc) {
+                    fotosPreenchidas += 1;
+                }
                 if (imgSrc && imgSrc.startsWith("data:")) {
                     imagens.push({
                         item: index + 1,
@@ -1385,7 +1398,7 @@ function renderFotoGrid() {
                 }
             });
 
-            if (imagens.length !== 6) {
+            if (fotosPreenchidas !== 6) {
                 throw new Error("Tire as 6 fotos antes de salvar o termo");
             }
             /* === CAPTURA COM BACKGROUND DETERMINÍSTICO === */
