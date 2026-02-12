@@ -1,0 +1,211 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+    background: linear-gradient(90deg, #0f87e9, #202677);
+    overflow: hidden;
+    height: 100vh;
+}
+
+/* LOGO INFERIOR */
+.logo1 {
+    position: absolute;
+    height: 50%;
+    left: 65%;
+    top: 90%;
+    transform: translate(-50%, -50%);
+    z-index: 0;
+}
+
+/* IMAGEM ESQUERDA */
+.tablet-img {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    width: 35%;
+    object-fit: cover;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    z-index: 0;
+    filter: brightness(0.85);
+}
+
+/* ÁREA DA DIREITA */
+.right {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: calc(100% - 35%);
+    color: #fff;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    z-index: 2;
+}
+
+/* TÍTULOS */
+.title {
+    font-size: 2.5vw;
+    font-weight: bold;
+    line-height: 1.3;
+    text-align: left;
+    margin-left: 8%;
+}
+
+.subtitle {
+    background: white;
+    color: #0057a1;
+    padding: 6px 20px;
+    margin: 10px 0 55px;
+    font-size: 36px;
+    font-weight: bold;
+    text-align: left;
+    width: fit-content;
+    margin-left: 8%;
+}
+
+/* CONTAINER DE BOTÕES */
+.buttons-container {
+    display: flex;
+    flex-direction: column;
+    gap: 5rem;
+    align-items: flex-start;
+    width: 100%;
+    z-index: 2;
+    margin-left: 10%;
+}
+
+/* BARRAS DAS OPÇÕES */
+.option {
+    position: relative;   /* necessário para o ícone usar posição absoluta */
+    width: 18vw;
+    min-width: 200px;
+    max-width: 340px;
+    height: 40px;
+    font-size: 1.2rem;
+    padding: 0 1.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* texto do lado esquerdo */
+    border-radius: 40px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+    cursor: pointer;
+    font-weight: bold;
+    font-style: italic;
+    text-decoration: none;
+    color: white;
+    overflow: visible;
+}
+
+
+.icone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    left: -13%;
+    pointer-events: none;
+}
+/* ÍCONE */
+.option .icone {
+    height: 40px;
+    width: auto;
+    margin-right: -0.5rem;
+    flex-shrink: 0;
+    transform: scale(1.5);
+    transition: transform .18s ease, filter .18s ease;
+}
+
+.adm {
+    position: absolute;
+    height: 8%;
+    left: 95%;
+    top: 5%;
+    transform: translate(-50%, -50%);
+}
+
+/* ÍCONE ESPECÍFICO PARA GREEN-BOX */
+.green-box .icone {
+    transform: scale(4.9);
+}
+
+.blue-box .icone {
+    transform: scale(4.7);
+    top: -10px;
+}
+
+.orange-box .icone {
+    transform: scale(4.7);
+}
+
+/* EFEITO HOVER */
+.option:hover {
+    transform: translateY(-3px);
+    box-shadow: 
+        0 6px 28px rgba(255,255,255,0.25),
+        0 4px 20px rgba(0,0,0,0.35);
+    filter: brightness(1.12);
+}
+
+/* ÍCONE cresce sem afetar caixa */
+.option:hover .icone {
+    transform: scale(5.20);
+    filter: brightness(1.2);
+}
+
+/* CORES */
+.green-box  { background: #529b36; }
+.blue-box   { background: #5f96c4; }
+.orange-box { background: #da7b22; }
+
+/* LOGO DE FUNDO */
+.logo2 {
+    position: absolute;
+    height: 150%;
+    rotate: 20deg;
+    left: 77%;
+    top: 110%;
+    opacity: 0.1;
+    transform: translate(-50%, -50%);
+    z-index: 0;
+}
+
+.logo3 {
+    position: absolute;
+    height: 20%;
+    left: 35%;
+    top: 60%;
+    transform: translate(-50%, -50%);
+    z-index: 0;
+    
+}
+
+/* BOTÃO ADMIN */
+.admin-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    height: 40px;
+    z-index: 10;
+}
+
+/* RESPONSIVIDADE */
+@media (max-width: 900px) {
+    .tablet-img { width: 40%; }
+    .right { width: calc(100% - 40%); padding: 24px; }
+    .option { width: 60%; }
+}
+
+@media (max-width: 600px) {
+    .tablet-img { display: none; }
+    .right { width: 100%; padding: 20px; }
+    .title { font-size: 5.5vw; }
+    .option { width: 90%; }
+}

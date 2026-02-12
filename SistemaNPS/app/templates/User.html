@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Identificação</title>
+
+<style>
+/* ================= RESET ================= */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* ================= BASE ================= */
+body {
+    min-height: 100vh;
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(90deg, #0093dd 30%, #5b2fa6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+}
+
+/* ================= CONTAINER ================= */
+.container {
+    max-width: 900px;
+    width: 100%;
+    padding: 32px;
+    text-align: center;
+}
+
+/* ================= TITULOS ================= */
+h1 {
+    font-size: 32px;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    font-size: 18px;
+    opacity: 0.9;
+    margin-bottom: 40px;
+}
+
+/* ================= OPÇÕES ================= */
+.options {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* ================= CARD ================= */
+.card {
+    background: #ffffff;
+    color: #2b2b2b;
+    border-radius: 16px;
+    padding: 24px 32px;
+    width: 360px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 4px solid #9dd6f4;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+}
+
+/* ================= ICON ================= */
+.icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #5bb3e3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.icon img {
+    width: 38px;
+    height: 38px;
+}
+
+/* ================= TEXTO ================= */
+.card-text {
+    text-align: left;
+}
+
+.card-text strong {
+    display: block;
+    font-size: 20px;
+    font-weight: 800;
+    color: #3b1b7a;
+}
+
+.card-text span {
+    font-size: 14px;
+    opacity: 0.85;
+}
+
+/* ================= MOBILE ================= */
+@media (max-width: 768px) {
+    .card {
+        width: 100%;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>IDENTIFIQUE-SE PARA CONTINUAR</h1>
+    <div class="subtitle">
+        Selecione a opção que melhor se aplica a você:
+    </div>
+
+    <div class="options">
+
+        <!-- CARD CLIENTE -->
+        <div class="card" onclick="selecionar('cliente')">
+            <div class="icon">
+                <img src="/static/Cliente.png" alt="Cliente">
+            </div>
+            <div class="card-text">
+                <strong>SOU CLIENTE</strong>
+                <span>E VIM FAZER RETIRADA</span>
+            </div>
+        </div>
+
+        <!-- CARD MOTORISTA -->
+        <div class="card" onclick="selecionar('motorista')">
+            <div class="icon">
+                <img src="motorista.png" alt="Motorista">
+            </div>
+            <div class="card-text">
+                <strong>SOU MOTORISTA</strong>
+                <span>E VIM FAZER RETIRADA</span>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+function selecionar(tipo) {
+    if (tipo === 'cliente') {
+        window.location.href = '/nps';
+    }
+
+    if (tipo === 'motorista') {
+        window.location.href = '/nps-motor';
+    }
+}
+</script>
+
+</body>
+</html>
