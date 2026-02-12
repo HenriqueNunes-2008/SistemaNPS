@@ -922,6 +922,34 @@ const urlParams = new URLSearchParams(window.location.search);
 const processoParam = urlParams.get("processo");
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
+let processoEmAndamento = null;
+
+function getCookieValue(name) {
+    const key = `${name}=`;
+    const cookies = document.cookie ? document.cookie.split(";") : [];
+    for (const rawCookie of cookies) {
+        const cookie = rawCookie.trim();
+        if (cookie.startsWith(key)) {
+            return decodeURIComponent(cookie.substring(key.length));
+        }
+    }
+    return "";
+}
+
+function getProgressStorageKey() {
+    const usuario = getCookieValue("nps_user") || "anon";
+    return `nps_processo_id::${usuario}`;
+}
+
+function getCurrentProcessId() {
+    return localStorage.getItem(getProgressStorageKey()) || sessionStorage.getItem("processo_id");
+}
+
+function saveCurrentProcessId(processoId) {
+    if (!processoId) return;
+    localStorage.setItem(getProgressStorageKey(), processoId);
+    sessionStorage.setItem("processo_id", processoId);
+}
 
 /* ================= LOCK/UNLOCK BOTÃO ================= */
 function lockButton() {
@@ -1026,10 +1054,10 @@ function coletarCamposTermo() {
     };
 }
 
-async function carregarEdicao() {
-    if (!isEditMode) return;
+async function carregarEdicao(codigoProcesso) {
+    if (!codigoProcesso) return;
     try {
-        const res = await fetch(`/api/processos/${processoParam}`);
+        const res = await fetch(`/api/processos/${codigoProcesso}`);
         if (!res.ok) return;
         const data = await res.json();
 
@@ -1341,7 +1369,8 @@ function renderFotoGrid() {
         });
     }
 
-    carregarEdicao();
+    processoEmAndamento = isEditMode ? null : getCurrentProcessId();
+    carregarEdicao(isEditMode ? processoParam : processoEmAndamento);
 
     /* ================= SALVAR TERMO ================= */
     btnSalvar.addEventListener("click", async (e) => {
@@ -1425,12 +1454,13 @@ function renderFotoGrid() {
             const imagemBase64 = canvas.toDataURL("image/png");
 
                                 /* === ENVIA PARA O BACKEND === */
-                                const endpoint = isEditMode ? "/termo/atualizar" : "/termo/salvar";
+                                const codigoParaSalvar = isEditMode ? processoParam : processoEmAndamento;
+                                const endpoint = codigoParaSalvar ? "/termo/atualizar" : "/termo/salvar";
                                 const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    processo_codigo: processoParam,
+                    processo_codigo: codigoParaSalvar,
                     cpf,
                     nome_cliente: nome,
                     empresa: empresa,
@@ -1459,7 +1489,7 @@ function renderFotoGrid() {
             }
 
             /* sucesso */
-            sessionStorage.setItem("processo_id", result.processo_id);
+            saveCurrentProcessId(result.processo_id);
             sessionStorage.setItem("nome_cliente", nome);
             sessionStorage.setItem("cpf", cpf);
 
