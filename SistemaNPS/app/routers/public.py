@@ -39,7 +39,7 @@ def _extract_storage_path(public_url: str) -> str | None:
 def _download_pdf(url: str) -> bytes:
     path = _extract_storage_path(url)
     if not path:
-        raise HTTPException(status_code=400, detail="URL de storage invÃ¡lida")
+        raise HTTPException(status_code=400, detail="URL de storage inválida")
 
     res = supabase.storage.from_("processos").download(path)
     if hasattr(res, "error") and res.error:
@@ -413,7 +413,7 @@ def pdf_termo(codigo: str):
         .execute()
     )
     if not proc.data or not proc.data.get("termo_pdf"):
-        raise HTTPException(status_code=404, detail="PDF do termo nÃ£o encontrado")
+        raise HTTPException(status_code=404, detail="PDF do termo não encontrado")
 
     pdf_bytes = _download_pdf(proc.data["termo_pdf"])
     return Response(
@@ -434,7 +434,7 @@ def pdf_ressalvas(codigo: str):
         .execute()
     )
     if not proc.data or not proc.data.get("pdf_ressalvas"):
-        raise HTTPException(status_code=404, detail="PDF de ressalvas nÃ£o encontrado")
+        raise HTTPException(status_code=404, detail="PDF de ressalvas não encontrado")
 
     pdf_bytes = _download_pdf(proc.data["pdf_ressalvas"])
     return Response(
@@ -455,7 +455,7 @@ def pdf_final(codigo: str):
         .execute()
     )
     if not proc.data or not proc.data.get("pdf_final"):
-        raise HTTPException(status_code=404, detail="PDF final nÃ£o encontrado")
+        raise HTTPException(status_code=404, detail="PDF final não encontrado")
 
     pdf_bytes = _download_pdf(proc.data["pdf_final"])
     return Response(
