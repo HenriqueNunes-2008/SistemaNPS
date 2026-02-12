@@ -438,7 +438,7 @@ input.item-duplicado { border: 2px solid #dc2626; }
 
 <div class="breadcrumb-wrapper">
     <nav class="breadcrumb">
-        <a href="/index" class="breadcrumb-item">Página Inicial</a>
+        <a href="/" class="breadcrumb-item">Página Inicial</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
         <a href="/termo" class="breadcrumb-item">Termo de Aceite</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
@@ -635,6 +635,7 @@ const processoParam = urlParams.get("processo");
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
 const isAdmin = returnTo === "/admin";
+const cpfInput = document.querySelector('section.approval input[placeholder="CPF"]');
 
 let currentBox = null;
 let stream = null;
@@ -798,24 +799,26 @@ function closeModal() {
 }
 
 /* CPF */
-cpfInput.addEventListener('input', () => {
-    let v = cpfInput.value.replace(/\D/g, '').slice(0,11);
-    v = v.replace(/(\d{3})(\d)/, '$1.$2');
-    v = v.replace(/(\d{3})(\d)/, '$1.$2');
-    v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-    cpfInput.value = v;
+if (cpfInput) {
+    cpfInput.addEventListener('input', () => {
+        let v = cpfInput.value.replace(/\D/g, '').slice(0,11);
+        v = v.replace(/(\d{3})(\d)/, '$1.$2');
+        v = v.replace(/(\d{3})(\d)/, '$1.$2');
+        v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+        cpfInput.value = v;
 
-    if (!v) {
-        cpfInput.classList.remove('cpf-valido');
-        cpfInput.classList.remove('cpf-invalido');
-        if (!btnSalvar.dataset.locked) {
-            btnSalvar.disabled = !validarFormulario();
+        if (!v) {
+            cpfInput.classList.remove('cpf-valido');
+            cpfInput.classList.remove('cpf-invalido');
+            if (!btnSalvar.dataset.locked) {
+                btnSalvar.disabled = !validarFormulario();
+            }
+            return;
         }
-        return;
-    }
 
-    validarCPF(v);
-});
+        validarCPF(v);
+    });
+}
 
 function validarCPF(cpf) {
     cpf = cpf.replace(/\D/g, '');
@@ -853,6 +856,7 @@ function validarFormulario() {
 }
 
 function setCPF(ok){
+    if (!cpfInput) return;
     if (cpfInput.value.trim() === "") {
         cpfInput.classList.remove('cpf-valido');
         cpfInput.classList.remove('cpf-invalido');
