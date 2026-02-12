@@ -108,6 +108,14 @@ body {
     padding: 0 60px 0 200px;
 }
 
+.logout-link {
+    color: #1e3a8a;
+    font-weight: 800;
+    text-decoration: none;
+    margin-left: 20px;
+    font-size: 14px;
+}
+
 .header-info {
     display: flex;
     align-items: center;
@@ -413,6 +421,40 @@ input.item-duplicado { border: 2px solid #dc2626; }
     color: #fff;
     cursor: pointer;
 }
+
+/* Modal de Logout */
+.modal-logout {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+.modal-logout-content {
+    background: #fff;
+    border: 2px solid #dc2626;
+    padding: 30px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+.modal-logout-text {
+    color: #dc2626;
+    font-weight: bold;
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+.modal-logout-sub {
+    color: #333;
+    margin-bottom: 25px;
+    font-size: 14px;
+}
+.btn-logout-confirm { background: #dc2626; color: #fff; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+.btn-logout-cancel { background: #e5e7eb; color: #374151; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-right: 10px; }
 </style>
 </head>
 
@@ -432,6 +474,7 @@ input.item-duplicado { border: 2px solid #dc2626; }
                 <span class="email">comercial@soukure.com.br</span><br>
                 <span class="phone">(11) 2372-7444</span>
             </div>
+            <a href="#" onclick="openLogoutModal(event)" class="logout-link">SAIR</a>
         </div>
     </div>
 </div>
@@ -489,6 +532,16 @@ input.item-duplicado { border: 2px solid #dc2626; }
     <img id="modalImg">
 </div>
 <script>
+function openLogoutModal(e) {
+    if(e) e.preventDefault();
+    document.getElementById('logoutModal').style.display = 'flex';
+}
+function closeLogoutModal() {
+    document.getElementById('logoutModal').style.display = 'none';
+}
+function confirmLogout() {
+    window.location.href = '/logout';
+}
 document.getElementById("btnSalvar").addEventListener("click", async function () {
     if (this.disabled) return;
 
@@ -962,6 +1015,15 @@ if (!isAdmin) {
     </div>
 </div>
 
+<!-- MODAL LOGOUT -->
+<div id="logoutModal" class="modal-logout" style="display: none;">
+    <div class="modal-logout-content">
+        <div class="modal-logout-text">ATENÇÃO</div>
+        <p class="modal-logout-sub">Tem certeza que deseja sair da sua conta? Lembre-se de salvar as requisições para registro.</p>
+        <button onclick="closeLogoutModal()" class="btn-logout-cancel">Cancelar</button>
+        <button onclick="confirmLogout()" class="btn-logout-confirm">SAIR</button>
+    </div>
+</div>
 
 </body>
 </html>
