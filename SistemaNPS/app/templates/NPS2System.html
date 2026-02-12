@@ -336,7 +336,7 @@ textarea {
 
 <div class="breadcrumb-wrapper">
     <nav class="breadcrumb">
-        <a href="/index" class="breadcrumb-item">Página Inicial</a>
+        <a href="/" class="breadcrumb-item">Página Inicial</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
         <a href="/termo" class="breadcrumb-item">Termo de Aceite</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
@@ -498,6 +498,33 @@ const urlParams = new URLSearchParams(window.location.search);
 const processoParam = urlParams.get("processo");
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
+const processoEmAndamento = isEditMode ? null : getCurrentProcessId();
+
+function getCookieValue(name) {
+    const key = `${name}=`;
+    const cookies = document.cookie ? document.cookie.split(";") : [];
+    for (const rawCookie of cookies) {
+        const cookie = rawCookie.trim();
+        if (cookie.startsWith(key)) {
+            return decodeURIComponent(cookie.substring(key.length));
+        }
+    }
+    return "";
+}
+
+function getProgressStorageKey() {
+    const usuario = getCookieValue("nps_user") || "anon";
+    return `nps_processo_id::${usuario}`;
+}
+
+function getCurrentProcessId() {
+    return localStorage.getItem(getProgressStorageKey()) || sessionStorage.getItem("processo_id");
+}
+
+function clearCurrentProcessId() {
+    localStorage.removeItem(getProgressStorageKey());
+    sessionStorage.removeItem("processo_id");
+}
 
 // -------------------------
 // NPS (1 a 10)
@@ -541,10 +568,10 @@ function setStar(name, value) {
     if (el) el.checked = true;
 }
 
-async function carregarEdicaoNps() {
-    if (!isEditMode) return;
+async function carregarEdicaoNps(codigoProcesso) {
+    if (!codigoProcesso) return;
     try {
-        const res = await fetch(`/api/processos/${processoParam}`);
+        const res = await fetch(`/api/processos/${codigoProcesso}`);
         if (!res.ok) return;
         const data = await res.json();
         const nps = data.nps_dados;
@@ -578,7 +605,7 @@ async function carregarEdicaoNps() {
 document.querySelector("form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const processoId = processoParam || sessionStorage.getItem("processo_id");
+    const processoId = processoParam || processoEmAndamento;
 
     if (!processoId) {
         alert("Processo não encontrado.");
@@ -629,6 +656,10 @@ document.querySelector("form").addEventListener("submit", async (e) => {
             throw new Error(data.detail || "Erro ao finalizar NPS");
         }
 
+        if (!isEditMode) {
+            clearCurrentProcessId();
+        }
+
         const submitBtn = document.querySelector('.submit-btn');
         submitBtn.textContent = 'SALVANDO...';
 
@@ -645,7 +676,7 @@ document.querySelector("form").addEventListener("submit", async (e) => {
     }
 });
 
-carregarEdicaoNps();
+carregarEdicaoNps(isEditMode ? processoParam : processoEmAndamento);
 </script>
 
 
