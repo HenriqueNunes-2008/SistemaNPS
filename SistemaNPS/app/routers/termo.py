@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from typing import List, Optional
 import base64
+import hashlib
 import os
 import re
 import random
@@ -8,6 +10,7 @@ import string
 import uuid
 from datetime import datetime
 from io import BytesIO
+import json
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -18,6 +21,76 @@ import math
 from app.services.upload import upload_pdf
 from app.services.supabase_client import supabase
 from app.services.pdf_layout import draw_header_footer, content_top, content_bottom
+
+
+def normalize_base64(encoded: str) -> str:
+    encoded = encoded.strip().replace("\n", "").replace("\r", "")
+    missing_padding = len(encoded) % 4
+    if missing_padding:
+        encoded += "=" * (4 - missing_padding)
+    return encoded
+
+
+def gerar_hash_imagem(base64_data: str) -> str:
+    _, encoded = base64_data.split(",", 1)
+    encoded = normalize_base64(encoded)
+    raw = base64.b64decode(encoded)
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _normalizar_itens_imagem(termo_dados: dict | None, imagens: list | None, imagens_existentes: list | None = None) -> list[dict]:
+    # Prioriza a lista 'imagens' explícita se fornecida
+    itens = imagens if imagens else []
+    
+    # Fallback para termo_dados['itens'] apenas se 'imagens' estiver vazia
+    if not itens and isinstance(termo_dados, dict):
+        itens = termo_dados.get("itens") or []
+
+    # Mapeia imagens existentes para preservação
+    mapa_existente = {}
+    if imagens_existentes and isinstance(imagens_existentes, list):
+        for i, img in enumerate(imagens_existentes):
+            if isinstance(img, dict):
+                key = str(img.get("item")) if img.get("item") is not None else str(i + 1)
+                mapa_existente[key] = img
+
+    itens_normalizados = []
+    for idx, item in enumerate(itens):
+        if not isinstance(item, dict):
+            continue
+        
+        item_val = item.get("item") if item.get("item") is not None else (idx + 1)
+        item_key = str(item_val)
+
+        imagem_base64 = item.get("imagem_base64")
+        imagem_hash = item.get("imagem_hash")
+
+        if isinstance(imagem_base64, str) and "," in imagem_base64:
+            try:
+                imagem_hash = gerar_hash_imagem(imagem_base64)
+            except Exception:
+                imagem_hash = None
+        else:
+            # Tenta preservar a imagem existente se a nova estiver ausente
+            if item_key in mapa_existente:
+                existing = mapa_existente[item_key]
+                if existing.get("imagem_base64"):
+                    imagem_base64 = existing.get("imagem_base64")
+                    imagem_hash = existing.get("imagem_hash")
+
+        itens_normalizados.append({
+            "item": item_val,
+            "regiao_foto": item.get("regiao_foto"),
+            "imagem_base64": imagem_base64,
+            "imagem_hash": imagem_hash
+        })
+    return itens_normalizados
+
+
+def _normalizar_termo_dados(termo_dados: dict | None, imagens: list | None, imagens_existentes: list | None = None) -> dict:
+    base = dict(termo_dados or {})
+    base["itens"] = _normalizar_itens_imagem(base, imagens, imagens_existentes)
+    return base
 
 
 def _wrap_text(text: str, max_width: float, font_name: str, font_size: int) -> list[str]:
@@ -140,7 +213,7 @@ def _draw_termo_content(c, width: float, height: float, data) -> None:
         y = _draw_label_value(c, margin_x, y, max_width, "STATUS DA ENTREGA", status_label)
 
     # Fotos (se houver)
-    imagens = list(data.imagens or [])
+    imagens = _normalizar_itens_imagem(termo_dados, data.imagens)
     if imagens:
         imagens = sorted(imagens, key=lambda i: i.get("item", 0))
         gap = 10
@@ -261,13 +334,20 @@ router = APIRouter(prefix="/termo", tags=["Termo"])
 # MODEL
 # ============================================================
 
+class ImagemTermo(BaseModel):
+    item: str | int
+    regiao_foto: str | None = None
+    imagem_base64: str | None = None
+    imagem_hash: str | None = None
+
+
 class TermoRequest(BaseModel):
     cpf: str
     nome_cliente: str
     empresa: str | None = None
     status_entrega: str
     imagem: str  # base64 (data:image/...)
-    imagens: list = []  # list of dicts with item and imagem_base64
+    imagens: List[ImagemTermo] | list = []
     termo_dados: dict | None = None
 
 
@@ -278,7 +358,7 @@ class TermoUpdateRequest(BaseModel):
     empresa: str | None = None
     status_entrega: str
     imagem: str
-    imagens: list = []
+    imagens: List[ImagemTermo] | list = []
     termo_dados: dict | None = None
 
 
@@ -316,6 +396,15 @@ def salvar_termo(data: TermoRequest):
         codigo_processo = f"{primeiro_nome}_{ultimos_cpf}_{data_hoje}_{sufixo}"
         processo_uuid = str(uuid.uuid4())  # ✅ UUID REAL (IMPORTANTE)
 
+        termo_dados_normalizado = _normalizar_termo_dados(data.termo_dados, data.imagens)
+        data.termo_dados = termo_dados_normalizado
+        data.imagens = termo_dados_normalizado.get("itens") or []
+
+        # Converte para dict se vier como objeto Pydantic
+        imagens_lista = []
+        for img in data.imagens:
+            imagens_lista.append(img.dict() if hasattr(img, "dict") else img)
+
         # ====================================================
         # 4. GERA PDF EM MEMÓRIA
         # ====================================================
@@ -351,51 +440,30 @@ def salvar_termo(data: TermoRequest):
                 detail="Falha no upload do PDF"
             )
 
-        # ====================================================
-        # 7. UPLOAD IMAGENS ADICIONAIS (SE HOUVER)
-        # ====================================================
-        imagens_urls = []
-        if data.imagens:
-            for img_data in data.imagens:
-                img_data_base64 = img_data.get("imagem_base64")
-                if not img_data_base64:
-                    continue
-
-                img_url = None
+        # Upload das imagens individuais para o Storage
+        for img_data in imagens_lista:
+            if img_data and img_data.get("imagem_base64"):
                 try:
-                    _, img_b64 = img_data_base64.split(",", 1)
-                    img_bytes = base64.b64decode(img_b64)
-                    img_buffer = BytesIO(img_bytes)
-                    img_base64 = (
-                        "data:image/png;base64,"
-                        + base64.b64encode(img_buffer.read()).decode()
-                    )
-                    img_folder = f"{processo_uuid}/termo/imagens"
-                    img_url = upload_pdf(img_base64, img_folder)  # best effort
-                except Exception as e:
-                    print(f"Erro ao subir imagem {img_data.get('item')}: {e}")
-
-                imagens_urls.append({
-                    "item": img_data.get("item"),
-                    "regiao_foto": img_data.get("regiao_foto"),
-                    "url": img_url,
-                    "imagem_base64": img_data_base64
-                })
+                    # A função upload_pdf é genérica e pode lidar com data URIs de imagem
+                    upload_pdf(img_data["imagem_base64"], folder)
+                except Exception:
+                    # Opcional: logar falha, mas continuar o processo
+                    pass
 
         # ====================================================
-        # 8. INSERE PROCESSO NO BANCO
+        # 7. INSERE PROCESSO NO BANCO
         # ====================================================
         res = supabase.table("processos").insert({
-            "processo_id": processo_uuid,     # ✅ UUID REAL
-            "codigo": codigo_processo,        # ✅ CÓDIGO HUMANO
+            "id": processo_uuid,
+            "codigo": codigo_processo,
             "nome_cliente": data.nome_cliente,
             "empresa": data.empresa,
             "cpf": cpf_limpo,
             "status": "TERMO_GERADO",
             "status_entrega": data.status_entrega,
             "termo_pdf": termo_url,
-            "imagens_termo": imagens_urls if imagens_urls else None,
-            "termo_dados": data.termo_dados,
+            "imagens_termo": imagens_lista,
+            "termo_dados": termo_dados_normalizado,
             "criado_em": datetime.utcnow().isoformat()
         }).execute()
 
@@ -442,7 +510,7 @@ def atualizar_termo(data: TermoUpdateRequest):
         proc = (
             supabase
             .table("processos")
-            .select("id,imagens_termo")
+            .select("id, imagens_termo")
             .eq("codigo", data.processo_codigo)
             .single()
             .execute()
@@ -453,12 +521,29 @@ def atualizar_termo(data: TermoUpdateRequest):
 
         processo_uuid = proc.data["id"]
 
+        # Carrega imagens existentes para preservação
+        imagens_existentes = proc.data.get("imagens_termo")
+        if isinstance(imagens_existentes, str):
+            try:
+                imagens_existentes = json.loads(imagens_existentes)
+            except:
+                imagens_existentes = []
+
         # Decode imagem principal
         try:
             _, img_b64 = data.imagem.split(",", 1)
             img_bytes = base64.b64decode(img_b64)
         except Exception:
             raise HTTPException(status_code=400, detail="Falha ao decodificar imagem")
+
+        termo_dados_normalizado = _normalizar_termo_dados(data.termo_dados, data.imagens, imagens_existentes)
+        data.termo_dados = termo_dados_normalizado
+        data.imagens = termo_dados_normalizado.get("itens") or []
+
+        # Converte para dict se vier como objeto Pydantic
+        imagens_lista = []
+        for img in data.imagens:
+            imagens_lista.append(img.dict() if hasattr(img, "dict") else img)
 
         # Gera PDF em memória
         buffer = BytesIO()
@@ -484,48 +569,15 @@ def atualizar_termo(data: TermoUpdateRequest):
         if not termo_url:
             raise HTTPException(status_code=500, detail="Falha no upload do PDF")
 
-        # Upload imagens adicionais (se houver)
-        imagens_urls = []
-        if data.imagens:
-            for img_data in data.imagens:
-                img_data_base64 = img_data.get("imagem_base64")
-                if not img_data_base64:
-                    continue
-
-                img_url = None
+        # Upload das imagens individuais para o Storage
+        for img_data in imagens_lista:
+            if img_data and img_data.get("imagem_base64"):
                 try:
-                    _, img_b64 = img_data_base64.split(",", 1)
-                    img_bytes = base64.b64decode(img_b64)
-                    img_buffer = BytesIO(img_bytes)
-                    img_base64 = (
-                        "data:image/png;base64,"
-                        + base64.b64encode(img_buffer.read()).decode()
-                    )
-                    img_folder = f"{processo_uuid}/termo/imagens"
-                    img_url = upload_pdf(img_base64, img_folder)  # best effort
-                except Exception as e:
-                    print(f"Erro ao subir imagem {img_data.get('item')}: {e}")
-
-                imagens_urls.append({
-                    "item": img_data.get("item"),
-                    "regiao_foto": img_data.get("regiao_foto"),
-                    "url": img_url,
-                    "imagem_base64": img_data_base64
-                })
-
-        # Mantém imagens existentes quando não houver novas ou para mesclar por região
-        imagens_existentes = proc.data.get("imagens_termo") or []
-        if imagens_urls:
-            existentes_map = {}
-            for img in imagens_existentes:
-                key = img.get("regiao_foto") or f"item:{img.get('item')}"
-                existentes_map[key] = img
-            for img in imagens_urls:
-                key = img.get("regiao_foto") or f"item:{img.get('item')}"
-                existentes_map[key] = img
-            imagens_urls = list(existentes_map.values())
-        else:
-            imagens_urls = imagens_existentes or None
+                    # A função upload_pdf é genérica e pode lidar com data URIs de imagem
+                    upload_pdf(img_data["imagem_base64"], folder)
+                except Exception:
+                    # Opcional: logar falha, mas continuar o processo
+                    pass
 
         supabase.table("processos").update({
             "nome_cliente": data.nome_cliente,
@@ -533,8 +585,8 @@ def atualizar_termo(data: TermoUpdateRequest):
             "cpf": cpf_limpo,
             "status_entrega": data.status_entrega,
             "termo_pdf": termo_url,
-            "imagens_termo": imagens_urls if imagens_urls else None,
-            "termo_dados": data.termo_dados,
+            "imagens_termo": imagens_lista,
+            "termo_dados": termo_dados_normalizado,
             "atualizado_em": datetime.utcnow().isoformat()
         }).eq("id", processo_uuid).execute()
 
