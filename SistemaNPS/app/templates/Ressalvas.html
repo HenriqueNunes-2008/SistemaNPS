@@ -542,7 +542,7 @@ document.getElementById("btnSalvar").addEventListener("click", async function ()
         });
 
         /* 4. Valida processo_id antes de enviar */
-        const processoId = processoParam || sessionStorage.getItem("processo_id");
+        const processoId = processoParam || processoEmAndamento;
         if (!processoId || processoId === "undefined" || processoId === "null") {
             alert("Processo inválido. Refaça o Termo de Aceite.");
 
@@ -600,6 +600,7 @@ document.querySelector(".breadcrumb-wrapper")?.classList.add("pdf-hide");
 if (isEditMode) {
     window.location.href = returnTo || "/admin";
 } else {
+    saveCurrentProcessId(processoId.trim());
     window.location.href = "/user";
 }
 
@@ -636,6 +637,34 @@ const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
 const isAdmin = returnTo === "/admin";
 const cpfInput = document.querySelector('section.approval input[placeholder="CPF"]');
+let processoEmAndamento = null;
+
+function getCookieValue(name) {
+    const key = `${name}=`;
+    const cookies = document.cookie ? document.cookie.split(";") : [];
+    for (const rawCookie of cookies) {
+        const cookie = rawCookie.trim();
+        if (cookie.startsWith(key)) {
+            return decodeURIComponent(cookie.substring(key.length));
+        }
+    }
+    return "";
+}
+
+function getProgressStorageKey() {
+    const usuario = getCookieValue("nps_user") || "anon";
+    return `nps_processo_id::${usuario}`;
+}
+
+function getCurrentProcessId() {
+    return localStorage.getItem(getProgressStorageKey()) || sessionStorage.getItem("processo_id");
+}
+
+function saveCurrentProcessId(processoId) {
+    if (!processoId) return;
+    localStorage.setItem(getProgressStorageKey(), processoId);
+    sessionStorage.setItem("processo_id", processoId);
+}
 
 let currentBox = null;
 let stream = null;
@@ -870,10 +899,10 @@ function setCPF(ok){
     }
 }
 
-async function carregarEdicaoRessalvas() {
-    if (!isEditMode) return;
+async function carregarEdicaoRessalvas(codigoProcesso) {
+    if (!codigoProcesso) return;
     try {
-        const res = await fetch(`/api/processos/${processoParam}`);
+        const res = await fetch(`/api/processos/${codigoProcesso}`);
         if (!res.ok) return;
         const data = await res.json();
 
@@ -902,7 +931,8 @@ async function carregarEdicaoRessalvas() {
 
 
 /* linha inicial */
-carregarEdicaoRessalvas();
+processoEmAndamento = isEditMode ? null : getCurrentProcessId();
+carregarEdicaoRessalvas(isEditMode ? processoParam : processoEmAndamento);
 btnSalvar.disabled = !validarFormulario();
 
 if (!isAdmin) {
