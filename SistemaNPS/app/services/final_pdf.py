@@ -246,16 +246,17 @@ def _draw_termo_info_page(c, width: float, height: float, proc_data: dict) -> No
             c.drawString(x, y, data_str)
             y -= 18
 
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(x, y, "Campos do termo")
-    y -= 16
-
     c.setFont("Helvetica", 10)
     for key, value in campos.items():
         if y < content_bottom() + 70:
             break
+        
+        k_str = _safe_text(key).strip()
+        if k_str.upper() in ["NOME DO CLIENTE", "EMPRESA", "REGIÃO DA FOTO"]:
+            continue
+
         c.setFont("Helvetica-Bold", 10)
-        c.drawString(x, y, _safe_text(key)[:80])
+        c.drawString(x, y, k_str.capitalize()[:80])
         y -= 13
         c.setFont("Helvetica", 10)
         y = _draw_wrapped(c, _safe_text(value), x, y, max_width, max_lines=3)
