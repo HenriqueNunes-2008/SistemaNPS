@@ -1525,7 +1525,7 @@ function stopCamera() {
     captureBtn.classList.add('hidden');
 }
 
-function renderFotoGrid() {
+window.renderFotoGrid = () {
     if (!fotoGrid) return;
     fotoGrid.querySelectorAll(".foto-item").forEach((item) => {
         const regiao = item.getAttribute("data-regiao");
