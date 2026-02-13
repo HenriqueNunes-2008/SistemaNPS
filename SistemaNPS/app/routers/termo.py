@@ -20,7 +20,7 @@ import math
 
 from app.services.upload import upload_pdf
 from app.services.supabase_client import supabase
-from app.services.pdf_layout import draw_header_footer, content_top, content_bottom
+from app.services.pdf_layout import draw_header_footer, content_top, content_bottom, draw_wrapped_text
 from app.services.final_pdf import regenerate_final_pdf_by_codigo
 
 
@@ -94,145 +94,129 @@ def _normalizar_termo_dados(termo_dados: dict | None, imagens: list | None, imag
     return base
 
 
-def _wrap_text(text: str, max_width: float, font_name: str, font_size: int) -> list[str]:
-    if not text:
-        return [""]
-    words = str(text).split()
-    lines: list[str] = []
-    current = ""
-    for word in words:
-        test = f"{current} {word}".strip()
-        if stringWidth(test, font_name, font_size) <= max_width:
-            current = test
-        else:
-            if current:
-                lines.append(current)
-            current = word
-    if current or not lines:
-        lines.append(current)
-    return lines
-
-
-def _draw_label_value(
-    c,
-    x: float,
-    y: float,
-    max_width: float,
-    label: str,
-    value: str,
-    font_label: str = "Helvetica-Bold",
-    font_value: str = "Helvetica",
-    size_label: int = 11,
-    size_value: int = 11,
-    line_height: int = 14
-) -> float:
-    c.setFont(font_label, size_label)
-    c.drawString(x, y, label)
-    y -= line_height
-    c.setFont(font_value, size_value)
-    for line in _wrap_text(value, max_width, font_value, size_value):
-        c.drawString(x, y, line)
-        y -= line_height
-    y -= 8
-    return y
-
-
 def _draw_termo_content(c, width: float, height: float, data) -> None:
-    margin_x = 40
-    max_width = width - (margin_x * 2)
+    draw_header_footer(c, width, height)
+    y = content_top(height)
+    x = 40
+    max_width = width - 80
+
     termo_dados = data.termo_dados or {}
     campos = dict(termo_dados.get("campos") or {})
     assinaturas = termo_dados.get("assinaturas") or {}
     aprovacao = termo_dados.get("aprovacao") or {}
     data_info = termo_dados.get("data") or {}
 
-    if data.nome_cliente and "NOME DO CLIENTE" not in campos:
-        campos["NOME DO CLIENTE"] = data.nome_cliente
-    if data.empresa and "EMPRESA" not in campos:
-        campos["EMPRESA"] = data.empresa
-
-    fields_order = [
-        "NOME DO CLIENTE",
-        "EMPRESA",
-        "PRODUTO E CÓDIGO DA ENTREGA",
-        "RESPONSÁVEL PELA ENTREGA",
-        "QUEM REALIZOU O ATENDIMENTO?",
-        "LOCAL DA ENTREGA",
-    ]
-
-    y = content_top(height)
-
-    # Title
-    y += 8
+    # --- PAGE 1: INFO ---
     c.setFont("Helvetica-Bold", 16)
-    c.drawString(margin_x, y, "TERMO DE ACEITE E ENTREGA DE SERVIÇOS")
+    c.drawString(x, y, "TERMO DE ACEITE E ENTREGA DE SERVIÇOS")
     y -= 22
     c.setFont("Helvetica-Oblique", 12)
-    c.drawString(margin_x, y, "UNIDADES MÓVEIS")
-    y -= 22
+    c.drawString(x, y, "UNIDADES MÓVEIS")
+    y -= 30
 
-    # Date
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(x, y, "Nome do cliente")
+    y -= 14
+    c.setFont("Helvetica", 10)
+    y = draw_wrapped_text(c, data.nome_cliente, x, y, max_width, max_lines=2)
+    y -= 4
+
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(x, y, "Empresa")
+    y -= 14
+    c.setFont("Helvetica", 10)
+    y = draw_wrapped_text(c, data.empresa, x, y, max_width, max_lines=2)
+    y -= 4
+
     dia = data_info.get("dia")
     mes = data_info.get("mes")
     ano = data_info.get("ano")
-    if dia or mes or ano:
-        data_str = f"{dia or ''}/{mes or ''}/{ano or ''}".strip("/")
-    else:
-        data_str = ""
-    y = _draw_label_value(c, margin_x, y, max_width, "DATA", data_str)
+    data_str = f"{dia or ''}/{mes or ''}/{ano or ''}".strip("/")
+    if data_str:
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(x, y, "Data")
+        y -= 14
+        c.setFont("Helvetica", 10)
+        c.drawString(x, y, data_str)
+        y -= 18
 
-    # Fields
-    for key in fields_order:
-        if key in campos:
-            if y < content_bottom():
-                c.showPage()
-                draw_header_footer(c, width, height)
-                y = content_top(height)
-            y = _draw_label_value(c, margin_x, y, max_width, key, str(campos.get(key, "")))
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(x, y, "Campos do termo")
+    y -= 16
 
-    # Any extra fields
+    c.setFont("Helvetica", 10)
     for key, value in campos.items():
-        if key in fields_order:
-            continue
-        if y < content_bottom():
+        if y < content_bottom() + 70:
             c.showPage()
             draw_header_footer(c, width, height)
             y = content_top(height)
-        y = _draw_label_value(c, margin_x, y, max_width, key, str(value))
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(x, y, str(key)[:80])
+        y -= 13
+        c.setFont("Helvetica", 10)
+        y = draw_wrapped_text(c, str(value), x, y, max_width, max_lines=3)
+        y -= 6
 
-    # Status
-    status_map = {
-        "concluido": "Concluído",
-        "concluido_com_ressalva": "Concluído com Ressalva",
-    }
-    status_label = status_map.get(data.status_entrega, data.status_entrega or "")
-    if status_label:
-        if y < content_bottom():
-            c.showPage()
-            draw_header_footer(c, width, height)
-            y = content_top(height)
-        y = _draw_label_value(c, margin_x, y, max_width, "STATUS DA ENTREGA", status_label)
+    if y > content_bottom() + 75:
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(x, y, "Status da entrega")
+        y -= 13
+        status_map = {
+            "concluido": "Concluído",
+            "concluido_com_ressalva": "Concluído com Ressalva",
+        }
+        st_label = status_map.get(data.status_entrega, data.status_entrega or "")
+        c.setFont("Helvetica", 10)
+        c.drawString(x, y, st_label)
+        y -= 18
 
-    # Fotos (se houver)
+    if y > content_bottom() + 65:
+        comprador = assinaturas.get("comprador") or {}
+        representante = assinaturas.get("representante") or {}
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(x, y, "Assinaturas")
+        y -= 13
+        c.setFont("Helvetica", 9)
+        c.drawString(x, y, f"Comprador: {comprador.get('nome', '')} | CPF: {comprador.get('cpf', '')}")
+        y -= 12
+        c.drawString(x, y, f"Representante: {representante.get('nome', '')} | CPF: {representante.get('cpf', '')}")
+        y -= 14
+
+    if y > content_bottom() + 50:
+        rep_aprov = aprovacao.get("representante")
+        cpf_aprov = aprovacao.get("cpf")
+        if rep_aprov or cpf_aprov:
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(x, y, "Aprovacao final")
+            y -= 13
+            c.setFont("Helvetica", 9)
+            c.drawString(x, y, f"Representante: {rep_aprov or ''}")
+            y -= 12
+            c.drawString(x, y, f"CPF: {cpf_aprov or ''}")
+
+    # --- PAGE 2+: IMAGES ---
     imagens = _normalizar_itens_imagem(termo_dados, data.imagens)
-    if imagens:
-        imagens = sorted(imagens, key=lambda i: i.get("item", 0))
-        gap = 10
+    if not imagens:
+        return
+
+    chunk_size = 6
+    for i in range(0, len(imagens), chunk_size):
+        chunk = imagens[i : i + chunk_size]
+        c.showPage()
+        draw_header_footer(c, width, height)
+        y = content_top(height)
+        
+        c.setFont("Helvetica-Bold", 15)
+        c.drawString(x, y, f"Fotos do termo (Página {i//6 + 1})")
+        
         cols = 3
-        cell_w = (max_width - gap * (cols - 1)) / cols
-        cell_h = 120
-        label_h = 12
-        rows = int(math.ceil(len(imagens) / cols))
-        total_h = 16 + (rows * (cell_h + label_h + gap))
-
-        if y - total_h < content_bottom():
-            c.showPage()
-            draw_header_footer(c, width, height)
-            y = content_top(height)
-
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(margin_x, y, "FOTOS")
-        y -= 16
+        cols = 2
+        rows = 3
+        gap_x = 12
+        gap_y = 14
+        top_y = y - 20
+        cell_w = (max_width - gap_x) / cols
+        cell_h = ((top_y - (content_bottom() + 20)) - (gap_y * (rows - 1))) / rows
 
         label_map = {
             "frontal": "Frontal",
@@ -243,90 +227,40 @@ def _draw_termo_content(c, width: float, height: float, data) -> None:
             "inferior": "Inferior",
         }
 
-        start_y = y
-        for idx, img_data in enumerate(imagens):
+        for idx, img_data in enumerate(chunk):
             col = idx % cols
             row = idx // cols
-            x = margin_x + col * (cell_w + gap)
-            y_top = start_y - row * (cell_h + label_h + gap)
+            cx = x + (col * (cell_w + gap_x))
+            cy_top = top_y - (row * (cell_h + gap_y))
+            img_y = cy_top - cell_h + 2
 
             regiao = img_data.get("regiao_foto")
-            label = label_map.get(regiao, regiao or f"Foto {idx + 1}")
+            label = label_map.get(regiao, regiao or f"Foto {i + idx + 1}")
+            
             c.setFont("Helvetica-Bold", 9)
-            c.drawString(x, y_top, label)
+            c.drawString(cx, cy_top, label)
+            c.rect(cx, img_y, cell_w, cell_h - 12, stroke=1, fill=0)
 
-            if img_data.get("imagem_base64"):
+            b64 = img_data.get("imagem_base64")
+            if b64 and "," in b64:
                 try:
-                    _, img_b64 = img_data["imagem_base64"].split(",", 1)
-                    img_bytes = base64.b64decode(img_b64)
-                    img_reader = ImageReader(BytesIO(img_bytes))
+                    _, raw = b64.split(",", 1)
+                    img_bytes = base64.b64decode(raw)
                     c.drawImage(
-                        img_reader,
-                        x,
-                        y_top - label_h - cell_h,
-                        width=cell_w,
-                        height=cell_h,
+                        ImageReader(BytesIO(img_bytes)),
+                        cx + 3,
+                        img_y + 3,
+                        width=cell_w - 6,
+                        height=cell_h - 18,
                         preserveAspectRatio=True,
-                        anchor="c"
+                        anchor="c",
+                        mask="auto"
                     )
                 except Exception:
                     pass
-
-        y = start_y - rows * (cell_h + label_h + gap) - 8
-
-    # Signatures
-    comprador = assinaturas.get("comprador") or {}
-    representante = assinaturas.get("representante") or {}
-    assinatura_lines = [
-        ("COMPRADOR - NOME", comprador.get("nome", "")),
-        ("COMPRADOR - CPF", comprador.get("cpf", "")),
-        ("REPRESENTANTE COMERCIAL - NOME", representante.get("nome", "")),
-        ("REPRESENTANTE COMERCIAL - CPF", representante.get("cpf", "")),
-    ]
-
-    if y < content_bottom():
-        c.showPage()
-        draw_header_footer(c, width, height)
-        y = content_top(height)
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(margin_x, y, "ASSINATURAS")
-    y -= 18
-
-    for label, value in assinatura_lines:
-        if y < content_bottom():
-            c.showPage()
-            draw_header_footer(c, width, height)
-            y = content_top(height)
-        y = _draw_label_value(c, margin_x, y, max_width, label, value)
-
-    # Final approval (admin area)
-    aprovacao_representante = aprovacao.get("representante", "")
-    aprovacao_cpf = aprovacao.get("cpf", "")
-    if aprovacao_representante or aprovacao_cpf:
-        if y < content_bottom():
-            c.showPage()
-            draw_header_footer(c, width, height)
-            y = content_top(height)
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(margin_x, y, "APROVACAO FINAL DO TERMO")
-        y -= 18
-
-        y = _draw_label_value(
-            c,
-            margin_x,
-            y,
-            max_width,
-            "APROVACAO - REPRESENTANTE",
-            str(aprovacao_representante),
-        )
-        y = _draw_label_value(
-            c,
-            margin_x,
-            y,
-            max_width,
-            "APROVACAO - CPF",
-            str(aprovacao_cpf),
-        )
+            else:
+                c.setFont("Helvetica", 8)
+                c.drawString(cx + 6, img_y + (cell_h / 2) - 6, "Imagem nao informada")
 
 router = APIRouter(prefix="/termo", tags=["Termo"])
 
