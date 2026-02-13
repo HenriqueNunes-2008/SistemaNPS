@@ -12,7 +12,7 @@ from io import BytesIO
 
 from app.services.supabase_client import supabase
 from app.services.upload import upload_pdf
-from app.services.pdf_layout import draw_header_footer, content_top, content_bottom
+from app.services.pdf_layout import draw_header_footer, content_top, content_bottom, draw_wrapped_text
 from app.services.final_pdf import regenerate_final_pdf_by_codigo
 
 router = APIRouter(prefix="/ressalvas", tags=["Ressalvas"])
@@ -108,74 +108,116 @@ def gerar_pdf_ressalvas(
     c.setFont("Helvetica-Bold", 14)
     c.drawString(margem_x, y, "RELATÓRIO DE RESSALVAS")
     y -= 30
+    max_width = largura - 80
 
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(margem_x, y, "Processo")
+    y -= 14
     c.setFont("Helvetica", 10)
     c.drawString(margem_x, y, f"Processo: {processo_codigo}")
-    y -= 15
+    y -= 18
+
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(margem_x, y, "Responsável")
+    y -= 14
+    c.setFont("Helvetica", 10)
     c.drawString(margem_x, y, f"Responsável: {responsavel}")
-    y -= 15
+    y -= 18
+
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(margem_x, y, "Data")
+    y -= 14
+    c.setFont("Helvetica", 10)
     c.drawString(
         margem_x,
         y,
         f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     )
-    y -= 25
+    y -= 18
 
     if observacoes:
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(margem_x, y, "Observações:")
-        y -= 15
-        c.setFont("Helvetica", 10)
-        c.drawString(margem_x, y, observacoes)
-        y -= 25
-
-    for idx, img in enumerate(imagens, start=1):
-        if y < content_bottom():
-            c.showPage()
-            draw_header_footer(c, largura, altura)
-            y = content_top(altura)
-
         c.setFont("Helvetica-Bold", 11)
-        c.drawString(margem_x, y, f"Item {idx}: {img.item}")
-        y -= 15
-
+        c.drawString(margem_x, y, "Observações:")
+        y -= 14
         c.setFont("Helvetica", 10)
-        c.drawString(margem_x, y, f"Descrição: {img.descricao}")
-        y -= 15
+        y = draw_wrapped_text(c, observacoes, margem_x, y, max_width, max_lines=10)
+        y -= 18
 
-        if img.prazo:
-            c.drawString(
-                margem_x,
-                y,
-                f"Prazo: {img.prazo.strftime('%d/%m/%Y')}"
+    # Items (Cards)
+    cards_per_page = 3
+    card_gap = 10
+
+    for i in range(0, len(imagens), cards_per_page):
+        c.showPage()
+        
+        chunk = imagens[i : i + cards_per_page]
+        draw_header_footer(c, largura, altura)
+        y = content_top(altura)
+        
+        c.setFont("Helvetica-Bold", 15)
+        c.drawString(margem_x, y, f"Itens de Ressalva (Itens {i+1} a {i+len(chunk)})")
+        y -= 20
+        
+        card_h = ((y - (content_bottom() + 20)) - (card_gap * (cards_per_page - 1))) / cards_per_page
+
+        for j, item in enumerate(chunk):
+            card_top = y - j * (card_h + card_gap)
+            c.rect(margem_x, card_top - card_h, max_width, card_h, stroke=1, fill=0)
+
+            # Image
+            img_w = 150
+            img_h = card_h - 20
+            img_x = margem_x + 8
+            img_y = card_top - card_h + 10
+            c.rect(img_x, img_y, img_w, img_h, stroke=1, fill=0)
+            
+            if item.imagem_base64:
+                try:
+                    image_stream = decode_base64_image(item.imagem_base64)
+                    c.drawImage(
+                        ImageReader(image_stream),
+                        img_x + 2,
+                        img_y + 2,
+                        width=img_w - 4,
+                        height=img_h - 4,
+                        preserveAspectRatio=True,
+                        anchor="c",
+                        mask="auto"
+                    )
+                except Exception:
+                    pass
+            
+            # Text
+            tx = img_x + img_w + 8
+            ty = card_top - 14
+            tw = max_width - (img_w + 24)
+            
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(tx, ty, f"Item {item.item}: {str(item.descricao)[:55]}")
+            ty -= 12
+            c.setFont("Helvetica", 8)
+            c.drawString(tx, ty, f"Regiao: {str(item.regiao_foto)[:40]}")
+            ty -= 11
+            
+            prazo_str = item.prazo.strftime('%d/%m/%Y') if item.prazo else ""
+            c.drawString(tx, ty, f"Prazo: {prazo_str}")
+            ty -= 11
+            c.drawString(tx, ty, f"Responsavel: {str(item.responsavel)[:35]}")
+            ty -= 11
+            c.drawString(tx, ty, f"Aprovacao: {'Sim' if item.aprovacao else 'Nao'}")
+            ty -= 11
+            
+            draw_wrapped_text(
+                c,
+                f"Descricao: {str(item.descricao)}",
+                tx,
+                ty,
+                tw,
+                font_size=8,
+                line_height=10,
+                max_lines=5,
             )
-            y -= 15
-
-        c.drawString(
-            margem_x,
-            y,
-            f"Aprovação: {'Sim' if img.aprovacao else 'Não'}"
-        )
-        y -= 15
-
-        if img.imagem_base64:
-            image_stream = decode_base64_image(img.imagem_base64)
-            image = ImageReader(image_stream)
-
-            c.drawImage(
-                image,
-                margem_x,
-                y - 150,
-                width=200,
-                height=150,
-                preserveAspectRatio=True,
-                mask="auto"
-            )
-            y -= 170
-        else:
-            y -= 20
-
-    c.showPage()
+    
     c.save()
     buffer.seek(0)
     return buffer
