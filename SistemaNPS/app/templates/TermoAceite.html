@@ -952,9 +952,6 @@ input.cpf-valido {
             <div class="foto-vazia">Sem foto</div>
         </div>
     </div>
-    <button type="button" id="btnRecarregarFotos" class="btn-recarregar-fotos" onclick="recarregarFotosInseridas()">
-        Recarregar fotos inseridas
-    </button>
 </div>
     <div class="row" style="margin-top:40px;">
         <div class="signature-box" style="flex:1;">
@@ -1335,82 +1332,6 @@ async function carregarEdicao(codigoProcesso) {
     }
 }
 
-window.recarregarFotosInseridas = async function () {
-    const codigo = isEditMode ? processoParam : processoEmAndamento;
-    if (!codigo) {
-        alert("Processo nao encontrado para recarregar as fotos.");
-        return;
-    }
-
-    const btn = document.getElementById("btnRecarregarFotos");
-    const textoOriginal = btn?.textContent || "Recarregar fotos inseridas";
-    if (btn) {
-        btn.disabled = true;
-        btn.textContent = "Recarregando...";
-    }
-
-    try {
-        const res = await fetch(`/api/processos/${codigo}`);
-        if (!res.ok) throw new Error("Nao foi possivel recarregar as fotos.");
-        const data = await res.json();
-
-        fotoPorRegiao = {};
-        let imagensTermo = data.imagens_termo;
-        if (typeof imagensTermo === "string") {
-            try {
-                imagensTermo = JSON.parse(imagensTermo);
-            } catch {
-                imagensTermo = [];
-            }
-        }
-
-        const ordemRegioes = [
-            "frontal",
-            "traseira",
-            "lateral-esquerda",
-            "lateral-direita",
-            "superior",
-            "inferior"
-        ];
-
-        if (Array.isArray(imagensTermo)) {
-            imagensTermo.forEach((img, idx) => {
-                const regiao = img?.regiao_foto || ordemRegioes[idx];
-                const url = img?.imagem_base64 || img?.url || img?.imagem;
-                if (regiao && url) fotoPorRegiao[regiao] = url;
-            });
-        }
-
-        renderFotoGrid();
-
-        const regiaoEl = document.getElementById("regiao-foto");
-        if (regiaoEl && (!regiaoEl.value || !fotoPorRegiao[regiaoEl.value])) {
-            const primeiraComFoto = ordemRegioes.find((r) => Boolean(fotoPorRegiao[r]));
-            regiaoEl.value = primeiraComFoto || "";
-        }
-
-        const regiaoSelecionada = regiaoEl?.value;
-        if (regiaoSelecionada && fotoPorRegiao[regiaoSelecionada]) {
-            previewImg.src = fotoPorRegiao[regiaoSelecionada];
-            preview.classList.remove('hidden');
-            placeholder.classList.add('hidden');
-        } else {
-            previewImg.src = '';
-            preview.classList.add('hidden');
-            placeholder.classList.remove('hidden');
-        }
-
-        atualizarEstadoBotao();
-    } catch (e) {
-        alert(e.message || "Erro ao recarregar fotos.");
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.textContent = textoOriginal;
-        }
-    }
-};
-
 document.addEventListener("DOMContentLoaded", async () => {
     /* ================= CALENDÁRIO ================= */
     const icon = document.getElementById("calendar-icon");
@@ -1622,10 +1543,6 @@ window.renderFotoGrid = function() {
     }
 
     processoEmAndamento = isEditMode ? null : await resolveDraftProcessId();
-    const btnRecarregarFotos = document.getElementById("btnRecarregarFotos");
-    if (btnRecarregarFotos) {
-        btnRecarregarFotos.style.display = isEditMode ? "block" : "none";
-    }
     carregarEdicao(isEditMode ? processoParam : processoEmAndamento);
 
     /* ================= SALVAR TERMO ================= */
