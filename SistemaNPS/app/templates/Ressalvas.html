@@ -586,10 +586,24 @@ function closeLogoutModal() {
 function confirmLogout() {
     window.location.href = '/logout';
 }
-document.getElementById("btnSalvar").addEventListener("click", async function () {
-    if (this.disabled) return;
 
-    const btn = this;
+/* CONFIRM SAVE SCRIPTS */
+function openConfirmSaveModal() {
+    document.getElementById('confirmSaveModal').style.display = 'flex';
+}
+function closeConfirmSaveModal() {
+    document.getElementById('confirmSaveModal').style.display = 'none';
+}
+
+document.getElementById("btnSalvar").addEventListener("click", function () {
+    if (this.disabled) return;
+    openConfirmSaveModal();
+});
+
+async function executarSalvarRessalvas() {
+    closeConfirmSaveModal();
+
+    const btn = document.getElementById("btnSalvar");
     const savingOverlay = document.getElementById("savingOverlay");
     const savingText = document.getElementById("savingText");
     btn.dataset.locked = "true";
@@ -726,7 +740,7 @@ if (isEditMode) {
     document.querySelector(".footer")?.classList.remove("pdf-hide");
     document.querySelector(".breadcrumb-wrapper")?.classList.remove("pdf-hide");
 }
-});
+}
 </script>
 <script>
 
@@ -1076,6 +1090,15 @@ if (!isAdmin) {
 }
 </script>
 
+<!-- MODAL CONFIRM SAVE -->
+<div id="confirmSaveModal" class="modal-logout" style="display: none;">
+    <div class="modal-logout-content" style="border-color: #ff7a1a;">
+        <div class="modal-logout-text" style="color: #ff7a1a;">ATENÇÃO</div>
+        <p class="modal-logout-sub">Tem certeza de que deseja enviar?<br>Depois de salvar não será possível alterações.</p>
+        <button onclick="closeConfirmSaveModal()" class="btn-logout-cancel">Voltar</button>
+        <button onclick="executarSalvarRessalvas()" class="btn-logout-confirm" style="background-color: #ff7a1a;">Salvar</button>
+    </div>
+</div>
 
 <!-- MODAL CAMERA -->
 <div class="modal" id="cameraModal">
@@ -1083,6 +1106,7 @@ if (!isAdmin) {
     <video id="video" autoplay></video>
     <button onclick="takePhoto()" class="save" style="margin-top:20px;">TIRAR FOTO</button>
 </div>
+
 
 <!-- ACTION SHEET -->
 <div class="sheet" id="actionSheet">
