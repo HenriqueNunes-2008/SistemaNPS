@@ -280,6 +280,14 @@ def salvar_ressalvas(data: RessalvasRequest):
                 detail="Falha no upload do PDF"
             )
 
+        # Upload das imagens individuais para o Storage (Igual ao Termo)
+        for img in data.imagens:
+            if img.imagem_base64:
+                try:
+                    upload_pdf(img.imagem_base64, folder)
+                except Exception:
+                    pass
+
         # ----------------------------------------------------
         # 5. INSERE ITENS DE RESSALVAS
         # ----------------------------------------------------
@@ -375,6 +383,14 @@ def atualizar_ressalvas(data: RessalvasUpdateRequest):
 
         if not pdf_url:
             raise HTTPException(status_code=500, detail="Falha no upload do PDF")
+
+        # Upload das imagens individuais para o Storage (Igual ao Termo)
+        for img in data.imagens:
+            if img.imagem_base64:
+                try:
+                    upload_pdf(img.imagem_base64, folder)
+                except Exception:
+                    pass
 
         # Remove itens antigos e reinsere
         supabase.table("ressalvas_itens").delete().eq("processo_id", processo_uuid).execute()
