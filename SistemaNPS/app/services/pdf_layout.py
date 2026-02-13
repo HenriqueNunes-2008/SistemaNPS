@@ -80,3 +80,40 @@ def content_top(height: float) -> float:
 
 def content_bottom() -> float:
     return FOOTER_Y + 30
+
+
+def draw_wrapped_text(
+    c,
+    text: str,
+    x: float,
+    y: float,
+    max_width: float,
+    font_name: str = "Helvetica",
+    font_size: int = 10,
+    line_height: int = 13,
+    max_lines: int | None = None,
+) -> float:
+    c.setFont(font_name, font_size)
+    words = str(text if text is not None else "").split()
+    if not words:
+        return y - line_height
+
+    line = ""
+    lines_drawn = 0
+    for word in words:
+        test_line = f"{line} {word}".strip()
+        if c.stringWidth(test_line, font_name, font_size) <= max_width:
+            line = test_line
+            continue
+        if line:
+            c.drawString(x, y, line)
+            y -= line_height
+            lines_drawn += 1
+            if max_lines and lines_drawn >= max_lines:
+                return y
+        line = word
+
+    if line and (not max_lines or lines_drawn < max_lines):
+        c.drawString(x, y, line)
+        y -= line_height
+    return y
