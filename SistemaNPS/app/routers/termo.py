@@ -140,18 +140,18 @@ def _draw_termo_content(c, width: float, height: float, data) -> None:
         c.drawString(x, y, data_str)
         y -= 18
 
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(x, y, "Campos do termo")
-    y -= 16
-
     c.setFont("Helvetica", 10)
     for key, value in campos.items():
+        k_str = str(key).strip()
+        if k_str.upper() in ["NOME DO CLIENTE", "EMPRESA", "REGIÃO DA FOTO"]:
+            continue
+
         if y < content_bottom() + 70:
             c.showPage()
             draw_header_footer(c, width, height)
             y = content_top(height)
         c.setFont("Helvetica-Bold", 10)
-        c.drawString(x, y, str(key)[:80])
+        c.drawString(x, y, k_str.capitalize()[:80])
         y -= 13
         c.setFont("Helvetica", 10)
         y = draw_wrapped_text(c, str(value), x, y, max_width, max_lines=3)
