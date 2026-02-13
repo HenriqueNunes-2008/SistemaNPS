@@ -1205,6 +1205,26 @@ function coletarCamposTermo() {
     };
 }
 
+function desabilitarFormulario() {
+    // Desabilita inputs, selects e textareas dentro da área principal
+    document.querySelectorAll("#capture-area input, #capture-area select, #capture-area textarea").forEach(el => {
+        el.disabled = true;
+    });
+
+    // Desabilita a área de upload de fotos
+    const imageBox = document.getElementById("imageBox");
+    if (imageBox) {
+        imageBox.style.pointerEvents = "none";
+        imageBox.style.opacity = "0.7";
+    }
+
+    // Desabilita botão de salvar e altera texto
+    if (btnSalvar) {
+        btnSalvar.disabled = true;
+        btnSalvar.textContent = "TERMO JÁ SALVO";
+    }
+}
+
 async function carregarEdicao(codigoProcesso) {
     if (!codigoProcesso) return;
     try {
@@ -1305,6 +1325,11 @@ async function carregarEdicao(codigoProcesso) {
         }
 
         atualizarEstadoBotao();
+
+        // Se não for modo edição (admin) e já tiver dados salvos, bloqueia o formulário
+        if (!isEditMode && data.termo_dados && Object.keys(data.termo_dados).length > 0) {
+            desabilitarFormulario();
+        }
     } catch (e) {
         console.warn("Falha ao carregar edição", e);
     }
