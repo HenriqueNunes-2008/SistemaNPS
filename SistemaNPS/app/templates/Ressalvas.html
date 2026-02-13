@@ -1002,6 +1002,29 @@ function setCPF(ok){
     }
 }
 
+function desabilitarFormulario() {
+    // Desabilita inputs e selects na área do PDF
+    document.querySelectorAll("#pdf-area input, #pdf-area select").forEach(el => {
+        el.disabled = true;
+    });
+
+    // Esconde botões de adicionar e remover
+    document.querySelectorAll(".add-item, .remove").forEach(el => {
+        el.style.display = "none";
+    });
+
+    // Desabilita interação com imagens
+    document.querySelectorAll(".image-box").forEach(el => {
+        el.style.pointerEvents = "none";
+    });
+
+    // Desabilita botão salvar
+    if (btnSalvar) {
+        btnSalvar.disabled = true;
+        btnSalvar.textContent = "RESSALVAS JÁ SALVAS";
+    }
+}
+
 async function carregarEdicaoRessalvas(codigoProcesso) {
     if (!codigoProcesso) return;
     try {
@@ -1026,6 +1049,11 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         }
 
         btnSalvar.disabled = !validarFormulario();
+
+        // Se não for modo edição (admin) e já tiver itens salvos, bloqueia
+        if (!isAdmin && !isEditMode && dados && Array.isArray(dados.itens) && dados.itens.length > 0) {
+            desabilitarFormulario();
+        }
     } catch (e) {
         console.warn("Falha ao carregar edição", e);
         addRow();
