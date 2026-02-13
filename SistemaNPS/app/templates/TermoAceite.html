@@ -997,6 +997,16 @@ input.cpf-valido {
     </div>
 </div>
 
+<!-- MODAL CONFIRM SAVE -->
+<div id="confirmSaveModal" class="modal-logout" style="display: none;">
+    <div class="modal-logout-content" style="border-color: #ff7a1a;">
+        <div class="modal-logout-text" style="color: #ff7a1a;">ATENÇÃO</div>
+        <p class="modal-logout-sub">Tem certeza de que deseja enviar?<br>Depois de salvar não será possível alterações.</p>
+        <button onclick="closeConfirmSaveModal()" class="btn-logout-cancel">Voltar</button>
+        <button onclick="executarSalvarTermo()" class="btn-logout-confirm" style="background-color: #ff7a1a;">Salvar</button>
+    </div>
+</div>
+
 <script>
 /* ================= CPF ================= */
 function validarCPF(cpf) {
@@ -1546,11 +1556,16 @@ window.renderFotoGrid = function() {
     carregarEdicao(isEditMode ? processoParam : processoEmAndamento);
 
     /* ================= SALVAR TERMO ================= */
-    btnSalvar.addEventListener("click", async (e) => {
+    btnSalvar.addEventListener("click", (e) => {
         e.preventDefault();
+        if (btnSalvar.dataset.locked || btnSalvar.disabled) return;
+        openConfirmSaveModal();
+    });
 
+    window.executarSalvarTermo = async function() {
+        closeConfirmSaveModal();
+        
         if (btnSalvar.dataset.locked) return;
-
         lockButton();
 
         let regiaoFieldDisplay = "";
@@ -1627,7 +1642,7 @@ window.renderFotoGrid = function() {
             const imagemBase64 = canvas.toDataURL("image/png");
 
                                 /* === ENVIA PARA O BACKEND === */
-                                const codigoParaSalvar = isEditMode ? processoParam : processoEmAndamento;
+                                const codigoParaSalvar = isEditMode ? processoParam : (processoEmAndamento || await resolveDraftProcessId());
                                 const endpoint = codigoParaSalvar ? "/termo/atualizar" : "/termo/salvar";
                                 const response = await fetch(endpoint, {
                 method: "POST",
@@ -1691,7 +1706,7 @@ window.renderFotoGrid = function() {
             const regiaoField = document.querySelector(".regiao-field");
             if (regiaoField) regiaoField.style.display = regiaoFieldDisplay || "";
         }
-    });
+    };
 
     /* LOGOUT SCRIPTS */
     window.openLogoutModal = function(e) {
@@ -1703,6 +1718,14 @@ window.renderFotoGrid = function() {
     }
     window.confirmLogout = function() {
         window.location.href = '/logout';
+    }
+
+    /* CONFIRM SAVE SCRIPTS */
+    window.openConfirmSaveModal = function() {
+        document.getElementById('confirmSaveModal').style.display = 'flex';
+    }
+    window.closeConfirmSaveModal = function() {
+        document.getElementById('confirmSaveModal').style.display = 'none';
     }
 });
 </script>
