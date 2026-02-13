@@ -102,53 +102,15 @@ def gerar_pdf_ressalvas(
 
     largura, altura = A4
     margem_x = 40
-    draw_header_footer(c, largura, altura)
-    y = content_top(altura)
-
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(margem_x, y, "RELATÓRIO DE RESSALVAS")
-    y -= 30
     max_width = largura - 80
-
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(margem_x, y, "Processo")
-    y -= 14
-    c.setFont("Helvetica", 10)
-    c.drawString(margem_x, y, f"Processo: {processo_codigo}")
-    y -= 18
-
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(margem_x, y, "Responsável")
-    y -= 14
-    c.setFont("Helvetica", 10)
-    c.drawString(margem_x, y, f"Responsável: {responsavel}")
-    y -= 18
-
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(margem_x, y, "Data")
-    y -= 14
-    c.setFont("Helvetica", 10)
-    c.drawString(
-        margem_x,
-        y,
-        f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    )
-    y -= 18
-
-    if observacoes:
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(margem_x, y, "Observações:")
-        y -= 14
-        c.setFont("Helvetica", 10)
-        y = draw_wrapped_text(c, observacoes, margem_x, y, max_width, max_lines=10)
-        y -= 18
 
     # Items (Cards)
     cards_per_page = 3
     card_gap = 10
 
     for i in range(0, len(imagens), cards_per_page):
-        c.showPage()
+        if i > 0:
+            c.showPage()
         
         chunk = imagens[i : i + cards_per_page]
         draw_header_footer(c, largura, altura)
