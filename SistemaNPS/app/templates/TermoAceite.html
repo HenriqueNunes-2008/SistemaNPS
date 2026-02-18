@@ -756,6 +756,92 @@ input.cpf-valido {
 }
 .btn-logout-confirm { background: #dc2626; color: #fff; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
 .btn-logout-cancel { background: #e5e7eb; color: #374151; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-right: 10px; }
+
+@media (max-width: 768px) {
+    html, body {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    body {
+        padding-top: 150px;
+    }
+
+    .topbar {
+        height: auto;
+        min-height: 140px;
+        border-radius: 0 0 28px 28px;
+        padding: 12px 14px;
+    }
+
+    .logo-fixed {
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        transform: none;
+        height: 70px;
+    }
+
+    .logo-link {
+        top: 14px;
+        left: 14px;
+        transform: none;
+        width: 150px;
+        height: 70px;
+    }
+
+    .topbar-content {
+        height: auto;
+        padding: 0;
+    }
+
+    .header-info {
+        width: 100%;
+        margin: 0;
+        padding-left: 160px;
+        gap: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        font-size: 12px;
+        line-height: 1.25;
+    }
+
+    .header-info > div {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    .logout-link {
+        align-self: flex-end;
+        margin: 6px 0 0;
+        font-size: 15px;
+    }
+
+    .breadcrumb-wrapper {
+        margin: 16px auto 12px;
+        padding: 0 14px;
+        max-width: 100%;
+    }
+
+    .breadcrumb {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .breadcrumb-arrow {
+        width: 20px;
+    }
+
+    main {
+        max-width: 100%;
+        padding: 0 14px 30px;
+    }
+
+    .footer-logo {
+        width: min(85vw, 320px);
+    }
+}
 </style>
 </head>
 
