@@ -247,7 +247,7 @@ img, svg, video, canvas {
     }
 
     .subtitle {
-        font-size: clamp(26px, 10vw, 56px);
+        font-size: clamp(24px, 8.2vw, 44px);
         margin: 10px 0 34px 0;
         text-align: left;
         margin-left: 0;
@@ -259,7 +259,7 @@ img, svg, video, canvas {
         margin-left: 0;
         align-items: flex-start;
         width: 100%;
-        gap: 28px;
+        gap: 32px;
     }
 
     .option {
@@ -276,10 +276,12 @@ img, svg, video, canvas {
         position: static;
         left: auto;
         margin-right: 18px;
-        width: 58px;
-        height: 58px;
+        width: auto;
+        height: 64px;
+        object-fit: contain;
         transform: none;
         top: auto;
+        flex-shrink: 0;
     }
 
     .green-box .icone,
@@ -327,24 +329,27 @@ img, svg, video, canvas {
     }
 
     .subtitle {
-        font-size: 52px;
+        font-size: 40px;
         padding: 8px 16px;
         margin-bottom: 24px;
     }
 
     .buttons-container {
-        gap: 18px;
+        gap: 26px;
     }
 
     .option {
-        height: 56px;
+        height: 60px;
         font-size: 19px;
         padding-left: 20px;
     }
 
     .option .icone {
-        width: 46px;
-        height: 46px;
+        position: relative;
+        left: -10px;
+        width: auto;
+        height: 72px;
+        object-fit: contain;
         margin-right: 12px;
     }
 }
