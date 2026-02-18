@@ -296,6 +296,11 @@
             .welcome-text {
                 max-width: 100%;
             }
+
+            .brand-logo {
+                transform: none;
+                margin: 20px auto;
+            }
         }
 
         @media (max-width: 1240px) {
@@ -324,6 +329,45 @@
 
             .topbar-content {
                 padding: 0 24px 0 140px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding-top: 150px;
+            }
+            .topbar {
+                height: auto;
+                min-height: 140px;
+                border-radius: 0 0 28px 28px;
+                padding: 12px 14px;
+            }
+            .logo-fixed {
+                position: absolute;
+                top: 14px;
+                left: 14px;
+                transform: none;
+                height: 70px;
+            }
+            .logo-link {
+                top: 14px;
+                left: 14px;
+                transform: none;
+                width: 150px;
+                height: 70px;
+            }
+            .topbar-content {
+                height: auto;
+                padding: 0;
+            }
+            .header-info {
+                width: 100%;
+                margin: 0;
+                padding-left: 160px;
+                gap: 8px;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
             }
         }
     </style>
