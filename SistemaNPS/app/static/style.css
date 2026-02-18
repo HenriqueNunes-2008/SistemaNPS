@@ -11,6 +11,15 @@ body {
     height: 100vh;
 }
 
+html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+img, svg, video, canvas {
+    max-width: 100%;
+}
+
 /* LOGO INFERIOR */
 .logo1 {
     position: absolute;
@@ -204,11 +213,13 @@ body {
 }
 
 @media (max-width: 600px) {
-    body {
+    html, body {
         overflow-y: auto;
         overflow-x: hidden;
         height: auto;
         min-height: 100vh;
+        width: 100%;
+        max-width: 100%;
     }
 
     .tablet-img { display: none; }
@@ -290,18 +301,24 @@ body {
     }
 
     /* Topbar fix */
-    .top-bar, header {
-        flex-direction: column;
-        height: auto;
-        padding: 10px;
+    .top-bar, .topbar, header {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        height: auto !important;
+        padding: 15px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
     }
     
     /* Imagem logosozinha.png */
-    img[src*="logosozinha.png"] {
-        max-width: 90%;
-        height: auto;
-        margin: 0 auto;
-        display: block;
+    img[src*="logosozinha"] {
+        position: relative !important;
+        max-width: 80% !important;
+        height: auto !important;
+        margin: 20px auto !important;
+        display: block !important;
     }
 
     /* Campos de Ressalva */
