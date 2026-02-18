@@ -44,7 +44,7 @@ img, svg, video, canvas {
     filter: brightness(0.85);
 }
 
-/* ÁREA DA DIREITA */
+/* ÃREA DA DIREITA */
 .right {
     position: absolute;
     right: 0;
@@ -58,7 +58,7 @@ img, svg, video, canvas {
     z-index: 2;
 }
 
-/* TÍTULOS */
+/* TÃTULOS */
 .title {
     font-size: 2.5vw;
     font-weight: bold;
@@ -79,7 +79,7 @@ img, svg, video, canvas {
     margin-left: 8%;
 }
 
-/* CONTAINER DE BOTÕES */
+/* CONTAINER DE BOTÃ•ES */
 .buttons-container {
     display: flex;
     flex-direction: column;
@@ -90,9 +90,9 @@ img, svg, video, canvas {
     margin-left: 10%;
 }
 
-/* BARRAS DAS OPÇÕES */
+/* BARRAS DAS OPÃ‡Ã•ES */
 .option {
-    position: relative;   /* necessário para o ícone usar posição absoluta */
+    position: relative;   /* necessÃ¡rio para o Ã­cone usar posiÃ§Ã£o absoluta */
     width: 18vw;
     min-width: 200px;
     max-width: 340px;
@@ -122,7 +122,7 @@ img, svg, video, canvas {
     left: -13%;
     pointer-events: none;
 }
-/* ÍCONE */
+/* ÃCONE */
 .option .icone {
     height: 40px;
     width: auto;
@@ -140,7 +140,7 @@ img, svg, video, canvas {
     transform: translate(-50%, -50%);
 }
 
-/* ÍCONE ESPECÍFICO PARA GREEN-BOX */
+/* ÃCONE ESPECÃFICO PARA GREEN-BOX */
 .green-box .icone {
     transform: scale(4.9);
 }
@@ -163,7 +163,7 @@ img, svg, video, canvas {
     filter: brightness(1.12);
 }
 
-/* ÍCONE cresce sem afetar caixa */
+/* ÃCONE cresce sem afetar caixa */
 .option:hover .icone {
     transform: scale(5.20);
     filter: brightness(1.2);
@@ -196,7 +196,7 @@ img, svg, video, canvas {
     
 }
 
-/* BOTÃO ADMIN */
+/* BOTÃƒO ADMIN */
 .admin-btn {
     position: absolute;
     top: 10px;
@@ -212,132 +212,139 @@ img, svg, video, canvas {
     .option { width: 60%; }
 }
 
-/* Aumentado para 768px para garantir que celulares modernos carreguem o layout mobile */
-@media (max-width: 768px) {
+/* Mobile/tablet portrait: garante layout fluido mesmo quando o navegador movel reporta viewport maior */
+@media (max-width: 1024px) {
     html, body {
         overflow-y: auto;
         overflow-x: hidden;
         height: auto;
-        min-height: 100vh;
+        min-height: 100dvh;
         width: 100%;
         max-width: 100%;
     }
 
-    .tablet-img { display: none; }
-    
-    .right { 
-        width: 100%; 
-        padding: 20px; 
+    .tablet-img {
+        display: none;
+    }
+
+    .right {
+        width: 100%;
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 24px 20px 32px;
         position: relative;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        text-align: center;
+        align-items: flex-start;
+        text-align: left;
     }
-    
-    .title { 
-        font-size: 8vw; 
-        text-align: center;
+
+    .title {
+        font-size: clamp(34px, 8vw, 52px);
+        text-align: left;
         margin-left: 0;
         width: 100%;
     }
-    
+
     .subtitle {
-        font-size: 18px; /* Reduzido ainda mais */
-        margin: 10px 0 30px 0;
-        text-align: center;
+        font-size: clamp(26px, 10vw, 56px);
+        margin: 10px 0 34px 0;
+        text-align: left;
         margin-left: 0;
-        width: auto;
+        width: 100%;
+        max-width: 620px;
     }
-    
+
     .buttons-container {
         margin-left: 0;
-        align-items: center;
+        align-items: flex-start;
         width: 100%;
+        gap: 28px;
     }
 
-    .option { 
-        width: 90%; 
-        justify-content: flex-start; /* Conteúdo alinhado à esquerda */
-        padding-left: 25px; /* Espaço para não colar na borda */
+    .option {
+        width: 100%;
+        max-width: 620px;
+        min-width: 0;
+        height: 72px;
+        font-size: clamp(24px, 5.5vw, 40px);
+        justify-content: flex-start;
+        padding-left: 30px;
     }
-    
+
     .option .icone {
-        position: static; /* Remove posicionamento absoluto */
+        position: static;
         left: auto;
-        margin-right: 15px;
-        transform: scale(1.5); /* Reseta a escala do ícone para evitar overflow */
-        top: auto; /* Reseta a posição vertical do ícone */
+        margin-right: 18px;
+        width: 58px;
+        height: 58px;
+        transform: none;
+        top: auto;
     }
 
-    /* Ajustes de Logos */
+    .green-box .icone,
+    .blue-box .icone,
+    .orange-box .icone {
+        transform: none;
+        top: auto;
+    }
+
     .logo1 {
         position: relative;
         left: auto;
         top: auto;
         transform: none;
-        margin: 20px auto !important; /* Força centralização */
+        margin: 28px auto 20px !important;
         display: block;
-        max-width: 60%;
+        max-width: 80%;
         height: auto;
     }
 
     .logo2 {
-        /* Background watermark fix - evita ficar entre campos */
         position: fixed !important;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%) rotate(20deg);
-        width: 80%;
+        width: 85%;
         height: auto;
         opacity: 0.05;
         z-index: -1;
     }
-    
+
     .logo3 {
-        position: relative;
-        left: auto;
-        top: auto;
-        transform: none;
-        margin: 20px auto;
-        display: block;
-        max-width: 40%;
-        height: auto;
+        display: none;
+    }
+}
+
+@media (max-width: 520px) {
+    .right {
+        padding: 18px 16px 26px;
     }
 
-    /* Topbar fix */
-    .top-bar, .topbar, header {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        height: auto !important;
-        padding: 15px !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow-x: hidden !important;
-    }
-    
-    /* Imagem logosozinha.png */
-    img[src*="logosozinha"] {
-        position: relative !important;
-        max-width: 80% !important;
-        height: auto !important;
-        margin: 20px auto !important;
-        display: block !important;
+    .title {
+        font-size: 42px;
+        line-height: 1.15;
     }
 
-    /* Campos de Ressalva */
-    input, textarea, select {
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
+    .subtitle {
+        font-size: 52px;
+        padding: 8px 16px;
+        margin-bottom: 24px;
     }
 
-    /* Estrelas NPS */
-    .rating, .stars-container, .nps-stars {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        width: 100%;
+    .buttons-container {
+        gap: 18px;
+    }
+
+    .option {
+        height: 56px;
+        font-size: 19px;
+        padding-left: 20px;
+    }
+
+    .option .icone {
+        width: 46px;
+        height: 46px;
+        margin-right: 12px;
     }
 }
