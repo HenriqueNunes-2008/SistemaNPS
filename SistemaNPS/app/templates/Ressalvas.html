@@ -492,6 +492,97 @@ input.item-duplicado { border: 2px solid #dc2626; }
 .saving-text { color: #334155; margin-top: 6px; font-size: 13px; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 768px) {
+    html, body {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    body {
+        padding-top: 150px;
+    }
+
+    .topbar {
+        height: auto;
+        min-height: 140px;
+        border-radius: 0 0 28px 28px;
+        padding: 12px 14px;
+    }
+
+    .logo-fixed {
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        transform: none;
+        height: 70px;
+    }
+
+    .logo-link {
+        top: 14px;
+        left: 14px;
+        transform: none;
+        width: 150px;
+        height: 70px;
+    }
+
+    .topbar-content {
+        height: auto;
+        padding: 0;
+    }
+
+    .header-info {
+        width: 100%;
+        margin: 0;
+        padding-left: 160px;
+        gap: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        font-size: 12px;
+        line-height: 1.25;
+    }
+
+    .header-info > div {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    .logout-link {
+        align-self: flex-end;
+        margin: 6px 0 0;
+        font-size: 15px;
+    }
+
+    .breadcrumb-wrapper {
+        margin: 16px auto 12px;
+        padding: 0 14px;
+        max-width: 100%;
+    }
+
+    .breadcrumb {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .breadcrumb-arrow {
+        width: 20px;
+    }
+
+    .page-container,
+    main {
+        max-width: 100%;
+        padding: 0 14px;
+    }
+
+    .footer {
+        padding: 0 14px;
+    }
+
+    .footer img {
+        width: min(85vw, 320px);
+    }
+}
 </style>
 </head>
 
