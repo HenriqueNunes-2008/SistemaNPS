@@ -204,8 +204,118 @@ body {
 }
 
 @media (max-width: 600px) {
+    body {
+        overflow-y: auto;
+        overflow-x: hidden;
+        height: auto;
+        min-height: 100vh;
+    }
+
     .tablet-img { display: none; }
-    .right { width: 100%; padding: 20px; }
-    .title { font-size: 5.5vw; }
-    .option { width: 90%; }
+    
+    .right { 
+        width: 100%; 
+        padding: 20px; 
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .title { 
+        font-size: 8vw; 
+        text-align: center;
+        margin-left: 0;
+        width: 100%;
+    }
+    
+    .subtitle {
+        font-size: 24px;
+        margin: 10px 0 30px 0;
+        text-align: center;
+        margin-left: 0;
+        width: auto;
+    }
+    
+    .buttons-container {
+        margin-left: 0;
+        align-items: center;
+        width: 100%;
+    }
+
+    .option { 
+        width: 90%; 
+        justify-content: center;
+    }
+    
+    .option .icone {
+        left: 0;
+        margin-right: 10px;
+    }
+
+    /* Ajustes de Logos */
+    .logo1 {
+        position: relative;
+        left: auto;
+        top: auto;
+        transform: none;
+        margin: 20px auto;
+        display: block;
+        max-width: 60%;
+        height: auto;
+    }
+
+    .logo2 {
+        /* Background watermark fix - evita ficar entre campos */
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(20deg);
+        width: 80%;
+        height: auto;
+        opacity: 0.05;
+        z-index: -1;
+    }
+    
+    .logo3 {
+        position: relative;
+        left: auto;
+        top: auto;
+        transform: none;
+        margin: 20px auto;
+        display: block;
+        max-width: 40%;
+        height: auto;
+    }
+
+    /* Topbar fix */
+    .top-bar, header {
+        flex-direction: column;
+        height: auto;
+        padding: 10px;
+    }
+    
+    /* Imagem logosozinha.png */
+    img[src*="logosozinha.png"] {
+        max-width: 90%;
+        height: auto;
+        margin: 0 auto;
+        display: block;
+    }
+
+    /* Campos de Ressalva */
+    input, textarea, select {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Estrelas NPS */
+    .rating, .stars-container, .nps-stars {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+    }
 }
