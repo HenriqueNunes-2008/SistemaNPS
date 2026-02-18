@@ -582,6 +582,19 @@ input.item-duplicado { border: 2px solid #dc2626; }
     .footer img {
         width: min(85vw, 320px);
     }
+
+    /* Ajuste para campos de ressalva em mobile */
+    .table-header {
+        display: none;
+    }
+    .table-row {
+        grid-template-columns: 1fr; /* Coluna única */
+        gap: 16px; /* Espaçamento vertical entre campos */
+        height: auto;
+        padding-bottom: 24px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid #d1d5db;
+    }
 }
 </style>
 </head>
