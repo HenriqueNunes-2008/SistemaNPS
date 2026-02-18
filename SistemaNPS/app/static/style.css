@@ -242,7 +242,7 @@ img, svg, video, canvas {
     }
     
     .subtitle {
-        font-size: 24px;
+        font-size: 20px;
         margin: 10px 0 30px 0;
         text-align: center;
         margin-left: 0;
@@ -263,6 +263,8 @@ img, svg, video, canvas {
     .option .icone {
         left: 0;
         margin-right: 10px;
+        transform: scale(1.5); /* Reseta a escala do ícone para evitar overflow */
+        top: auto; /* Reseta a posição vertical do ícone */
     }
 
     /* Ajustes de Logos */
@@ -279,7 +281,7 @@ img, svg, video, canvas {
 
     .logo2 {
         /* Background watermark fix - evita ficar entre campos */
-        position: fixed;
+        position: fixed !important;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%) rotate(20deg);
