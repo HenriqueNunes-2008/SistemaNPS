@@ -212,7 +212,8 @@ img, svg, video, canvas {
     .option { width: 60%; }
 }
 
-@media (max-width: 600px) {
+/* Aumentado para 768px para garantir que celulares modernos carreguem o layout mobile */
+@media (max-width: 768px) {
     html, body {
         overflow-y: auto;
         overflow-x: hidden;
@@ -242,7 +243,7 @@ img, svg, video, canvas {
     }
     
     .subtitle {
-        font-size: 20px;
+        font-size: 18px; /* Reduzido ainda mais */
         margin: 10px 0 30px 0;
         text-align: center;
         margin-left: 0;
@@ -257,12 +258,14 @@ img, svg, video, canvas {
 
     .option { 
         width: 90%; 
-        justify-content: center;
+        justify-content: flex-start; /* Conteúdo alinhado à esquerda */
+        padding-left: 25px; /* Espaço para não colar na borda */
     }
     
     .option .icone {
-        left: 0;
-        margin-right: 10px;
+        position: static; /* Remove posicionamento absoluto */
+        left: auto;
+        margin-right: 15px;
         transform: scale(1.5); /* Reseta a escala do ícone para evitar overflow */
         top: auto; /* Reseta a posição vertical do ícone */
     }
@@ -273,7 +276,7 @@ img, svg, video, canvas {
         left: auto;
         top: auto;
         transform: none;
-        margin: 20px auto;
+        margin: 20px auto !important; /* Força centralização */
         display: block;
         max-width: 60%;
         height: auto;
