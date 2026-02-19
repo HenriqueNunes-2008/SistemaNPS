@@ -94,6 +94,7 @@ def gerar_hash_imagem(base64_data: str) -> str:
 def gerar_pdf_ressalvas(
     processo_codigo: str,
     responsavel: str,
+    cpf: Optional[str],
     observacoes: Optional[str],
     imagens: List[ImagemRessalva]
 ) -> BytesIO:
@@ -113,6 +114,9 @@ def gerar_pdf_ressalvas(
             c.showPage()
         
         chunk = imagens[i : i + cards_per_page]
+        is_last_chunk = (i + cards_per_page) >= len(imagens)
+        has_aprovacao_final = bool(responsavel or cpf)
+        reserva_aprovacao = 56 if is_last_chunk and has_aprovacao_final else 0
         draw_header_footer(c, largura, altura)
         y = content_top(altura)
         
@@ -120,7 +124,7 @@ def gerar_pdf_ressalvas(
         c.drawString(margem_x, y, f"Itens de Ressalva (Itens {i+1} a {i+len(chunk)})")
         y -= 20
         
-        card_h = ((y - (content_bottom() + 20)) - (card_gap * (cards_per_page - 1))) / cards_per_page
+        card_h = ((y - (content_bottom() + 20 + reserva_aprovacao)) - (card_gap * (cards_per_page - 1))) / cards_per_page
 
         for j, item in enumerate(chunk):
             card_top = y - j * (card_h + card_gap)
@@ -166,9 +170,7 @@ def gerar_pdf_ressalvas(
             ty -= 11
             c.drawString(tx, ty, f"Responsavel: {str(item.responsavel)[:35]}")
             ty -= 11
-            c.drawString(tx, ty, f"Aprovacao: {'Sim' if item.aprovacao else 'Nao'}")
-            ty -= 11
-            
+
             draw_wrapped_text(
                 c,
                 f"Descricao: {str(item.descricao)}",
@@ -179,6 +181,28 @@ def gerar_pdf_ressalvas(
                 line_height=10,
                 max_lines=5,
             )
+
+        if is_last_chunk and has_aprovacao_final:
+            apro_y = content_bottom() + 44
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(margem_x, apro_y, "Aprovacao final das ressalvas")
+            apro_y -= 14
+            c.setFont("Helvetica", 9)
+            c.drawString(margem_x, apro_y, f"Representante: {responsavel or ''}")
+            apro_y -= 12
+            c.drawString(margem_x, apro_y, f"CPF: {cpf or ''}")
+
+    if not imagens and (responsavel or cpf):
+        draw_header_footer(c, largura, altura)
+        y = content_top(altura)
+        c.setFont("Helvetica-Bold", 15)
+        c.drawString(margem_x, y, "Aprovacao final das ressalvas")
+        y -= 24
+
+        c.setFont("Helvetica", 10)
+        c.drawString(margem_x, y, f"Representante: {responsavel or ''}")
+        y -= 14
+        c.drawString(margem_x, y, f"CPF: {cpf or ''}")
     
     c.save()
     buffer.seek(0)
@@ -218,6 +242,7 @@ def salvar_ressalvas(data: RessalvasRequest):
         pdf_buffer = gerar_pdf_ressalvas(
             processo_codigo=data.processo_id,
             responsavel=data.responsavel,
+            cpf=data.cpf,
             observacoes=data.observacoes,
             imagens=data.imagens
         )
@@ -331,6 +356,7 @@ def atualizar_ressalvas(data: RessalvasUpdateRequest):
         pdf_buffer = gerar_pdf_ressalvas(
             processo_codigo=data.processo_id,
             responsavel=data.responsavel,
+            cpf=data.cpf,
             observacoes=data.observacoes,
             imagens=data.imagens
         )
