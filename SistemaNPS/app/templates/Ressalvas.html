@@ -430,6 +430,32 @@ input.item-duplicado { border: 2px solid #dc2626; }
     cursor: pointer;
 }
 
+#cameraModal {
+    flex-direction: column;
+    gap: 14px;
+}
+
+#cameraModal #video {
+    width: min(92vw, 720px);
+    max-height: 70vh;
+    border-radius: 12px;
+    background: #000;
+}
+
+#captureBtn {
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    background: #0093dd;
+    color: #fff;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+#captureBtn.hidden {
+    display: none;
+}
+
 /* Modal de Logout */
 .modal-logout {
     position: fixed;
@@ -1052,10 +1078,25 @@ function loadFile(file) {
 
 function openCamera() {
     closeSheet();
+    if (!currentBox) {
+        alert("Selecione o campo de imagem antes de abrir a câmera.");
+        return;
+    }
+
+    const row = currentBox.closest(".table-row");
+    const regiao = row?.querySelector(".regiao-foto")?.value;
+    if (!regiao) {
+        alert("Selecione a região da foto antes de tirar a foto.");
+        return;
+    }
+
     navigator.mediaDevices.getUserMedia({ video: true })
         .then(s => {
             stream = s;
-            document.getElementById('video').srcObject = stream;
+            const video = document.getElementById('video');
+            const captureBtn = document.getElementById('captureBtn');
+            video.srcObject = stream;
+            captureBtn.classList.remove('hidden');
             document.getElementById('cameraModal').classList.add('active');
         })
         .catch(() => alert('Câmera não disponível'));
@@ -1075,6 +1116,10 @@ function takePhoto() {
 
 function closeCamera() {
     if (stream) stream.getTracks().forEach(t => t.stop());
+    const video = document.getElementById('video');
+    const captureBtn = document.getElementById('captureBtn');
+    video.srcObject = null;
+    captureBtn.classList.add('hidden');
     document.getElementById('cameraModal').classList.remove('active');
 }
 
@@ -1173,7 +1218,6 @@ function desabilitarFormulario() {
     document.querySelectorAll(".image-box").forEach(el => {
         el.style.pointerEvents = "none";
     });
-
     // Desabilita botao salvar
     if (btnSalvar) {
         btnSalvar.disabled = true;
@@ -1246,7 +1290,7 @@ if (!isAdmin) {
 <div class="modal" id="cameraModal">
     <span class="close" onclick="closeCamera()">&times;</span>
     <video id="video" autoplay></video>
-    <button onclick="takePhoto()" class="save" style="margin-top:20px;">TIRAR FOTO</button>
+    <button id="captureBtn" class="hidden" onclick="takePhoto()">Capturar</button>
 </div>
 
 
