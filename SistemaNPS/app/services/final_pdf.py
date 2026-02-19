@@ -196,11 +196,18 @@ def _collect_ressalvas_items(proc_data: dict) -> list[dict]:
                 "prazo": _safe_text(item.get("prazo", "")),
                 "responsavel": _safe_text(item.get("responsavel", "")),
                 "regiao_foto": _safe_text(item.get("regiao_foto", "")),
-                "aprovacao": "Sim" if item.get("aprovacao") else "Nao",
                 "bytes": raw_bytes,
             }
         )
     return resultado[:6]
+
+
+def _collect_ressalvas_aprovacao(proc_data: dict) -> dict:
+    ressalvas_dados = _as_dict(proc_data.get("ressalvas_dados"))
+    return {
+        "representante": _safe_text(ressalvas_dados.get("responsavel", "")),
+        "cpf": _safe_text(ressalvas_dados.get("cpf", "")),
+    }
 
 
 def _draw_termo_info_page(c, width: float, height: float, proc_data: dict) -> None:
@@ -353,7 +360,16 @@ def _draw_termo_images_page(c, width: float, height: float, images: list[dict]) 
             c.drawString(cx + 6, img_y + (cell_h / 2) - 6, "Imagem nao informada")
 
 
-def _draw_ressalvas_page(c, width: float, height: float, items: list[dict], title: str, start_index: int) -> None:
+def _draw_ressalvas_page(
+    c,
+    width: float,
+    height: float,
+    items: list[dict],
+    title: str,
+    start_index: int,
+    aprovacao_final: dict | None = None,
+    show_aprovacao_final: bool = False,
+) -> None:
     draw_header_footer(c, width, height)
     x = 40
     y = content_top(height)
@@ -365,7 +381,9 @@ def _draw_ressalvas_page(c, width: float, height: float, items: list[dict], titl
 
     card_gap = 10
     cards = 3
-    card_h = ((y - (content_bottom() + 20)) - (card_gap * (cards - 1))) / cards
+    has_aprovacao_final = bool((aprovacao_final or {}).get("representante") or (aprovacao_final or {}).get("cpf"))
+    reserva_aprovacao = 56 if show_aprovacao_final and has_aprovacao_final else 0
+    card_h = ((y - (content_bottom() + 20 + reserva_aprovacao)) - (card_gap * (cards - 1))) / cards
 
     for i in range(cards):
         idx = start_index + i
@@ -413,8 +431,6 @@ def _draw_ressalvas_page(c, width: float, height: float, items: list[dict], titl
         ty -= 11
         c.drawString(tx, ty, f"Responsavel: {_safe_text(item.get('responsavel'))[:35]}")
         ty -= 11
-        c.drawString(tx, ty, f"Aprovacao: {_safe_text(item.get('aprovacao'))}")
-        ty -= 11
         _draw_wrapped(
             c,
             f"Descricao: {_safe_text(item.get('descricao'))}",
@@ -425,6 +441,16 @@ def _draw_ressalvas_page(c, width: float, height: float, items: list[dict], titl
             line_height=10,
             max_lines=5,
         )
+
+    if show_aprovacao_final and has_aprovacao_final:
+        apro_y = content_bottom() + 44
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(x, apro_y, "Aprovacao final das ressalvas")
+        apro_y -= 14
+        c.setFont("Helvetica", 9)
+        c.drawString(x, apro_y, f"Representante: {_safe_text((aprovacao_final or {}).get('representante'))}")
+        apro_y -= 12
+        c.drawString(x, apro_y, f"CPF: {_safe_text((aprovacao_final or {}).get('cpf'))}")
 
 
 def _draw_nps_page(c, width: float, height: float, nps_dados: dict) -> None:
@@ -473,6 +499,7 @@ def _draw_nps_page(c, width: float, height: float, nps_dados: dict) -> None:
 def _build_final_pdf_bytes(proc_data: dict) -> bytes:
     termo_images = _collect_termo_images(proc_data)
     ressalvas_items = _collect_ressalvas_items(proc_data)
+    ressalvas_aprovacao = _collect_ressalvas_aprovacao(proc_data)
     nps_dados = proc_data.get("nps_dados") or {}
 
     final_buffer = BytesIO()
@@ -485,7 +512,16 @@ def _build_final_pdf_bytes(proc_data: dict) -> bytes:
     c.showPage()
     _draw_ressalvas_page(c, width, height, ressalvas_items, "3/5 - Ressalvas (itens 1 a 3)", 0)
     c.showPage()
-    _draw_ressalvas_page(c, width, height, ressalvas_items, "4/5 - Ressalvas (itens 4 a 6)", 3)
+    _draw_ressalvas_page(
+        c,
+        width,
+        height,
+        ressalvas_items,
+        "4/5 - Ressalvas (itens 4 a 6)",
+        3,
+        aprovacao_final=ressalvas_aprovacao,
+        show_aprovacao_final=True,
+    )
     c.showPage()
     _draw_nps_page(c, width, height, nps_dados)
     c.showPage()
