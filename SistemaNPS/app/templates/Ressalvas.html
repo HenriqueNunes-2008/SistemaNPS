@@ -11,7 +11,7 @@
 // const processoId = sessionStorage.getItem("processo_id");
 
 //if (!processoId || processoId === "undefined" || processoId === "null") {
-//    alert("Sessão inválida. Retorne ao Termo de Aceite.");
+//    alert("Sess�o inv�lida. Retorne ao Termo de Aceite.");
 //    sessionStorage.clear();
 //    window.location.href = "/termo";
 //}
@@ -663,12 +663,12 @@ input.item-duplicado { border: 2px solid #dc2626; }
 
 <div class="topbar">
     <img src="/static/LogoFlexcolor2.png" class="logo-fixed" alt="Logo">
-    <a href="/" class="logo-link" aria-label="Página inicial"></a>
+    <a href="/" class="logo-link" aria-label="P�gina inicial"></a>
     <div class="topbar-content">
         <div class="header-info">
             <div class="address">
-                R. José Antônio Valadares, 285 – Vila Liviero<br>
-                São Paulo – SP. CEP: 04185-020
+                R. Jos� Ant�nio Valadares, 285 � Vila Liviero<br>
+                S�o Paulo � SP. CEP: 04185-020
             </div>
 
             <div class="contact">
@@ -682,7 +682,7 @@ input.item-duplicado { border: 2px solid #dc2626; }
 
 <div class="breadcrumb-wrapper">
     <nav class="breadcrumb">
-        <a href="/index" class="breadcrumb-item">Página Inicial</a>
+        <a href="/index" class="breadcrumb-item">P�gina Inicial</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
         <a href="/termo" class="breadcrumb-item">Termo de Aceite</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
@@ -700,20 +700,20 @@ input.item-duplicado { border: 2px solid #dc2626; }
 
         <section class="card">
             <div class="table-header">
-            <div>DESCRIÇÃO</div>
+            <div>DESCRI��O</div>
             <div>PRAZO</div>
-            <div>RESPONSÁVEL</div>
+            <div>RESPONS�VEL</div>
             <div>
                 <div style="font-weight:800;margin-bottom:6px;">FOTOS</div>
             </div>
-            <div>REGIÃO DA FOTO</div>
+            <div>REGI�O DA FOTO</div>
         </div>
             <div id="tableBody"></div>
             <button class="add-item" onclick="addRow()">ADICIONAR ITEM +</button>
         </section>
 
         <section class="approval admin-only">
-            <strong>APROVAÇÃO FINAL DAS RESSALVAS:</strong>
+            <strong>APROVA��O FINAL DAS RESSALVAS:</strong>
             <div class="approval-fields">
                 <label>REPRESENTANTE</label>
                 <input type="text" placeholder="REPRESENTANTE">
@@ -816,7 +816,7 @@ async function executarSalvarRessalvas() {
         /* 4. Valida processo_id antes de enviar */
         const processoId = processoParam || processoEmAndamento;
         if (!processoId || processoId === "undefined" || processoId === "null") {
-            alert("Processo inválido. Refaça o Termo de Aceite.");
+            alert("Processo inv�lido. Refa�a o Termo de Aceite.");
 
             btn.disabled = false;
             btn.textContent = "SALVAR RESSALVA";
@@ -1119,27 +1119,35 @@ function loadFile(file) {
 function openCamera() {
     closeSheet();
     if (!currentBox) {
-        alert("Selecione o campo de imagem antes de abrir a câmera.");
+        alert("Selecione o campo de imagem antes de abrir a camera.");
         return;
     }
 
     const row = currentBox.closest(".table-row");
     const regiao = row?.querySelector(".regiao-foto")?.value;
     if (!regiao) {
-        alert("Selecione a região da foto antes de tirar a foto.");
+        alert("Selecione a regiao da foto antes de tirar a foto.");
         return;
     }
 
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(s => {
-            stream = s;
-            const video = document.getElementById('video');
-            const captureBtn = document.getElementById('captureBtn');
-            video.srcObject = stream;
-            captureBtn.classList.remove('hidden');
-            document.getElementById('cameraModal').classList.add('active');
-        })
-        .catch(() => alert('Câmera não disponível'));
+    const aplicarStream = (cameraStream) => {
+        stream = cameraStream;
+        const video = document.getElementById('video');
+        const captureBtn = document.getElementById('captureBtn');
+        video.srcObject = stream;
+        captureBtn.classList.remove('hidden');
+        document.getElementById('cameraModal').classList.add('active');
+    };
+
+    navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } }
+    })
+        .then(aplicarStream)
+        .catch(() => {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(aplicarStream)
+                .catch(() => alert('Camera nao disponivel'));
+        });
 }
 
 function takePhoto() {
@@ -1261,7 +1269,7 @@ function desabilitarFormulario() {
     // Desabilita botao salvar
     if (btnSalvar) {
         btnSalvar.disabled = true;
-        btnSalvar.textContent = "RESSALVAS JÁ SALVAS";
+        btnSalvar.textContent = "RESSALVAS J� SALVAS";
     }
 }
 
@@ -1325,8 +1333,8 @@ if (!isAdmin) {
 <!-- MODAL CONFIRM SAVE -->
 <div id="confirmSaveModal" class="modal-logout" style="display: none;">
     <div class="modal-logout-content" style="border-color: #ff7a1a;">
-        <div class="modal-logout-text" style="color: #ff7a1a;">ATENÇÃO</div>
-        <p class="modal-logout-sub">Tem certeza de que deseja enviar?<br>Depois de salvar não será possível realizar alterações.</p>
+        <div class="modal-logout-text" style="color: #ff7a1a;">ATEN��O</div>
+        <p class="modal-logout-sub">Tem certeza de que deseja enviar?<br>Depois de salvar n�o ser� poss�vel realizar altera��es.</p>
         <button onclick="closeConfirmSaveModal()" class="btn-logout-cancel">Voltar</button>
         <button onclick="executarSalvarRessalvas()" class="btn-logout-confirm" style="background-color: #ff7a1a;">Salvar</button>
     </div>
@@ -1352,8 +1360,8 @@ if (!isAdmin) {
 <!-- MODAL LOGOUT -->
 <div id="logoutModal" class="modal-logout" style="display: none;">
     <div class="modal-logout-content">
-        <div class="modal-logout-text">ATENÇÃO</div>
-        <p class="modal-logout-sub">Tem certeza que deseja sair da sua conta? Lembre-se de salvar as requisições para registro.</p>
+        <div class="modal-logout-text">ATEN��O</div>
+        <p class="modal-logout-sub">Tem certeza que deseja sair da sua conta? Lembre-se de salvar as requisi��es para registro.</p>
         <button onclick="closeLogoutModal()" class="btn-logout-cancel">Cancelar</button>
         <button onclick="confirmLogout()" class="btn-logout-confirm">SAIR</button>
     </div>
@@ -1361,3 +1369,4 @@ if (!isAdmin) {
 
 </body>
 </html>
+
