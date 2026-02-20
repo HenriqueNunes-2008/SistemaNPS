@@ -419,7 +419,12 @@ def pdf_termo(codigo: str):
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": "inline; filename=termo.pdf"}
+        headers={
+            "Content-Disposition": "inline; filename=termo.pdf",
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
     )
 
 
@@ -440,7 +445,12 @@ def pdf_ressalvas(codigo: str):
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": "inline; filename=ressalvas.pdf"}
+        headers={
+            "Content-Disposition": "inline; filename=ressalvas.pdf",
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
     )
 
 
@@ -461,7 +471,12 @@ def pdf_final(codigo: str):
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": "inline; filename=entrega_final.pdf"}
+        headers={
+            "Content-Disposition": "inline; filename=entrega_final.pdf",
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
     )
 
 @router.get("/.well-known/appspecific/com.chrome.devtools.json")
