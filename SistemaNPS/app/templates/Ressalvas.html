@@ -940,6 +940,20 @@ function saveCurrentProcessId(processoId) {
     sessionStorage.setItem("processo_id", processoId);
 }
 
+async function resolveDraftFromServer() {
+    try {
+        const res = await fetch("/api/processos/ultimo-em-andamento");
+        if (!res.ok) return null;
+        const data = await res.json();
+        const processoId = data?.processo_id;
+        if (!processoId) return null;
+        saveCurrentProcessId(processoId);
+        return processoId;
+    } catch {
+        return null;
+    }
+}
+
 let currentBox = null;
 let stream = null;
 
@@ -1262,9 +1276,15 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
 
 
 /* linha inicial */
-processoEmAndamento = isEditMode ? null : getCurrentProcessId();
-carregarEdicaoRessalvas(isEditMode ? processoParam : processoEmAndamento);
-btnSalvar.disabled = !validarFormulario();
+async function inicializarPagina() {
+    processoEmAndamento = isEditMode
+        ? null
+        : getCurrentProcessId() || await resolveDraftFromServer();
+    carregarEdicaoRessalvas(isEditMode ? processoParam : processoEmAndamento);
+    btnSalvar.disabled = !validarFormulario();
+}
+
+inicializarPagina();
 
 if (!isAdmin) {
     document.querySelectorAll(".admin-only").forEach((el) => {
