@@ -7,13 +7,34 @@ from app.services.supabase_client import supabase
 router = APIRouter(prefix="/api/processos", tags=["Processos"])
 
 
+@router.get("/ultimo-em-andamento")
+def obter_ultimo_processo_em_andamento():
+    res = (
+        supabase
+        .table("processos")
+        .select("codigo,status,atualizado_em,criado_em")
+        .order("atualizado_em", desc=True)
+        .order("criado_em", desc=True)
+        .limit(30)
+        .execute()
+    )
+
+    processos = res.data or []
+    for processo in processos:
+        status = str(processo.get("status") or "").strip().lower()
+        if status != "finalizado" and processo.get("codigo"):
+            return {"processo_id": processo["codigo"]}
+
+    raise HTTPException(status_code=404, detail="Nenhum processo em andamento encontrado")
+
+
 @router.get("/{codigo}")
 def obter_processo(codigo: str):
     res = (
         supabase
         .table("processos")
         .select(
-            "codigo,status,nome_cliente,empresa,cpf,status_entrega,"
+            "codigo,nome_cliente,empresa,cpf,status_entrega,"
             "termo_dados,ressalvas_dados,nps_dados,imagens_termo"
         )
         .eq("codigo", codigo)
