@@ -741,7 +741,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const processoParam = urlParams.get("processo");
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
-const processoEmAndamento = isEditMode ? null : getCurrentProcessId();
+let processoEmAndamento = null;
 
 function getCookieValue(name) {
     const key = `${name}=`;
@@ -764,9 +764,29 @@ function getCurrentProcessId() {
     return localStorage.getItem(getProgressStorageKey()) || sessionStorage.getItem("processo_id");
 }
 
+function saveCurrentProcessId(processoId) {
+    if (!processoId) return;
+    localStorage.setItem(getProgressStorageKey(), processoId);
+    sessionStorage.setItem("processo_id", processoId);
+}
+
 function clearCurrentProcessId() {
     localStorage.removeItem(getProgressStorageKey());
     sessionStorage.removeItem("processo_id");
+}
+
+async function resolveDraftFromServer() {
+    try {
+        const res = await fetch("/api/processos/ultimo-em-andamento");
+        if (!res.ok) return null;
+        const data = await res.json();
+        const processoId = data?.processo_id;
+        if (!processoId) return null;
+        saveCurrentProcessId(processoId);
+        return processoId;
+    } catch {
+        return null;
+    }
 }
 
 // -------------------------
@@ -926,7 +946,14 @@ document.querySelector("form").addEventListener("submit", async (e) => {
     }
 });
 
-carregarEdicaoNps(isEditMode ? processoParam : processoEmAndamento);
+async function inicializarPagina() {
+    processoEmAndamento = isEditMode
+        ? null
+        : getCurrentProcessId() || await resolveDraftFromServer();
+    carregarEdicaoNps(isEditMode ? processoParam : processoEmAndamento);
+}
+
+inicializarPagina();
 
 function openLogoutModal(e) {
     if(e) e.preventDefault();
