@@ -1506,7 +1506,7 @@ const captureBtn = document.getElementById('captureBtn');
 /* Upload por botão */
 window.openFile = function () {
     if (!regiaoSelect?.value) {
-        alert("Selecione a regi??o da foto antes de enviar.");
+        alert("Selecione a região da foto antes de enviar.");
         return;
     }
     fileInput.click();
@@ -1524,18 +1524,27 @@ fileInput.addEventListener('change', () => {
 /* Câmera */
 window.openCamera = function () {
     if (!regiaoSelect?.value) {
-        alert("Selecione a regi??o da foto antes de tirar a foto.");
+        alert("Selecione a regiao da foto antes de tirar a foto.");
         return;
     }
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(s => {
-            stream = s;
-            video.srcObject = stream;
-            placeholder.classList.add('hidden');
-            video.classList.remove('hidden');
-            captureBtn.classList.remove('hidden');
-        })
-        .catch(() => alert('Câmera não disponível'));
+
+    const aplicarStream = (cameraStream) => {
+        stream = cameraStream;
+        video.srcObject = stream;
+        placeholder.classList.add('hidden');
+        video.classList.remove('hidden');
+        captureBtn.classList.remove('hidden');
+    };
+
+    navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } }
+    })
+        .then(aplicarStream)
+        .catch(() => {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(aplicarStream)
+                .catch(() => alert('Camera nao disponivel'));
+        });
 };
 
 window.takePhoto = function () {
@@ -1834,3 +1843,4 @@ window.renderFotoGrid = function() {
 
 </body>
 </html>
+
