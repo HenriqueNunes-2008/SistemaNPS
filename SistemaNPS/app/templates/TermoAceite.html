@@ -1192,6 +1192,20 @@ async function resolveDraftProcessId() {
     }
 }
 
+async function resolveDraftFromServer() {
+    try {
+        const res = await fetch("/api/processos/ultimo-em-andamento");
+        if (!res.ok) return null;
+        const data = await res.json();
+        const processoId = data?.processo_id;
+        if (!processoId) return null;
+        saveCurrentProcessId(processoId);
+        return processoId;
+    } catch {
+        return null;
+    }
+}
+
 /* ================= LOCK/UNLOCK BOTÃO ================= */
 function lockButton() {
     btnSalvar.classList.add("loading");
@@ -1638,7 +1652,9 @@ window.renderFotoGrid = function() {
         });
     }
 
-    processoEmAndamento = isEditMode ? null : await resolveDraftProcessId();
+    processoEmAndamento = isEditMode
+        ? null
+        : (await resolveDraftProcessId()) || (await resolveDraftFromServer());
     carregarEdicao(isEditMode ? processoParam : processoEmAndamento);
 
     /* ================= SALVAR TERMO ================= */
