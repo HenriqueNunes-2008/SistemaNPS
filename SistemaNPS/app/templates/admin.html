@@ -86,6 +86,88 @@
             .topbar-content { padding: 0 24px 0 140px; }
         }
 
+        @media (max-width: 768px) {
+            html, body {
+                max-width: 100%;
+                overflow-x: hidden;
+            }
+
+            body {
+                padding-top: 150px;
+            }
+
+            .topbar {
+                height: auto;
+                min-height: 140px;
+                border-radius: 0 0 28px 28px;
+                padding: 12px 14px;
+            }
+
+            .logo-fixed {
+                position: absolute;
+                top: 14px;
+                left: 14px;
+                transform: none;
+                height: 70px;
+            }
+
+            .logo-link {
+                top: 14px;
+                left: 14px;
+                transform: none;
+                width: 150px;
+                height: 70px;
+            }
+
+            .topbar-content {
+                height: auto;
+                padding: 0;
+            }
+
+            .header-info {
+                width: 100%;
+                margin: 0;
+                padding-left: 160px;
+                gap: 8px;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                font-size: 12px;
+                line-height: 1.25;
+            }
+
+            .header-info > div {
+                overflow-wrap: anywhere;
+                word-break: break-word;
+            }
+
+            .logout-link {
+                align-self: flex-end;
+                margin: 6px 0 0;
+                font-size: 15px;
+            }
+
+            .breadcrumb-wrapper {
+                margin: 16px auto 12px;
+                padding: 0 14px;
+                max-width: 100%;
+            }
+
+            .breadcrumb {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .breadcrumb-arrow {
+                width: 20px;
+            }
+
+            main {
+                max-width: 100%;
+                padding: 0 14px;
+            }
+        }
+
         /* ================= BREADCRUMB ================= */
         .breadcrumb-wrapper {
             max-width: 1100px;
@@ -197,7 +279,7 @@
             color: #475569;
         }
 
-        table {
+        .admin-table {
             width: 100%;
             border-collapse: collapse;
             background: #ffffff;
@@ -205,20 +287,20 @@
             overflow: hidden;
         }
 
-        th, td {
+        .admin-table th, .admin-table td {
             padding: 12px 10px;
             border-bottom: 1px solid #e2e8f0;
             font-size: 13px;
             text-align: left;
         }
 
-        th {
+        .admin-table th {
             background: #eef2ff;
             font-weight: 800;
             color: #1e3a8a;
         }
 
-        tr:last-child td { border-bottom: none; }
+        .admin-table tr:last-child td { border-bottom: none; }
 
         .actions {
             display: flex;
@@ -242,9 +324,58 @@
 
         @media (max-width: 900px) {
             .stats-grid { grid-template-columns: 1fr; }
-            table, thead, tbody, th, td, tr { display: block; }
-            th { position: sticky; top: 0; }
-            td { border-bottom: 1px solid #e2e8f0; }
+
+            .admin-table {
+                border-collapse: separate;
+                border-spacing: 0;
+                background: transparent;
+            }
+
+            .admin-table thead {
+                display: none;
+            }
+
+            .admin-table tbody {
+                display: block;
+            }
+
+            .admin-table tbody tr {
+                display: block;
+                background: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 14px;
+                margin-bottom: 14px;
+                overflow: hidden;
+            }
+
+            .admin-table tbody td {
+                display: block;
+                padding: 10px 14px 12px;
+                border-bottom: 1px solid #e2e8f0;
+                font-size: 14px;
+            }
+
+            .admin-table tbody td::before {
+                content: attr(data-label);
+                display: block;
+                margin-bottom: 4px;
+                font-size: 12px;
+                font-weight: 800;
+                color: #1e3a8a;
+                text-transform: uppercase;
+            }
+
+            .admin-table tbody td:last-child {
+                border-bottom: none;
+            }
+
+            .admin-table tbody td:last-child::before {
+                margin-bottom: 8px;
+            }
+
+            .actions {
+                gap: 8px;
+            }
         }
 
         /* Modal de Logout */
@@ -286,7 +417,7 @@
 
 <div class="topbar">
     <img src="/static/LogoFlexcolor2.png" class="logo-fixed" alt="Logo">
-    <a href="/" class="logo-link" aria-label="PÃ¡gina inicial"></a>
+    <a href="/" class="logo-link" aria-label="Página inicial"></a>
     <div class="topbar-content">
         <div class="header-info">
             <div class="address">
@@ -362,7 +493,7 @@
 
     <div class="card">
         {% if processos %}
-        <table>
+        <table class="admin-table">
             <thead>
                 <tr>
                     <th>Código</th>
@@ -377,13 +508,13 @@
             <tbody>
             {% for p in processos %}
                 <tr>
-                    <td>{{ p.codigo }}</td>
-                    <td>{{ p.nome_cliente or "-" }}</td>
-                    <td>{{ p.empresa or "-" }}</td>
-                    <td>{{ p.status_entrega or p.status or "-" }}</td>
-                    <td>{{ p.nps_nota if p.nps_nota is not none else "-" }}</td>
-                    <td>{{ p.criado_em or "-" }}</td>
-                    <td>
+                    <td data-label="Código">{{ p.codigo }}</td>
+                    <td data-label="Cliente">{{ p.nome_cliente or "-" }}</td>
+                    <td data-label="Empresa">{{ p.empresa or "-" }}</td>
+                    <td data-label="Status">{{ p.status_entrega or p.status or "-" }}</td>
+                    <td data-label="NPS">{{ p.nps_nota if p.nps_nota is not none else "-" }}</td>
+                    <td data-label="Criado">{{ p.criado_em or "-" }}</td>
+                    <td data-label="Ações">
                         <div class="actions">
                             <a class="btn" href="/termo?processo={{ p.codigo }}&return=/admin">Editar Termo</a>
                             <a class="btn" href="/ressalvas?processo={{ p.codigo }}&return=/admin">Editar Ressalvas</a>
@@ -471,3 +602,4 @@
 
 </body>
 </html>
+
