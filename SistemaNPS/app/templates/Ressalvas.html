@@ -11,7 +11,7 @@
 // const processoId = sessionStorage.getItem("processo_id");
 
 //if (!processoId || processoId === "undefined" || processoId === "null") {
-//    alert("Sess�o inv�lida. Retorne ao Termo de Aceite.");
+//    alert("Sessão inválida. Retorne ao Termo de Aceite.");
 //    sessionStorage.clear();
 //    window.location.href = "/termo";
 //}
@@ -55,7 +55,7 @@
 .btn-camera { background:#0a287a; color:#fff; }
 .btn-cancel { background:#e5e7eb; }
 
-/* ================= FREEZE ANIMACOES ================= */
+/* ================= FREEZE ANIMAÇÕES ================= */
 .freeze * {
     animation: none !important;
     transition: none !important;
@@ -120,7 +120,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 32px;                 /* espaco entre endereco e contato */
+    gap: 32px;                 /* espaço entre endereço e contato */
     font-size: 14px;
     margin-right: 5%;
     color: #1e3a8a;
@@ -157,7 +157,7 @@ body {
     }
 }
 
-/* ================= CONTAINER PADRAO ================= */
+/* ================= CONTAINER PADRÃO ================= */
 .page-container {
     max-width: 900px; /* mesmo valor usado no Termo de Aceite */
     margin: 0 auto;
@@ -305,7 +305,7 @@ select.regiao-foto {
     cursor: pointer;
 }
 
-/* ================= BOTOES ================= */
+/* ================= BOTÕES ================= */
 .add-item {
     margin: 24px auto;
     display: block;
@@ -335,7 +335,7 @@ button.save {
     margin: 0 auto 60px;
     padding: 0;
     border-radius: 0;           /* IMPORTANTE para PDF */
-    scale: 1;       /* forca fundo ate o fim */
+    scale: 1;       /* força fundo até o fim */
 }
 
 .pdf-hide {
@@ -355,7 +355,7 @@ input.cpf-valido { border: 2px solid #16a34a; }
 /* ================= ITEM DUPLICADO ================= */
 input.item-duplicado { border: 2px solid #dc2626; }
 
-/* ================= APROVACAO ================= */
+/* ================= APROVAÇÃO ================= */
 .approval {
     margin-top: 28px;
     background: #e9f0fb;
@@ -663,12 +663,12 @@ input.item-duplicado { border: 2px solid #dc2626; }
 
 <div class="topbar">
     <img src="/static/LogoFlexcolor2.png" class="logo-fixed" alt="Logo">
-    <a href="/" class="logo-link" aria-label="P�gina inicial"></a>
+    <a href="/" class="logo-link" aria-label="Página inicial"></a>
     <div class="topbar-content">
         <div class="header-info">
             <div class="address">
-                R. Jos� Ant�nio Valadares, 285 � Vila Liviero<br>
-                S�o Paulo � SP. CEP: 04185-020
+                R. José Antônio Valadares, 285 – Vila Liviero<br>
+                São Paulo – SP. CEP: 04185-020
             </div>
 
             <div class="contact">
@@ -682,7 +682,7 @@ input.item-duplicado { border: 2px solid #dc2626; }
 
 <div class="breadcrumb-wrapper">
     <nav class="breadcrumb">
-        <a href="/index" class="breadcrumb-item">P�gina Inicial</a>
+        <a href="/index" class="breadcrumb-item">Página Inicial</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
         <a href="/termo" class="breadcrumb-item">Termo de Aceite</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
@@ -700,20 +700,20 @@ input.item-duplicado { border: 2px solid #dc2626; }
 
         <section class="card">
             <div class="table-header">
-            <div>DESCRI��O</div>
+            <div>DESCRIÇÃO</div>
             <div>PRAZO</div>
-            <div>RESPONS�VEL</div>
+            <div>RESPONSÁVEL</div>
             <div>
                 <div style="font-weight:800;margin-bottom:6px;">FOTOS</div>
             </div>
-            <div>REGI�O DA FOTO</div>
+            <div>REGIÃO DA FOTO</div>
         </div>
             <div id="tableBody"></div>
             <button class="add-item" onclick="addRow()">ADICIONAR ITEM +</button>
         </section>
 
         <section class="approval admin-only">
-            <strong>APROVA��O FINAL DAS RESSALVAS:</strong>
+            <strong>APROVAÇÃO FINAL DAS RESSALVAS:</strong>
             <div class="approval-fields">
                 <label>REPRESENTANTE</label>
                 <input type="text" placeholder="REPRESENTANTE">
@@ -816,7 +816,7 @@ async function executarSalvarRessalvas() {
         /* 4. Valida processo_id antes de enviar */
         const processoId = processoParam || processoEmAndamento;
         if (!processoId || processoId === "undefined" || processoId === "null") {
-            alert("Processo inv�lido. Refa�a o Termo de Aceite.");
+            alert("Processo inválido. Refaça o Termo de Aceite.");
 
             btn.disabled = false;
             btn.textContent = "SALVAR RESSALVA";
@@ -884,7 +884,7 @@ if (isEditMode) {
 
     alert(err.message || "Erro ao salvar ressalvas");
 
-    /* reativa botao */
+    /* reativa botão */
     btn.disabled = false;
     btn.textContent = "SALVAR RESSALVA";
     delete btn.dataset.locked;
@@ -892,7 +892,7 @@ if (isEditMode) {
     document.body.classList.remove("freeze");
     savingOverlay.classList.remove("active");
 
-    /* garante que UI esteja visivel */
+    /* garante que UI esteja visível */
     document.querySelector(".topbar")?.classList.remove("pdf-hide");
     document.querySelector(".footer")?.classList.remove("pdf-hide");
     document.querySelector(".breadcrumb-wrapper")?.classList.remove("pdf-hide");
@@ -988,7 +988,7 @@ function addRow(item = null) {
     row.className = 'table-row';
     row.innerHTML = `
     <div class="field-wrap">
-        <span class="field-label-mobile">DESCRICAO</span>
+        <span class="field-label-mobile">DESCRIÇÃO</span>
         <input placeholder="Descricao da ressalva">
     </div>
     <div class="field-wrap">
@@ -996,7 +996,7 @@ function addRow(item = null) {
         <input type="date" placeholder="Prazo">
     </div>
     <div class="field-wrap">
-        <span class="field-label-mobile">RESPONSAVEL</span>
+        <span class="field-label-mobile">RESPONSÁVEL</span>
         <input placeholder="Responsavel">
     </div>
     <div class="field-wrap">
@@ -1010,7 +1010,7 @@ function addRow(item = null) {
         </div>
     </div>
     <div class="field-wrap">
-        <span class="field-label-mobile">REGIAO DA FOTO</span>
+        <span class="field-label-mobile">REGIÃO DA FOTO</span>
         <select class="regiao-foto">
             <option value="">Selecione</option>
             <option value="frontal">Frontal</option>
@@ -1119,14 +1119,14 @@ function loadFile(file) {
 function openCamera() {
     closeSheet();
     if (!currentBox) {
-        alert("Selecione o campo de imagem antes de abrir a camera.");
+        alert("Selecione o campo de imagem antes de abrir a câmera.");
         return;
     }
 
     const row = currentBox.closest(".table-row");
     const regiao = row?.querySelector(".regiao-foto")?.value;
     if (!regiao) {
-        alert("Selecione a regiao da foto antes de tirar a foto.");
+        alert("Selecione a região da foto antes de tirar a foto.");
         return;
     }
 
@@ -1146,7 +1146,7 @@ function openCamera() {
         .catch(() => {
             navigator.mediaDevices.getUserMedia({ video: true })
                 .then(aplicarStream)
-                .catch(() => alert('Camera nao disponivel'));
+                .catch(() => alert('Câmera não disponível'));
         });
 }
 
@@ -1269,7 +1269,7 @@ function desabilitarFormulario() {
     // Desabilita botao salvar
     if (btnSalvar) {
         btnSalvar.disabled = true;
-        btnSalvar.textContent = "RESSALVAS J� SALVAS";
+        btnSalvar.textContent = "RESSALVAS JÁ SALVAS";
     }
 }
 
@@ -1333,8 +1333,8 @@ if (!isAdmin) {
 <!-- MODAL CONFIRM SAVE -->
 <div id="confirmSaveModal" class="modal-logout" style="display: none;">
     <div class="modal-logout-content" style="border-color: #ff7a1a;">
-        <div class="modal-logout-text" style="color: #ff7a1a;">ATEN��O</div>
-        <p class="modal-logout-sub">Tem certeza de que deseja enviar?<br>Depois de salvar n�o ser� poss�vel realizar altera��es.</p>
+        <div class="modal-logout-text" style="color: #ff7a1a;">ATENÇÃO</div>
+        <p class="modal-logout-sub">Tem certeza de que deseja enviar?<br>Depois de salvar não será possível realizar alterações.</p>
         <button onclick="closeConfirmSaveModal()" class="btn-logout-cancel">Voltar</button>
         <button onclick="executarSalvarRessalvas()" class="btn-logout-confirm" style="background-color: #ff7a1a;">Salvar</button>
     </div>
@@ -1360,8 +1360,8 @@ if (!isAdmin) {
 <!-- MODAL LOGOUT -->
 <div id="logoutModal" class="modal-logout" style="display: none;">
     <div class="modal-logout-content">
-        <div class="modal-logout-text">ATEN��O</div>
-        <p class="modal-logout-sub">Tem certeza que deseja sair da sua conta? Lembre-se de salvar as requisi��es para registro.</p>
+        <div class="modal-logout-text">ATENÇÃO</div>
+        <p class="modal-logout-sub">Tem certeza que deseja sair da sua conta? Lembre-se de salvar as requisições para registro.</p>
         <button onclick="closeLogoutModal()" class="btn-logout-cancel">Cancelar</button>
         <button onclick="confirmLogout()" class="btn-logout-confirm">SAIR</button>
     </div>
@@ -1369,4 +1369,5 @@ if (!isAdmin) {
 
 </body>
 </html>
+
 
