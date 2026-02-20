@@ -940,6 +940,32 @@ function saveCurrentProcessId(processoId) {
     sessionStorage.setItem("processo_id", processoId);
 }
 
+function clearCurrentProcessId() {
+    localStorage.removeItem(getProgressStorageKey());
+    sessionStorage.removeItem("processo_id");
+}
+
+async function resolveDraftProcessId() {
+    const draftId = getCurrentProcessId();
+    if (!draftId) return null;
+    try {
+        const res = await fetch(`/api/processos/${draftId}`);
+        if (!res.ok) {
+            clearCurrentProcessId();
+            return null;
+        }
+        const data = await res.json();
+        if ((data?.status || "").toLowerCase() === "finalizado") {
+            clearCurrentProcessId();
+            return null;
+        }
+        return draftId;
+    } catch {
+        clearCurrentProcessId();
+        return null;
+    }
+}
+
 async function resolveDraftFromServer() {
     try {
         const res = await fetch("/api/processos/ultimo-em-andamento");
@@ -1279,7 +1305,7 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
 async function inicializarPagina() {
     processoEmAndamento = isEditMode
         ? null
-        : getCurrentProcessId() || await resolveDraftFromServer();
+        : (await resolveDraftProcessId()) || await resolveDraftFromServer();
     carregarEdicaoRessalvas(isEditMode ? processoParam : processoEmAndamento);
     btnSalvar.disabled = !validarFormulario();
 }
