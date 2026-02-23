@@ -420,6 +420,7 @@
                 <p class="form-success">{{ sucesso }}</p>
             {% endif %}
             <form method="post" action="/login">
+                <input type="hidden" name="project_token" value="{{ project_token or '' }}">
                 <div class="input-group">
                     <label for="email">Email</label>
                     <input id="email" name="email" type="email" placeholder="seu@email.com" required>
@@ -448,10 +449,10 @@
             </form>
 
             <p class="signup-text">
-                Esqueceu a senha? <a href="/esqueci-senha">REDEFINIR SENHA</a>.
+                Esqueceu a senha? <a href="/esqueci-senha{% if project_token %}?project_token={{ project_token }}{% endif %}">REDEFINIR SENHA</a>.
             </p>
             <p class="signup-text">
-                Ainda não tem login? <a href="/cadastro">CADASTRE-SE</a>.
+                Ainda não tem login? <a href="/cadastro{% if project_token %}?project_token={{ project_token }}{% endif %}">CADASTRE-SE</a>.
             </p>
         </section>
     </main>

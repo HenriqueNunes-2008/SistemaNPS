@@ -153,13 +153,14 @@ h1 {
 </div>
 
 <script>
+const projectTokenParam = new URLSearchParams(window.location.search).get("project_token") || "{{ project_token or '' }}";
 function selecionar(tipo) {
     if (tipo === 'cliente') {
-        window.location.href = '/nps';
+        window.location.href = projectTokenParam ? `/nps?project_token=${encodeURIComponent(projectTokenParam)}` : '/nps';
     }
 
     if (tipo === 'motorista') {
-        window.location.href = '/nps-motor';
+        window.location.href = projectTokenParam ? `/nps-motor?project_token=${encodeURIComponent(projectTokenParam)}` : '/nps-motor';
     }
 }
 </script>

@@ -136,6 +136,7 @@
         {% endif %}
 
         <form method="post" action="/esqueci-senha">
+            <input type="hidden" name="project_token" value="{{ project_token or '' }}">
             <div class="input-group">
                 <label for="email">Email cadastrado</label>
                 <input id="email" name="email" type="email" placeholder="seu@email.com" required>
@@ -144,7 +145,7 @@
         </form>
 
         <p class="links">
-            Voltar para o <a href="/login">LOGIN</a>.
+            Voltar para o <a href="/login{% if project_token %}?project_token={{ project_token }}{% endif %}">LOGIN</a>.
         </p>
     </main>
 </body>

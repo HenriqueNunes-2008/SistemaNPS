@@ -443,13 +443,15 @@
 
 <main>
     <h1 class="title">Dashboard de NPS</h1>
-    <p class="subtitle">Edite Termo, Ressalvas e NPS a partir do cliente e empresa.</p>
+    <p class="subtitle">Edite Termo, Ressalvas e NPS por projeto (project token).</p>
 
     <div class="card">
         <form class="search-bar" method="get" action="/admin">
-            <input type="text" name="q" placeholder="Buscar por código, cliente ou empresa" value="{{ q }}">
+            <input type="text" name="q" placeholder="Buscar por token, código, cliente ou empresa" value="{{ q }}">
             <button type="submit">Buscar</button>
+            <button type="button" onclick="gerarNovoProcesso()">Gerar novo processo</button>
         </form>
+        <p id="novoProcessoInfo" style="display:none;margin-top:10px;font-size:13px;color:#1e3a8a;"></p>
     </div>
 
     <div class="card">
@@ -496,6 +498,7 @@
         <table class="admin-table">
             <thead>
                 <tr>
+                    <th>Token</th>
                     <th>Código</th>
                     <th>Cliente</th>
                     <th>Empresa</th>
@@ -508,6 +511,7 @@
             <tbody>
             {% for p in processos %}
                 <tr>
+                    <td data-label="Token">{{ p.project_token or "-" }}</td>
                     <td data-label="Código">{{ p.codigo }}</td>
                     <td data-label="Cliente">{{ p.nome_cliente or "-" }}</td>
                     <td data-label="Empresa">{{ p.empresa or "-" }}</td>
@@ -516,9 +520,10 @@
                     <td data-label="Criado">{{ p.criado_em or "-" }}</td>
                     <td data-label="Ações">
                         <div class="actions">
-                            <a class="btn" href="/termo?processo={{ p.codigo }}&return=/admin">Editar Termo</a>
-                            <a class="btn" href="/ressalvas?processo={{ p.codigo }}&return=/admin">Editar Ressalvas</a>
-                            <a class="btn" href="/nps?processo={{ p.codigo }}&return=/admin">Editar NPS</a>
+                            <a class="btn" href="/termo?processo={{ p.project_token or p.codigo }}&return=/admin">Editar Termo</a>
+                            <a class="btn" href="/ressalvas?processo={{ p.project_token or p.codigo }}&return=/admin">Editar Ressalvas</a>
+                            <a class="btn" href="/nps?processo={{ p.project_token or p.codigo }}&return=/admin">Editar NPS</a>
+                            {% if p.project_token %}<button class="btn light" type="button" onclick="copiarLink('{{ base_url }}/login?project_token={{ p.project_token }}')">Copiar link</button>{% endif %}
                             {% if p.termo_pdf %}<a class="btn secondary" href="/pdf/termo/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Termo</a>{% endif %}
                             {% if p.pdf_ressalvas %}<a class="btn secondary" href="/pdf/ressalvas/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Ressalvas</a>{% endif %}
                             {% if p.pdf_final %}<a class="btn secondary" href="/pdf/final/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Final</a>{% endif %}
@@ -597,6 +602,30 @@
     }
     function confirmLogout() {
         window.location.href = '/logout';
+    }
+
+    async function gerarNovoProcesso() {
+        try {
+            const res = await fetch('/admin/gerar-processo', { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.detail || 'Falha ao gerar processo');
+            }
+            const info = document.getElementById('novoProcessoInfo');
+            info.style.display = 'block';
+            info.innerHTML = `Token: <strong>${data.project_token}</strong> - <a href="${data.link}" target="_blank">${data.link}</a>`;
+        } catch (err) {
+            alert(err.message || 'Falha ao gerar novo processo');
+        }
+    }
+
+    async function copiarLink(url) {
+        try {
+            await navigator.clipboard.writeText(url);
+            alert('Link copiado.');
+        } catch (_) {
+            prompt('Copie o link:', url);
+        }
     }
 </script>
 

@@ -221,7 +221,7 @@ body {
 .table-header,
 .table-row {
     display: grid;
-    grid-template-columns: 1fr 0.8fr 0.8fr 0.9fr 1fr;
+    grid-template-columns: 1fr 0.8fr 0.8fr 0.9fr 1fr 0.5fr;
     gap: 8px;
 }
 
@@ -707,6 +707,7 @@ input.item-duplicado { border: 2px solid #dc2626; }
                 <div style="font-weight:800;margin-bottom:6px;">FOTOS</div>
             </div>
             <div>REGIÃO DA FOTO</div>
+            <div>APROVAR</div>
         </div>
             <div id="tableBody"></div>
             <button class="add-item" onclick="addRow()">ADICIONAR ITEM +</button>
@@ -798,6 +799,7 @@ async function executarSalvarRessalvas() {
            const descricao = inputs[0]?.value || "";
            const prazo = inputs[1]?.value || "";
            const responsavel = inputs[2]?.value || "";
+           const aprovacao = row.querySelector(".aprovacao-item")?.checked || false;
            const regiao = row.querySelector(".regiao-foto")?.value || null;
 
             const box = row.querySelector(".image-box");
@@ -808,13 +810,13 @@ async function executarSalvarRessalvas() {
                 prazo,
                 responsavel,
                 regiao_foto: regiao,
-                aprovacao: true,
+                aprovacao,
                 imagem: box.dataset.image
             });
         });
 
         /* 4. Valida processo_id antes de enviar */
-        const processoId = processoParam || processoEmAndamento;
+        const processoId = processoParam || processoEmAndamento || projectTokenParam;
         if (!processoId || processoId === "undefined" || processoId === "null") {
             alert("Processo inválido. Refaça o Termo de Aceite.");
 
@@ -843,7 +845,7 @@ async function executarSalvarRessalvas() {
         prazo: img.prazo || null,
         responsavel: img.responsavel,
         regiao_foto: img.regiao_foto,
-        aprovacao: true,
+        aprovacao: Boolean(img.aprovacao),
         imagem_base64: img.imagem
     }))
 })
@@ -873,8 +875,9 @@ document.querySelector(".breadcrumb-wrapper")?.classList.add("pdf-hide");
 if (isEditMode) {
     window.location.href = returnTo || "/admin";
 } else {
-    saveCurrentProcessId(processoId.trim());
-    window.location.href = "/user";
+    const fluxoToken = processoId.trim();
+    saveCurrentProcessId(fluxoToken);
+    window.location.href = fluxoToken ? `/user?project_token=${encodeURIComponent(fluxoToken)}` : "/user";
 }
 
 
@@ -907,6 +910,7 @@ const btnSalvar = document.getElementById('btnSalvar');
 
 const urlParams = new URLSearchParams(window.location.search);
 const processoParam = urlParams.get("processo");
+const projectTokenParam = urlParams.get("project_token") || "{{ project_token or '' }}";
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
 const isAdmin = returnTo === "/admin";
@@ -927,22 +931,22 @@ function getCookieValue(name) {
 
 function getProgressStorageKey() {
     const usuario = getCookieValue("nps_user") || "anon";
-    return `nps_processo_id::${usuario}`;
+    return `nps_project_token::${usuario}`;
 }
 
 function getCurrentProcessId() {
-    return localStorage.getItem(getProgressStorageKey()) || sessionStorage.getItem("processo_id");
+    return localStorage.getItem(getProgressStorageKey()) || sessionStorage.getItem("project_token");
 }
 
 function saveCurrentProcessId(processoId) {
     if (!processoId) return;
     localStorage.setItem(getProgressStorageKey(), processoId);
-    sessionStorage.setItem("processo_id", processoId);
+    sessionStorage.setItem("project_token", processoId);
 }
 
 function clearCurrentProcessId() {
     localStorage.removeItem(getProgressStorageKey());
-    sessionStorage.removeItem("processo_id");
+    sessionStorage.removeItem("project_token");
 }
 
 async function resolveDraftProcessId() {
@@ -1021,6 +1025,10 @@ function addRow(item = null) {
             <option value="inferior">Inferior</option>
         </select>
     </div>
+    <div class="field-wrap" style="display:flex;align-items:center;justify-content:center;">
+        <span class="field-label-mobile">APROVAR</span>
+        <input type="checkbox" class="aprovacao-item" style="width:22px;height:22px;">
+    </div>
 `;
 
 function enableDragAndDrop(box) {
@@ -1061,6 +1069,9 @@ enableDragAndDrop(imageBox);
         input.addEventListener('input', () => {
             btnSalvar.disabled = !validarFormulario();
         });
+        input.addEventListener('change', () => {
+            btnSalvar.disabled = !validarFormulario();
+        });
     });
 
     // Add change listener to the select
@@ -1076,6 +1087,8 @@ enableDragAndDrop(imageBox);
         rowInputs[0].value = item.descricao || "";
         rowInputs[1].value = item.prazo || "";
         rowInputs[2].value = item.responsavel || "";
+        const aprovacaoInput = row.querySelector(".aprovacao-item");
+        if (aprovacaoInput) aprovacaoInput.checked = Boolean(item.aprovacao);
         const regiao = row.querySelector(".regiao-foto");
         if (regiao) regiao.value = item.regiao_foto || "";
         if (item.imagem_base64) {
@@ -1218,6 +1231,10 @@ function validarFormulario() {
     const rows = document.querySelectorAll(".table-row");
     if (rows.length === 0) return false;
 
+    if (!isAdmin) {
+        return Array.from(rows).every((row) => row.querySelector(".aprovacao-item")?.checked);
+    }
+
     let temItemValido = false;
 
     rows.forEach(row => {
@@ -1251,25 +1268,28 @@ function setCPF(ok){
     }
 }
 
-function desabilitarFormulario() {
-    // Desabilita inputs e selects na area do PDF
-    document.querySelectorAll("#pdf-area input, #pdf-area select").forEach(el => {
-        el.disabled = true;
-    });
-
-    // Esconde botoes de adicionar e remover
+function habilitarModoValidacaoUsuario() {
+    // Usuario apenas valida as ressalvas criadas pelo admin.
     document.querySelectorAll(".add-item, .remove").forEach(el => {
         el.style.display = "none";
     });
 
-    // Desabilita interacao com imagens
-    document.querySelectorAll(".image-box").forEach(el => {
-        el.style.pointerEvents = "none";
+    document.querySelectorAll(".table-row").forEach((row) => {
+        row.querySelectorAll("input, select").forEach((el) => {
+            if (!el.classList.contains("aprovacao-item")) {
+                el.disabled = true;
+            }
+        });
+        const imageBox = row.querySelector(".image-box");
+        if (imageBox) {
+            imageBox.style.pointerEvents = "none";
+            imageBox.style.opacity = "0.85";
+        }
     });
-    // Desabilita botao salvar
+
     if (btnSalvar) {
-        btnSalvar.disabled = true;
-        btnSalvar.textContent = "RESSALVAS JÁ SALVAS";
+        btnSalvar.textContent = "VALIDAR RESSALVAS";
+        btnSalvar.disabled = !validarFormulario();
     }
 }
 
@@ -1298,9 +1318,9 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
 
         btnSalvar.disabled = !validarFormulario();
 
-        // Se nao for modo edicao (admin) e ja tiver itens salvos, bloqueia
+        // Usuario valida os itens do admin apenas com checkbox.
         if (!isAdmin && !isEditMode && dados && Array.isArray(dados.itens) && dados.itens.length > 0) {
-            desabilitarFormulario();
+            habilitarModoValidacaoUsuario();
         }
     } catch (e) {
         console.warn("Falha ao carregar edicao", e);
@@ -1313,7 +1333,7 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
 async function inicializarPagina() {
     processoEmAndamento = isEditMode
         ? null
-        : (await resolveDraftProcessId()) || await resolveDraftFromServer();
+        : (projectTokenParam || (await resolveDraftProcessId()) || await resolveDraftFromServer());
     carregarEdicaoRessalvas(isEditMode ? processoParam : processoEmAndamento);
     btnSalvar.disabled = !validarFormulario();
 }

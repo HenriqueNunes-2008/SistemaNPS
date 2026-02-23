@@ -11,6 +11,7 @@ from reportlab.lib.utils import ImageReader
 from io import BytesIO
 
 from app.services.supabase_client import supabase
+from app.services.processo_resolver import obter_processo_por_identificador
 from app.services.upload import upload_pdf
 from app.services.pdf_layout import draw_header_footer, content_top, content_bottom, draw_wrapped_text
 from app.services.final_pdf import regenerate_final_pdf_by_codigo
@@ -32,7 +33,7 @@ class ImagemRessalva(BaseModel):
 
 
 class RessalvasRequest(BaseModel):
-    processo_id: str  # CÓDIGO HUMANO (ex: EDIVALDO_819_2026-01-27_7N26)
+    processo_id: str  # project_token (principal) ou codigo (compatibilidade)
     responsavel: str
     cpf: Optional[str] = None
     observacoes: Optional[str] = None
@@ -219,28 +220,18 @@ def salvar_ressalvas(data: RessalvasRequest):
         # ----------------------------------------------------
         # 1. BUSCA PROCESSO PELO CÓDIGO (RETORNA UUID REAL)
         # ----------------------------------------------------
-        proc = (
-            supabase
-            .table("processos")
-            .select("id")
-            .eq("codigo", data.processo_id)
-            .single()
-            .execute()
+        proc = obter_processo_por_identificador(
+            data.processo_id,
+            "id,codigo,project_token",
         )
-
-        if not proc.data:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Processo não encontrado: {data.processo_id}"
-            )
-
-        processo_uuid = proc.data["id"]
+        processo_uuid = proc["id"]
+        processo_codigo = proc.get("codigo") or data.processo_id
 
         # ----------------------------------------------------
         # 2. GERA PDF
         # ----------------------------------------------------
         pdf_buffer = gerar_pdf_ressalvas(
-            processo_codigo=data.processo_id,
+            processo_codigo=processo_codigo,
             responsavel=data.responsavel,
             cpf=data.cpf,
             observacoes=data.observacoes,
@@ -325,7 +316,7 @@ def salvar_ressalvas(data: RessalvasRequest):
             "atualizado_em": datetime.utcnow().isoformat()
         }).eq("id", processo_uuid).execute()
 
-        regenerate_final_pdf_by_codigo(data.processo_id, set_status_finalizado=False)
+        regenerate_final_pdf_by_codigo(processo_codigo, set_status_finalizado=False)
 
         return RessalvasResponse(success=True, pdf_url=pdf_url)
 
@@ -336,25 +327,15 @@ def salvar_ressalvas(data: RessalvasRequest):
 @router.post("/atualizar", response_model=RessalvasResponse)
 def atualizar_ressalvas(data: RessalvasUpdateRequest):
     try:
-        proc = (
-            supabase
-            .table("processos")
-            .select("id")
-            .eq("codigo", data.processo_id)
-            .single()
-            .execute()
+        proc = obter_processo_por_identificador(
+            data.processo_id,
+            "id,codigo,project_token",
         )
-
-        if not proc.data:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Processo não encontrado: {data.processo_id}"
-            )
-
-        processo_uuid = proc.data["id"]
+        processo_uuid = proc["id"]
+        processo_codigo = proc.get("codigo") or data.processo_id
 
         pdf_buffer = gerar_pdf_ressalvas(
-            processo_codigo=data.processo_id,
+            processo_codigo=processo_codigo,
             responsavel=data.responsavel,
             cpf=data.cpf,
             observacoes=data.observacoes,
@@ -426,7 +407,7 @@ def atualizar_ressalvas(data: RessalvasUpdateRequest):
             "atualizado_em": datetime.utcnow().isoformat()
         }).eq("id", processo_uuid).execute()
 
-        regenerate_final_pdf_by_codigo(data.processo_id, set_status_finalizado=False)
+        regenerate_final_pdf_by_codigo(processo_codigo, set_status_finalizado=False)
 
         return RessalvasResponse(success=True, pdf_url=pdf_url)
 
@@ -438,3 +419,4 @@ def atualizar_ressalvas(data: RessalvasUpdateRequest):
             status_code=500,
             detail=f"Erro interno ao salvar ressalvas: {str(e)}"
         )
+

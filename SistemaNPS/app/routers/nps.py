@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.services.final_pdf import regenerate_final_pdf_by_codigo
+from app.services.processo_resolver import obter_processo_por_identificador
 from app.services.supabase_client import supabase
 
 router = APIRouter(prefix="/nps", tags=["NPS"])
@@ -30,18 +31,12 @@ def finalizar_nps(data: NPSRequest):
         if not processo_id:
             raise HTTPException(status_code=400, detail="processo_id ausente")
 
-        proc = (
-            supabase
-            .table("processos")
-            .select("id")
-            .eq("codigo", processo_id)
-            .single()
-            .execute()
+        proc = obter_processo_por_identificador(
+            processo_id,
+            "id,codigo,project_token",
         )
-        if not proc.data:
-            raise HTTPException(status_code=404, detail="Processo nao encontrado")
-
-        processo_uuid = proc.data["id"]
+        processo_uuid = proc["id"]
+        processo_codigo = proc.get("codigo") or processo_id
 
         supabase.table("processos").update(
             {
@@ -55,7 +50,7 @@ def finalizar_nps(data: NPSRequest):
             }
         ).eq("id", processo_uuid).execute()
 
-        final_url = regenerate_final_pdf_by_codigo(processo_id, set_status_finalizado=True)
+        final_url = regenerate_final_pdf_by_codigo(processo_codigo, set_status_finalizado=True)
         if not final_url:
             raise HTTPException(status_code=400, detail="Nao foi possivel gerar PDF final sem dados completos")
 
@@ -73,19 +68,12 @@ def atualizar_nps(data: NPSUpdateRequest):
         if not processo_id:
             raise HTTPException(status_code=400, detail="processo_id ausente")
 
-        proc = (
-            supabase
-            .table("processos")
-            .select("id")
-            .eq("codigo", processo_id)
-            .single()
-            .execute()
+        proc = obter_processo_por_identificador(
+            processo_id,
+            "id,codigo,project_token",
         )
-
-        if not proc.data:
-            raise HTTPException(status_code=404, detail="Processo nao encontrado")
-
-        processo_uuid = proc.data["id"]
+        processo_uuid = proc["id"]
+        processo_codigo = proc.get("codigo") or processo_id
 
         supabase.table("processos").update(
             {
@@ -99,7 +87,7 @@ def atualizar_nps(data: NPSUpdateRequest):
             }
         ).eq("id", processo_uuid).execute()
 
-        final_url = regenerate_final_pdf_by_codigo(processo_id, set_status_finalizado=False)
+        final_url = regenerate_final_pdf_by_codigo(processo_codigo, set_status_finalizado=False)
         return {"status": "ok", "pdf_final": final_url}
     except HTTPException:
         raise

@@ -19,6 +19,7 @@ from reportlab.lib.utils import ImageReader
 import math
 
 from app.services.upload import upload_pdf
+from app.services.processo_resolver import obter_processo_por_identificador
 from app.services.supabase_client import supabase
 from app.services.pdf_layout import draw_header_footer, content_top, content_bottom, draw_wrapped_text
 from app.services.final_pdf import regenerate_final_pdf_by_codigo
@@ -37,6 +38,10 @@ def gerar_hash_imagem(base64_data: str) -> str:
     encoded = normalize_base64(encoded)
     raw = base64.b64decode(encoded)
     return hashlib.sha256(raw).hexdigest()
+
+
+def _gerar_project_token() -> str:
+    return uuid.uuid4().hex[:12].upper()
 
 
 def _normalizar_itens_imagem(termo_dados: dict | None, imagens: list | None, imagens_existentes: list | None = None) -> list[dict]:
@@ -330,6 +335,7 @@ def salvar_termo(data: TermoRequest):
 
         codigo_processo = f"{primeiro_nome}_{ultimos_cpf}_{data_hoje}_{sufixo}"
         processo_uuid = str(uuid.uuid4())  # ✅ UUID REAL (IMPORTANTE)
+        project_token = _gerar_project_token()
 
         termo_dados_normalizado = _normalizar_termo_dados(data.termo_dados, data.imagens)
         data.termo_dados = termo_dados_normalizado
@@ -391,6 +397,7 @@ def salvar_termo(data: TermoRequest):
         res = supabase.table("processos").insert({
             "id": processo_uuid,
             "codigo": codigo_processo,
+            "project_token": project_token,
             "nome_cliente": data.nome_cliente,
             "empresa": data.empresa,
             "cpf": cpf_limpo,
@@ -413,7 +420,9 @@ def salvar_termo(data: TermoRequest):
         # ====================================================
         return {
             "success": True,
-            "processo_id": codigo_processo
+            "processo_id": project_token,
+            "codigo": codigo_processo,
+            "project_token": project_token
         }
 
     except HTTPException:
@@ -431,43 +440,41 @@ def atualizar_termo(data: TermoUpdateRequest):
     try:
         cpf_limpo = re.sub(r"\D", "", data.cpf)
         if not re.fullmatch(r"\d{11}", cpf_limpo):
-            raise HTTPException(status_code=400, detail="CPF inválido")
+            raise HTTPException(status_code=400, detail="CPF invalido")
 
         if not data.nome_cliente.strip():
-            raise HTTPException(status_code=400, detail="Nome do cliente obrigatório")
+            raise HTTPException(status_code=400, detail="Nome do cliente obrigatorio")
 
         if "," not in data.imagem:
-            raise HTTPException(status_code=400, detail="Imagem Base64 inválida")
+            raise HTTPException(status_code=400, detail="Imagem Base64 invalida")
 
         if data.status_entrega not in ("concluido", "concluido_com_ressalva"):
-            raise HTTPException(status_code=400, detail="Status de entrega inválido")
+            raise HTTPException(status_code=400, detail="Status de entrega invalido")
 
-        proc = (
-            supabase
-            .table("processos")
-            .select("id, imagens_termo")
-            .eq("codigo", data.processo_codigo)
-            .single()
-            .execute()
+        proc = obter_processo_por_identificador(
+            data.processo_codigo,
+            "id,codigo,project_token,imagens_termo",
         )
+        processo_uuid = proc["id"]
+        processo_codigo = proc.get("codigo")
+        if not processo_codigo:
+            primeiro_nome = re.sub(r"[^A-Z]", "", data.nome_cliente.split()[0].upper())
+            ultimos_cpf = cpf_limpo[-3:]
+            data_hoje = datetime.now().strftime("%Y-%m-%d")
+            sufixo = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
+            processo_codigo = f"{primeiro_nome}_{ultimos_cpf}_{data_hoje}_{sufixo}"
+        project_token = proc.get("project_token")
 
-        if not proc.data:
-            raise HTTPException(status_code=404, detail="Processo não encontrado")
-
-        processo_uuid = proc.data["id"]
-
-        # Carrega imagens existentes para preservação
-        imagens_existentes = proc.data.get("imagens_termo")
+        imagens_existentes = proc.get("imagens_termo")
         if isinstance(imagens_existentes, str):
             try:
                 imagens_existentes = json.loads(imagens_existentes)
-            except:
+            except Exception:
                 imagens_existentes = []
 
-        # Decode imagem principal
         try:
             _, img_b64 = data.imagem.split(",", 1)
-            img_bytes = base64.b64decode(img_b64)
+            _ = base64.b64decode(img_b64)
         except Exception:
             raise HTTPException(status_code=400, detail="Falha ao decodificar imagem")
 
@@ -475,46 +482,34 @@ def atualizar_termo(data: TermoUpdateRequest):
         data.termo_dados = termo_dados_normalizado
         data.imagens = termo_dados_normalizado.get("itens") or []
 
-        # Converte para dict se vier como objeto Pydantic
         imagens_lista = []
         for img in data.imagens:
             imagens_lista.append(img.dict() if hasattr(img, "dict") else img)
 
-        # Gera PDF em memória
         buffer = BytesIO()
         c = canvas.Canvas(buffer, pagesize=A4)
         width, height = A4
-
-        # PDF do termo com dados informados
         draw_header_footer(c, width, height)
         _draw_termo_content(c, width, height, data)
-
         c.showPage()
         c.save()
         buffer.seek(0)
 
-        pdf_base64 = (
-            "data:application/pdf;base64,"
-            + base64.b64encode(buffer.read()).decode()
-        )
-
+        pdf_base64 = "data:application/pdf;base64," + base64.b64encode(buffer.read()).decode()
         folder = f"{processo_uuid}/termo"
         termo_url = upload_pdf(pdf_base64, folder)
-
         if not termo_url:
             raise HTTPException(status_code=500, detail="Falha no upload do PDF")
 
-        # Upload das imagens individuais para o Storage
         for img_data in imagens_lista:
             if img_data and img_data.get("imagem_base64"):
                 try:
-                    # A função upload_pdf é genérica e pode lidar com data URIs de imagem
                     upload_pdf(img_data["imagem_base64"], folder)
                 except Exception:
-                    # Opcional: logar falha, mas continuar o processo
                     pass
 
         supabase.table("processos").update({
+            "codigo": processo_codigo,
             "nome_cliente": data.nome_cliente,
             "empresa": data.empresa,
             "cpf": cpf_limpo,
@@ -525,15 +520,15 @@ def atualizar_termo(data: TermoUpdateRequest):
             "atualizado_em": datetime.utcnow().isoformat()
         }).eq("id", processo_uuid).execute()
 
-        # Se o processo ja tiver NPS, reconstroi o PDF final com as alteracoes do admin
-        regenerate_final_pdf_by_codigo(data.processo_codigo, set_status_finalizado=False)
-
-        return {"success": True, "processo_id": data.processo_codigo}
+        regenerate_final_pdf_by_codigo(processo_codigo, set_status_finalizado=False)
+        return {
+            "success": True,
+            "processo_id": project_token or processo_codigo,
+            "codigo": processo_codigo,
+            "project_token": project_token
+        }
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro interno: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")

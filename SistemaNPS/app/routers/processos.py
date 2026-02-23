@@ -2,6 +2,7 @@ import json
 
 from fastapi import APIRouter, HTTPException
 
+from app.services.processo_resolver import obter_processo_por_identificador
 from app.services.supabase_client import supabase
 
 router = APIRouter(prefix="/api/processos", tags=["Processos"])
@@ -12,7 +13,7 @@ def obter_ultimo_processo_em_andamento():
     res = (
         supabase
         .table("processos")
-        .select("codigo,status,atualizado_em,criado_em")
+        .select("codigo,project_token,status,atualizado_em,criado_em")
         .order("atualizado_em", desc=True)
         .order("criado_em", desc=True)
         .limit(30)
@@ -22,45 +23,39 @@ def obter_ultimo_processo_em_andamento():
     processos = res.data or []
     for processo in processos:
         status = str(processo.get("status") or "").strip().lower()
-        if status != "finalizado" and processo.get("codigo"):
-            return {"processo_id": processo["codigo"]}
+        identifier = processo.get("project_token") or processo.get("codigo")
+        if status != "finalizado" and identifier:
+            return {
+                "processo_id": identifier,
+                "project_token": processo.get("project_token"),
+            }
 
     raise HTTPException(status_code=404, detail="Nenhum processo em andamento encontrado")
 
 
-@router.get("/{codigo}")
-def obter_processo(codigo: str):
-    res = (
-        supabase
-        .table("processos")
-        .select(
-            "codigo,nome_cliente,empresa,cpf,status,status_entrega,"
-            "termo_dados,ressalvas_dados,nps_dados,imagens_termo"
-        )
-        .eq("codigo", codigo)
-        .single()
-        .execute()
+@router.get("/{identificador}")
+def obter_processo(identificador: str):
+    processo = obter_processo_por_identificador(
+        identificador,
+        "codigo,project_token,nome_cliente,empresa,cpf,status,status_entrega,"
+        "termo_dados,ressalvas_dados,nps_dados,imagens_termo",
     )
 
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Processo nao encontrado")
-
-    # Garante que os campos JSON sejam objetos Python, não strings
+    # Garante que os campos JSON sejam objetos Python, nao strings
     json_fields = ["termo_dados", "ressalvas_dados", "nps_dados", "imagens_termo"]
     for field in json_fields:
-        if isinstance(res.data.get(field), str):
+        if isinstance(processo.get(field), str):
             try:
-                res.data[field] = json.loads(res.data[field])
+                processo[field] = json.loads(processo[field])
             except (json.JSONDecodeError, TypeError):
-                # Se falhar, define um valor padrão seguro
                 if field.endswith("_dados"):
-                    res.data[field] = {}
+                    processo[field] = {}
                 else:
-                    res.data[field] = []
+                    processo[field] = []
 
     # Garante que o frontend sempre receba uma lista para 'imagens_termo'
-    if "imagens_termo" not in res.data or not res.data["imagens_termo"]:
-        if res.data.get("termo_dados", {}).get("itens"):
-            res.data["imagens_termo"] = res.data["termo_dados"]["itens"]
+    if "imagens_termo" not in processo or not processo["imagens_termo"]:
+        if processo.get("termo_dados", {}).get("itens"):
+            processo["imagens_termo"] = processo["termo_dados"]["itens"]
 
-    return res.data
+    return processo

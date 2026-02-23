@@ -414,6 +414,7 @@
                 <p class="form-feedback success">{{ sucesso }}</p>
             {% endif %}
             <form method="post" action="/cadastro">
+                <input type="hidden" name="project_token" value="{{ project_token or '' }}">
                 <div class="input-group">
                     <label for="nome">Nome</label>
                     <input id="nome" name="nome" type="text" placeholder="Seu nome" required>

@@ -22,17 +22,17 @@
         <h3 class="subtitle">UNIDADES MÓVEIS</h3>
 
         <div class="buttons-container">
-            <a href="/termo" class="option green-box">
+            <a href="/termo{% if project_token %}?project_token={{ project_token }}{% endif %}" class="option green-box">
     <img src="/static/check-white.png" class="icone">
     <span>Termo de aceite</span>
 </a>
 
-<a href="/ressalvas" class="option blue-box">
+<a href="/ressalvas{% if project_token %}?project_token={{ project_token }}{% endif %}" class="option blue-box">
     <img src="/static/check-blue.png" class="icone">
     <span>Ressalva</span>
 </a>
 
-<a href="/nps" class="option orange-box">
+<a href="/nps{% if project_token %}?project_token={{ project_token }}{% endif %}" class="option orange-box">
     <img src="/static/check-orange.png" class="icone">
     <span>NPS</span>
 </a>

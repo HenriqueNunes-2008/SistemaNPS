@@ -1135,6 +1135,7 @@ let fotoPorRegiao = {};
 
 const urlParams = new URLSearchParams(window.location.search);
 const processoParam = urlParams.get("processo");
+const projectTokenParam = urlParams.get("project_token") || "{{ project_token or '' }}";
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
 let processoEmAndamento = null;
@@ -1153,22 +1154,22 @@ function getCookieValue(name) {
 
 function getProgressStorageKey() {
     const usuario = getCookieValue("nps_user") || "anon";
-    return `nps_processo_id::${usuario}`;
+    return `nps_project_token::${usuario}`;
 }
 
 function getCurrentProcessId() {
-    return localStorage.getItem(getProgressStorageKey()) || sessionStorage.getItem("processo_id");
+    return localStorage.getItem(getProgressStorageKey()) || sessionStorage.getItem("project_token");
 }
 
 function saveCurrentProcessId(processoId) {
     if (!processoId) return;
     localStorage.setItem(getProgressStorageKey(), processoId);
-    sessionStorage.setItem("processo_id", processoId);
+    sessionStorage.setItem("project_token", processoId);
 }
 
 function clearCurrentProcessId() {
     localStorage.removeItem(getProgressStorageKey());
-    sessionStorage.removeItem("processo_id");
+    sessionStorage.removeItem("project_token");
 }
 
 async function resolveDraftProcessId() {
@@ -1663,7 +1664,7 @@ window.renderFotoGrid = function() {
 
     processoEmAndamento = isEditMode
         ? null
-        : (await resolveDraftProcessId()) || (await resolveDraftFromServer());
+        : (projectTokenParam || (await resolveDraftProcessId()) || (await resolveDraftFromServer()));
     carregarEdicao(isEditMode ? processoParam : processoEmAndamento);
 
     /* ================= SALVAR TERMO ================= */
@@ -1798,10 +1799,11 @@ window.renderFotoGrid = function() {
                 if (isEditMode) {
                     window.location.href = returnTo || "/admin";
                 } else {
+                    const fluxoToken = encodeURIComponent(result.project_token || result.processo_id || "");
                     if (status === "concluido_com_ressalva") {
-                        window.location.href = "/ressalvas";
+                        window.location.href = fluxoToken ? `/ressalvas?project_token=${fluxoToken}` : "/ressalvas";
                     } else {
-                        window.location.href = "/nps";
+                        window.location.href = fluxoToken ? `/nps?project_token=${fluxoToken}` : "/nps";
                     }
                 }
             }, 2000);
