@@ -172,12 +172,33 @@ def _get_admin_cookie_secret() -> str:
     )
 
 
+def _get_admin_activation_hash() -> str:
+    try:
+        res = (
+            supabase
+            .table("configuracoes_seguras")
+            .select("valor_hash")
+            .eq("chave", "admin_activation_hash")
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        if rows:
+            hash_value = str(rows[0].get("valor_hash") or "").strip()
+            if hash_value:
+                return hash_value
+    except Exception:
+        pass
+
+    return (os.getenv("ADMIN_ACTIVATION_HASH") or "").strip()
+
+
 def _verify_admin_activation_password(password: str) -> bool:
     """
     Expected format for ADMIN_ACTIVATION_HASH:
     pbkdf2_sha256$<iterations>$<salt_base64>$<hash_base64>
     """
-    encoded = (os.getenv("ADMIN_ACTIVATION_HASH") or "").strip()
+    encoded = _get_admin_activation_hash()
     if not encoded:
         return False
 
