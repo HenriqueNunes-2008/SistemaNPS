@@ -404,8 +404,12 @@
             <div class="welcome-copy">
                 <div class="welcome-title">BEM-VINDO(A)!</div>
                 <p class="welcome-text">
+                    {% if admin_mode %}
+                    Acesso administrativo para Edi&ccedil;&atilde;o de Termos de Aceite, Ressalvas e Pesquisas NPS das Unidades M&oacute;veis.
+                    {% else %}
                     Acesse para gerenciar Termos de Aceite, Ressalvas e Pesquisas NPS
                     das Unidades Móveis em um só lugar.
+                    {% endif %}
                 </p>
             </div>
             <img src="/static/LogoFlex2.png" alt="Logo Flex" class="brand-logo">
@@ -419,8 +423,9 @@
             {% if sucesso %}
                 <p class="form-success">{{ sucesso }}</p>
             {% endif %}
-            <form method="post" action="/login">
+            <form method="post" action="{{ form_action or '/login' }}">
                 <input type="hidden" name="project_token" value="{{ project_token or '' }}">
+                <input type="hidden" name="admin_mode" value="{{ '1' if admin_mode else '0' }}">
                 <div class="input-group">
                     <label for="email">Email</label>
                     <input id="email" name="email" type="email" placeholder="seu@email.com" required>
@@ -449,10 +454,10 @@
             </form>
 
             <p class="signup-text">
-                Esqueceu a senha? <a href="/esqueci-senha{% if project_token %}?project_token={{ project_token }}{% endif %}">REDEFINIR SENHA</a>.
+                Esqueceu a senha? <a href="{{ esqueci_url or ('/esqueci-senha' ~ ('?project_token=' ~ project_token if project_token else '')) }}">REDEFINIR SENHA</a>.
             </p>
             <p class="signup-text">
-                Ainda não tem login? <a href="/cadastro{% if project_token %}?project_token={{ project_token }}{% endif %}">CADASTRE-SE</a>.
+                Ainda não tem login? <a href="{{ cadastro_url or ('/cadastro' ~ ('?project_token=' ~ project_token if project_token else '')) }}">CADASTRE-SE</a>.
             </p>
         </section>
     </main>

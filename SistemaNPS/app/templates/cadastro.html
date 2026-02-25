@@ -398,8 +398,12 @@
             <div class="welcome-copy">
                 <div class="welcome-title">BEM-VINDO(A)!</div>
                 <p class="welcome-text">
+                    {% if admin_mode %}
+                    Acesso administrativo para Edi&ccedil;&atilde;o de Termos de Aceite, Ressalvas e Pesquisas NPS das Unidades M&oacute;veis.
+                    {% else %}
                     Acesse para gerenciar Termos de Aceite, Ressalvas e Pesquisas NPS
                     das Unidades Móveis em um só lugar.
+                    {% endif %}
                 </p>
             </div>
             <img src="/static/LogoFlex2.png" alt="Logo Flex" class="brand-logo">
@@ -413,8 +417,9 @@
             {% if sucesso %}
                 <p class="form-feedback success">{{ sucesso }}</p>
             {% endif %}
-            <form method="post" action="/cadastro">
+            <form method="post" action="{{ form_action or '/cadastro' }}">
                 <input type="hidden" name="project_token" value="{{ project_token or '' }}">
+                <input type="hidden" name="admin_mode" value="{{ '1' if admin_mode else '0' }}">
                 <div class="input-group">
                     <label for="nome">Nome</label>
                     <input id="nome" name="nome" type="text" placeholder="Seu nome" required>
@@ -455,6 +460,9 @@
 
                 <button class="register-button" type="submit">CADASTRAR</button>
             </form>
+            <p class="signup-text" style="margin-top: 16px;">
+                Voltar para o <a href="{{ login_url or ('/login' ~ ('?project_token=' ~ project_token if project_token else '')) }}">LOGIN</a>.
+            </p>
         </section>
     </main>
     <script>

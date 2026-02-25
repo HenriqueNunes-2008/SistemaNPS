@@ -68,6 +68,101 @@ body {
     font-weight: 600;
 }
 
+.admin-access {
+    margin-top: 22px;
+}
+
+.admin-access a {
+    display: inline-block;
+    text-decoration: none;
+    color: #ffffff;
+    font-weight: 700;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 999px;
+    padding: 10px 18px;
+    background: rgba(14, 28, 78, 0.35);
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.admin-access a:hover {
+    background: rgba(14, 28, 78, 0.6);
+    transform: translateY(-1px);
+}
+
+.admin-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(8, 14, 36, 0.5);
+    z-index: 20;
+}
+
+.admin-modal.active {
+    display: flex;
+}
+
+.admin-modal-card {
+    width: 100%;
+    max-width: 420px;
+    background: #ffffff;
+    color: #172146;
+    border-radius: 14px;
+    padding: 22px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.admin-modal-card h2 {
+    font-size: 20px;
+    margin-bottom: 10px;
+}
+
+.admin-modal-card p {
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.admin-input {
+    width: 100%;
+    border: 1px solid #b6c2e0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 15px;
+    margin-bottom: 12px;
+}
+
+.admin-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.admin-btn {
+    border: 0;
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.admin-btn.cancel {
+    background: #d9deee;
+    color: #24305e;
+}
+
+.admin-btn.confirm {
+    background: #2f49c6;
+    color: #ffffff;
+}
+
+.admin-error {
+    color: #b01818;
+    font-size: 13px;
+    margin-bottom: 10px;
+    min-height: 16px;
+}
+
 @media (max-width: 768px) {
     .card {
         padding: 26px 20px;
@@ -93,7 +188,90 @@ body {
             <p class="message">
                 {{ mensagem_acesso or "Para acessar o sistema, entre pelo link que o Representante da Fleximedical/Kure enviara para voce." }}
             </p>
+            <div class="admin-access">
+                <a href="#" id="openAdminAccess">Acesso administrativo</a>
+            </div>
         </section>
     </main>
+
+    <div class="admin-modal" id="adminModal">
+        <div class="admin-modal-card">
+            <h2>Acesso Administrativo</h2>
+            <p>Digite a senha de ativacao para abrir a area administrativa.</p>
+            <div class="admin-error" id="adminError"></div>
+            <input id="adminPassword" class="admin-input" type="password" placeholder="Senha de ativacao" />
+            <div class="admin-actions">
+                <button class="admin-btn cancel" type="button" id="closeAdminModal">Cancelar</button>
+                <button class="admin-btn confirm" type="button" id="confirmAdminAccess">Entrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const openBtn = document.getElementById("openAdminAccess");
+            const modal = document.getElementById("adminModal");
+            const closeBtn = document.getElementById("closeAdminModal");
+            const confirmBtn = document.getElementById("confirmAdminAccess");
+            const passwordInput = document.getElementById("adminPassword");
+            const errorEl = document.getElementById("adminError");
+
+            function openModal() {
+                errorEl.textContent = "";
+                passwordInput.value = "";
+                modal.classList.add("active");
+                setTimeout(() => passwordInput.focus(), 60);
+            }
+
+            function closeModal() {
+                modal.classList.remove("active");
+            }
+
+            openBtn.addEventListener("click", function (e) {
+                e.preventDefault();
+                openModal();
+            });
+
+            closeBtn.addEventListener("click", closeModal);
+            modal.addEventListener("click", function (e) {
+                if (e.target === modal) closeModal();
+            });
+
+            confirmBtn.addEventListener("click", async function () {
+                errorEl.textContent = "";
+                const password = (passwordInput.value || "").trim();
+                if (!password) {
+                    errorEl.textContent = "Informe a senha de ativacao.";
+                    return;
+                }
+
+                confirmBtn.disabled = true;
+                try {
+                    const body = new URLSearchParams({ password });
+                    const res = await fetch("/admin-activate", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: body.toString(),
+                    });
+                    const data = await res.json();
+                    if (!res.ok || !data.success) {
+                        throw new Error(data.detail || "Falha na ativacao.");
+                    }
+                    window.location.href = data.redirect || "/admin-login";
+                } catch (err) {
+                    errorEl.textContent = err.message || "Senha invalida.";
+                } finally {
+                    confirmBtn.disabled = false;
+                }
+            });
+
+            passwordInput.addEventListener("keydown", function (e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    confirmBtn.click();
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

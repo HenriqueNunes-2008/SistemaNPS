@@ -135,8 +135,9 @@
             <p class="feedback success">{{ sucesso }}</p>
         {% endif %}
 
-        <form method="post" action="/esqueci-senha">
+        <form method="post" action="{{ form_action or '/esqueci-senha' }}">
             <input type="hidden" name="project_token" value="{{ project_token or '' }}">
+            <input type="hidden" name="admin_mode" value="{{ '1' if admin_mode else '0' }}">
             <div class="input-group">
                 <label for="email">Email cadastrado</label>
                 <input id="email" name="email" type="email" placeholder="seu@email.com" required>
@@ -145,7 +146,7 @@
         </form>
 
         <p class="links">
-            Voltar para o <a href="/login{% if project_token %}?project_token={{ project_token }}{% endif %}">LOGIN</a>.
+            Voltar para o <a href="{{ login_url or ('/login' ~ ('?project_token=' ~ project_token if project_token else '')) }}">LOGIN</a>.
         </p>
     </main>
 </body>

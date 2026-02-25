@@ -20,8 +20,8 @@ router = APIRouter(prefix="/ressalvas", tags=["Ressalvas"])
 
 
 def _is_admin_request(request: Request) -> bool:
-    user_cookie = (request.cookies.get("nps_user") or "").strip().lower()
-    if user_cookie == "admin@gmail.com":
+    role_cookie = (request.cookies.get("nps_role") or "").strip().lower()
+    if role_cookie == "admin":
         return True
     referer = (request.headers.get("referer") or "").lower()
     return ("return=/admin" in referer) or ("return=%2fadmin" in referer)

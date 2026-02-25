@@ -1,5 +1,9 @@
 import re
 import uuid
+import hmac
+import time
+import base64
+import hashlib
 from datetime import datetime, timezone
 from urllib.parse import quote_plus
 
@@ -106,6 +110,125 @@ def _render_token_required(request: Request, status_code: int = 403):
         status_code=status_code,
     )
 
+
+def _extract_user_id(auth_response) -> str:
+    user_obj = getattr(auth_response, "user", None)
+    if user_obj is None:
+        session = getattr(auth_response, "session", None)
+        user_obj = getattr(session, "user", None)
+    if user_obj is None:
+        return ""
+    if isinstance(user_obj, dict):
+        return str(user_obj.get("id") or "")
+    return str(getattr(user_obj, "id", "") or "")
+
+
+def _resolve_user_role(user_id: str, email: str) -> str:
+    if not user_id:
+        return "user"
+    try:
+        res = (
+            supabase
+            .table("perfis")
+            .select("role")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        if rows:
+            role = str(rows[0].get("role") or "user").strip().lower()
+            return role if role in ("user", "admin") else "user"
+    except Exception:
+        pass
+
+    try:
+        supabase.table("perfis").insert(
+            {"id": user_id, "email": email, "role": "user"}
+        ).execute()
+    except Exception:
+        pass
+    return "user"
+
+
+def _authenticate_user(email: str, password: str):
+    auth_client = _new_supabase_client()
+    try:
+        return auth_client.auth.sign_in_with_password(
+            {
+                "email": email,
+                "password": password
+            }
+        )
+    except Exception:
+        return None
+
+
+def _get_admin_cookie_secret() -> str:
+    return (
+        os.getenv("ADMIN_ACTIVATION_COOKIE_SECRET")
+        or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        or ""
+    )
+
+
+def _verify_admin_activation_password(password: str) -> bool:
+    """
+    Expected format for ADMIN_ACTIVATION_HASH:
+    pbkdf2_sha256$<iterations>$<salt_base64>$<hash_base64>
+    """
+    encoded = (os.getenv("ADMIN_ACTIVATION_HASH") or "").strip()
+    if not encoded:
+        return False
+
+    parts = encoded.split("$")
+    if len(parts) != 4 or parts[0] != "pbkdf2_sha256":
+        return False
+    _, iter_str, salt_b64, hash_b64 = parts
+
+    try:
+        iterations = int(iter_str)
+        salt = base64.b64decode(salt_b64.encode("utf-8"))
+        expected = base64.b64decode(hash_b64.encode("utf-8"))
+    except Exception:
+        return False
+
+    derived = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt,
+        iterations,
+        dklen=len(expected),
+    )
+    return hmac.compare_digest(derived, expected)
+
+
+def _build_admin_activation_cookie(max_age_seconds: int = 600) -> str:
+    exp = str(int(time.time()) + max_age_seconds)
+    secret = _get_admin_cookie_secret().encode("utf-8")
+    signature = hmac.new(secret, exp.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{exp}.{signature}"
+
+
+def _is_admin_activation_granted(request: Request) -> bool:
+    raw = (request.cookies.get("admin_activation_ok") or "").strip()
+    if "." not in raw:
+        return False
+    exp, signature = raw.split(".", 1)
+    if not exp.isdigit():
+        return False
+    secret = _get_admin_cookie_secret()
+    if not secret:
+        return False
+    expected = hmac.new(secret.encode("utf-8"), exp.encode("utf-8"), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(signature, expected):
+        return False
+    return int(exp) >= int(time.time())
+
+
+def _is_admin_mode_request(request: Request) -> bool:
+    return request.query_params.get("admin") == "1" and _is_admin_activation_granted(request)
+
 @router.get("/", response_class=HTMLResponse)
 def login(request: Request):
     erro = request.query_params.get("erro")
@@ -120,7 +243,11 @@ def login(request: Request):
             "request": request,
             "erro": erro,
             "sucesso": sucesso,
-            "project_token": project_token
+            "project_token": project_token,
+            "form_action": "/login",
+            "admin_mode": False,
+            "esqueci_url": f"/esqueci-senha?project_token={project_token}" if project_token else "/esqueci-senha",
+            "cadastro_url": f"/cadastro?project_token={project_token}" if project_token else "/cadastro",
         }
     )
     if project_token and _token_is_active(project_token):
@@ -146,7 +273,11 @@ def login_alias(request: Request):
             "request": request,
             "erro": erro,
             "sucesso": sucesso,
-            "project_token": project_token
+            "project_token": project_token,
+            "form_action": "/login",
+            "admin_mode": False,
+            "esqueci_url": f"/esqueci-senha?project_token={project_token}" if project_token else "/esqueci-senha",
+            "cadastro_url": f"/cadastro?project_token={project_token}" if project_token else "/cadastro",
         }
     )
     if project_token and _token_is_active(project_token):
@@ -156,6 +287,44 @@ def login_alias(request: Request):
             max_age=60 * 60 * 24 * 30,
             samesite="lax"
         )
+    return response
+
+
+@router.get("/admin-login", response_class=HTMLResponse)
+def admin_login(request: Request):
+    if not _is_admin_activation_granted(request):
+        return _render_token_required(request, status_code=401)
+
+    erro = request.query_params.get("erro")
+    sucesso = request.query_params.get("sucesso")
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "erro": erro,
+            "sucesso": sucesso,
+            "project_token": "",
+            "form_action": "/admin-login",
+            "admin_mode": True,
+            "esqueci_url": "/esqueci-senha?admin=1",
+            "cadastro_url": "/cadastro?admin=1",
+        }
+    )
+
+
+@router.post("/admin-activate")
+def admin_activate(request: Request, password: str = Form(...)):
+    if not _verify_admin_activation_password(password):
+        return JSONResponse({"success": False, "detail": "Senha de ativacao invalida."}, status_code=401)
+
+    response = JSONResponse({"success": True, "redirect": "/admin-login"})
+    response.set_cookie(
+        key="admin_activation_ok",
+        value=_build_admin_activation_cookie(max_age_seconds=600),
+        max_age=600,
+        httponly=True,
+        samesite="lax",
+    )
     return response
 
 
@@ -169,40 +338,7 @@ def login_submit(
     email = email.strip().lower()
     project_token = (project_token or request.cookies.get("project_token") or "").strip()
 
-    if email == "admin@gmail.com" and password == "Senha123":
-        response = RedirectResponse(
-            url=_append_project_token("/admin", project_token),
-            status_code=status.HTTP_303_SEE_OTHER
-        )
-        response.set_cookie(
-            key="nps_user",
-            value=email,
-            max_age=60 * 60 * 24 * 30,
-            samesite="lax"
-        )
-        if project_token and _token_is_active(project_token):
-            response.set_cookie(
-                key="project_token",
-                value=project_token,
-                max_age=60 * 60 * 24 * 30,
-                samesite="lax"
-            )
-        return response
-
-    if not project_token or not _token_is_active(project_token):
-        return _render_token_required(request)
-
-    auth_client = _new_supabase_client()
-
-    try:
-        auth_response = auth_client.auth.sign_in_with_password(
-            {
-                "email": email,
-                "password": password
-            }
-        )
-    except Exception:
-        auth_response = None
+    auth_response = _authenticate_user(email, password)
 
     if not auth_response or not getattr(auth_response, "session", None):
         erro = quote_plus("Email ou senha invalidos.")
@@ -211,13 +347,26 @@ def login_submit(
             status_code=status.HTTP_303_SEE_OTHER
         )
 
+    user_id = _extract_user_id(auth_response)
+    role = _resolve_user_role(user_id, email)
+
+    if role != "admin" and (not project_token or not _token_is_active(project_token)):
+        return _render_token_required(request)
+
+    redirect_url = "/admin" if role == "admin" else _append_project_token("/index", project_token)
     response = RedirectResponse(
-        url=_append_project_token("/index", project_token),
+        url=redirect_url,
         status_code=status.HTTP_303_SEE_OTHER
     )
     response.set_cookie(
         key="nps_user",
         value=email,
+        max_age=60 * 60 * 24 * 30,
+        samesite="lax"
+    )
+    response.set_cookie(
+        key="nps_role",
+        value=role,
         max_age=60 * 60 * 24 * 30,
         samesite="lax"
     )
@@ -242,14 +391,20 @@ def index(request: Request):
 def cadastro(request: Request):
     erro = request.query_params.get("erro")
     sucesso = request.query_params.get("sucesso")
+    admin_mode = _is_admin_mode_request(request)
     project_token = _extract_project_token(request)
+    if not admin_mode and (not project_token or not _token_is_active(project_token)):
+        return _render_token_required(request)
     return templates.TemplateResponse(
         "cadastro.html",
         {
             "request": request,
             "erro": erro,
             "sucesso": sucesso,
-            "project_token": project_token
+            "project_token": project_token if not admin_mode else "",
+            "admin_mode": admin_mode,
+            "form_action": "/cadastro",
+            "login_url": "/admin-login" if admin_mode else _append_project_token("/login", project_token),
         }
     )
 
@@ -261,23 +416,29 @@ def cadastro_submit(
     sobrenome: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
-    project_token: str = Form("")
+    project_token: str = Form(""),
+    admin_mode: str = Form(""),
 ):
     nome = nome.strip()
     sobrenome = sobrenome.strip()
     email = email.strip().lower()
+    is_admin_mode = admin_mode == "1" and _is_admin_activation_granted(request)
     project_token = (project_token or request.cookies.get("project_token") or "").strip()
+    if not is_admin_mode and (not project_token or not _token_is_active(project_token)):
+        return _render_token_required(request)
     if not _password_is_valid(password):
         erro = quote_plus("A senha deve ter no minimo 6 caracteres e incluir letras e numeros.")
+        base_url = "/cadastro?admin=1" if is_admin_mode else "/cadastro"
         return RedirectResponse(
-            url=_append_project_token(f"/cadastro?erro={erro}", project_token),
+            url=(f"{base_url}&erro={erro}" if is_admin_mode else _append_project_token(f"/cadastro?erro={erro}", project_token)),
             status_code=status.HTTP_303_SEE_OTHER
         )
 
     auth_client = _new_supabase_client()
 
+    created_user_id = ""
     try:
-        auth_client.auth.admin.create_user(
+        create_res = auth_client.auth.admin.create_user(
             {
                 "email": email,
                 "password": password,
@@ -288,15 +449,36 @@ def cadastro_submit(
                 }
             }
         )
+        created_user_id = _extract_user_id(create_res)
     except Exception:
         erro = quote_plus("Nao foi possivel concluir o cadastro. Verifique os dados.")
+        base_url = "/cadastro?admin=1" if is_admin_mode else "/cadastro"
         return RedirectResponse(
-            url=_append_project_token(f"/cadastro?erro={erro}", project_token),
+            url=(f"{base_url}&erro={erro}" if is_admin_mode else _append_project_token(f"/cadastro?erro={erro}", project_token)),
             status_code=status.HTTP_303_SEE_OTHER
         )
 
+    if created_user_id:
+        try:
+            supabase.table("perfis").upsert(
+                {"id": created_user_id, "email": email, "role": "user"}
+            ).execute()
+        except Exception:
+            pass
+        try:
+            supabase.table("usuarios").upsert(
+                {
+                    "nome": nome,
+                    "sobrenome": sobrenome,
+                    "email": email,
+                    "auth_user_id": created_user_id,
+                }
+            ).execute()
+        except Exception:
+            pass
+
     return RedirectResponse(
-        url=_append_project_token("/login", project_token),
+        url=("/admin-login" if is_admin_mode else _append_project_token("/login", project_token)),
         status_code=status.HTTP_303_SEE_OTHER
     )
 
@@ -305,14 +487,20 @@ def cadastro_submit(
 def esqueci_senha(request: Request):
     erro = request.query_params.get("erro")
     sucesso = request.query_params.get("sucesso")
+    admin_mode = _is_admin_mode_request(request)
     project_token = _extract_project_token(request)
+    if not admin_mode and (not project_token or not _token_is_active(project_token)):
+        return _render_token_required(request)
     return templates.TemplateResponse(
         "esqueci_senha.html",
         {
             "request": request,
             "erro": erro,
             "sucesso": sucesso,
-            "project_token": project_token
+            "project_token": project_token if not admin_mode else "",
+            "admin_mode": admin_mode,
+            "form_action": "/esqueci-senha",
+            "login_url": "/admin-login" if admin_mode else _append_project_token("/login", project_token),
         }
     )
 
@@ -321,12 +509,20 @@ def esqueci_senha(request: Request):
 def esqueci_senha_submit(
     request: Request,
     email: str = Form(...),
-    project_token: str = Form("")
+    project_token: str = Form(""),
+    admin_mode: str = Form(""),
 ):
     email = email.strip().lower()
+    is_admin_mode = admin_mode == "1" and _is_admin_activation_granted(request)
     project_token = (project_token or request.cookies.get("project_token") or "").strip()
+    if not is_admin_mode and (not project_token or not _token_is_active(project_token)):
+        return _render_token_required(request)
     auth_client = _new_supabase_client()
-    redirect_to = _append_project_token(str(request.url_for("redefinir_senha")), project_token)
+    redirect_to = (
+        str(request.url_for("redefinir_senha")) + "?admin=1"
+        if is_admin_mode
+        else _append_project_token(str(request.url_for("redefinir_senha")), project_token)
+    )
 
     try:
         auth_client.auth.reset_password_for_email(
@@ -339,22 +535,27 @@ def esqueci_senha_submit(
     sucesso = quote_plus(
         "Se o email estiver cadastrado, voce recebera um link para redefinir a senha."
     )
-    return RedirectResponse(
-        url=_append_project_token(f"/esqueci-senha?sucesso={sucesso}", project_token),
-        status_code=status.HTTP_303_SEE_OTHER
-    )
+    if is_admin_mode:
+        return RedirectResponse(url=f"/esqueci-senha?admin=1&sucesso={sucesso}", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url=_append_project_token(f"/esqueci-senha?sucesso={sucesso}", project_token), status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/redefinir-senha", response_class=HTMLResponse)
 def redefinir_senha(request: Request):
     erro = request.query_params.get("erro")
+    admin_mode = _is_admin_mode_request(request)
     project_token = _extract_project_token(request)
+    if not admin_mode and (not project_token or not _token_is_active(project_token)):
+        return _render_token_required(request)
     return templates.TemplateResponse(
         "redefinir_senha.html",
         {
             "request": request,
             "erro": erro,
-            "project_token": project_token
+            "project_token": project_token if not admin_mode else "",
+            "admin_mode": admin_mode,
+            "form_action": "/redefinir-senha",
+            "login_url": "/admin-login" if admin_mode else _append_project_token("/login", project_token),
         }
     )
 
@@ -365,10 +566,14 @@ def redefinir_senha_submit(
     access_token: str = Form(""),
     refresh_token: str = Form(""),
     project_token: str = Form(""),
+    admin_mode: str = Form(""),
     password: str = Form(...),
     password_confirm: str = Form(...)
 ):
+    is_admin_mode = admin_mode == "1" and _is_admin_activation_granted(request)
     project_token = (project_token or request.cookies.get("project_token") or "").strip()
+    if not is_admin_mode and (not project_token or not _token_is_active(project_token)):
+        return _render_token_required(request)
     if password != password_confirm:
         return templates.TemplateResponse(
             "redefinir_senha.html",
@@ -377,7 +582,10 @@ def redefinir_senha_submit(
                 "erro": "As senhas nao conferem.",
                 "access_token": access_token,
                 "refresh_token": refresh_token,
-                "project_token": project_token
+                "project_token": project_token,
+                "admin_mode": is_admin_mode,
+                "form_action": "/redefinir-senha",
+                "login_url": "/admin-login" if is_admin_mode else _append_project_token("/login", project_token),
             }
         )
 
@@ -389,7 +597,10 @@ def redefinir_senha_submit(
                 "erro": "A nova senha deve ter no minimo 6 caracteres e incluir letras e numeros.",
                 "access_token": access_token,
                 "refresh_token": refresh_token,
-                "project_token": project_token
+                "project_token": project_token,
+                "admin_mode": is_admin_mode,
+                "form_action": "/redefinir-senha",
+                "login_url": "/admin-login" if is_admin_mode else _append_project_token("/login", project_token),
             }
         )
 
@@ -399,7 +610,10 @@ def redefinir_senha_submit(
             {
                 "request": request,
                 "erro": "Link invalido. Solicite um novo link de recuperacao.",
-                "project_token": project_token
+                "project_token": project_token,
+                "admin_mode": is_admin_mode,
+                "form_action": "/redefinir-senha",
+                "login_url": "/admin-login" if is_admin_mode else _append_project_token("/login", project_token),
             }
         )
 
@@ -413,15 +627,17 @@ def redefinir_senha_submit(
             {
                 "request": request,
                 "erro": "Nao foi possivel redefinir a senha. Solicite um novo link.",
-                "project_token": project_token
+                "project_token": project_token,
+                "admin_mode": is_admin_mode,
+                "form_action": "/redefinir-senha",
+                "login_url": "/admin-login" if is_admin_mode else _append_project_token("/login", project_token),
             }
         )
 
     sucesso = quote_plus("Senha atualizada com sucesso. Faca login novamente.")
-    return RedirectResponse(
-        url=_append_project_token(f"/login?sucesso={sucesso}", project_token),
-        status_code=status.HTTP_303_SEE_OTHER
-    )
+    if is_admin_mode:
+        return RedirectResponse(url=f"/admin-login?sucesso={sucesso}", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url=_append_project_token(f"/login?sucesso={sucesso}", project_token), status_code=status.HTTP_303_SEE_OTHER)
 
 @router.get("/termo", response_class=HTMLResponse)
 def termo(request: Request):
@@ -449,6 +665,10 @@ def nps(request: Request):
 
 @router.get("/admin", response_class=HTMLResponse)
 def admin(request: Request):
+    role = (request.cookies.get("nps_role") or "").strip().lower()
+    if role != "admin":
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+
     processos = []
     try:
         res = (
@@ -534,6 +754,10 @@ def admin(request: Request):
 
 @router.post("/admin/gerar-processo")
 def admin_gerar_processo(request: Request):
+    role = (request.cookies.get("nps_role") or "").strip().lower()
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
+
     process_uuid = str(uuid.uuid4())
 
     token = ""
@@ -673,5 +897,51 @@ def logout():
     )
     # Remove o cookie de autenticação para encerrar a sessão
     response.delete_cookie("nps_user")
+    response.delete_cookie("nps_role")
     response.delete_cookie("project_token")
+    response.delete_cookie("admin_activation_ok")
+    return response
+
+
+@router.post("/admin-login")
+def admin_login_submit(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+):
+    if not _is_admin_activation_granted(request):
+        return _render_token_required(request, status_code=401)
+
+    email = email.strip().lower()
+    auth_response = _authenticate_user(email, password)
+
+    if not auth_response or not getattr(auth_response, "session", None):
+        erro = quote_plus("Email ou senha invalidos.")
+        return RedirectResponse(
+            url="/admin-login?erro=" + erro,
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+
+    user_id = _extract_user_id(auth_response)
+    role = _resolve_user_role(user_id, email)
+    if role != "admin":
+        erro = quote_plus("Acesso restrito ao administrador.")
+        return RedirectResponse(
+            url="/admin-login?erro=" + erro,
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+
+    response = RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
+    response.set_cookie(
+        key="nps_user",
+        value=email,
+        max_age=60 * 60 * 24 * 30,
+        samesite="lax"
+    )
+    response.set_cookie(
+        key="nps_role",
+        value="admin",
+        max_age=60 * 60 * 24 * 30,
+        samesite="lax"
+    )
     return response

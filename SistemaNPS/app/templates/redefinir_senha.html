@@ -178,10 +178,11 @@
             Link invalido ou expirado. Solicite um novo email de recuperacao.
         </p>
 
-        <form id="reset-form" method="post" action="/redefinir-senha">
+        <form id="reset-form" method="post" action="{{ form_action or '/redefinir-senha' }}">
             <input type="hidden" id="access_token" name="access_token" value="{{ access_token or '' }}">
             <input type="hidden" id="refresh_token" name="refresh_token" value="{{ refresh_token or '' }}">
             <input type="hidden" id="project_token" name="project_token" value="{{ project_token or '' }}">
+            <input type="hidden" id="admin_mode" name="admin_mode" value="{{ '1' if admin_mode else '0' }}">
 
             <div class="input-group">
                 <label for="password">Nova senha</label>
@@ -225,7 +226,7 @@
         </form>
 
         <p class="links">
-            Voltar para o <a href="/login{% if project_token %}?project_token={{ project_token }}{% endif %}">LOGIN</a>.
+            Voltar para o <a href="{{ login_url or ('/login' ~ ('?project_token=' ~ project_token if project_token else '')) }}">LOGIN</a>.
         </p>
     </main>
 
@@ -253,10 +254,13 @@
                 queryParams.get("refresh_token") ||
                 refreshInput.value;
             const projectToken = queryParams.get("project_token") || projectTokenInput.value;
+            const adminMode = queryParams.get("admin") === "1" ? "1" : (document.getElementById("admin_mode")?.value || "0");
 
             accessInput.value = accessToken || "";
             refreshInput.value = refreshToken || "";
             projectTokenInput.value = projectToken || "";
+            const adminModeInput = document.getElementById("admin_mode");
+            if (adminModeInput) adminModeInput.value = adminMode;
 
             if (!accessToken || !refreshToken) {
                 warning.style.display = "block";
