@@ -1288,6 +1288,14 @@ function selectStatus(el) {
     atualizarEstadoBotao();
 }
 
+function setStatusVisual(statusValue) {
+    document.querySelectorAll(".status-card")
+        .forEach(c => c.classList.remove("active"));
+    if (!statusValue) return;
+    const card = document.querySelector(`.status-card[data-status="${statusValue}"]`);
+    if (card) card.classList.add("active");
+}
+
 function coletarCamposTermo() {
     const campos = {};
     document.querySelectorAll(".form-group.field").forEach((group) => {
@@ -1408,8 +1416,12 @@ async function carregarEdicao(codigoProcesso) {
         }
 
         if (data.status_entrega) {
-            const card = document.querySelector(`.status-card[data-status="${data.status_entrega}"]`);
-            if (card) selectStatus(card);
+            if (isAdmin) {
+                const card = document.querySelector(`.status-card[data-status="${data.status_entrega}"]`);
+                if (card) selectStatus(card);
+            } else {
+                setStatusVisual(data.status_entrega);
+            }
         }
 
         let imagensTermo = data.imagens_termo;

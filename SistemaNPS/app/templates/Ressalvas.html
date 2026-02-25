@@ -1031,7 +1031,12 @@ function addRow(item = null) {
         <span class="field-label-mobile">APROVAR</span>
         <input type="checkbox" class="aprovacao-item" style="width:22px;height:22px;">
     </div>
-`;
+	`;
+
+    const aprovacaoInputInit = row.querySelector(".aprovacao-item");
+    if (aprovacaoInputInit && isAdmin) {
+        aprovacaoInputInit.disabled = true;
+    }
 
 function enableDragAndDrop(box) {
     box.addEventListener("dragover", e => {
@@ -1091,6 +1096,7 @@ enableDragAndDrop(imageBox);
         rowInputs[2].value = item.responsavel || "";
         const aprovacaoInput = row.querySelector(".aprovacao-item");
         if (aprovacaoInput) aprovacaoInput.checked = Boolean(item.aprovacao);
+        if (aprovacaoInput && isAdmin) aprovacaoInput.disabled = true;
         const regiao = row.querySelector(".regiao-foto");
         if (regiao) regiao.value = item.regiao_foto || "";
         if (item.imagem_base64) {

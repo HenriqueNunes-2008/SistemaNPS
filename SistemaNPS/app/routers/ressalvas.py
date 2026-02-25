@@ -356,8 +356,8 @@ def atualizar_ressalvas(data: RessalvasUpdateRequest, request: Request):
         if not isinstance(dados_existentes, dict):
             dados_existentes = {}
 
+        itens_existentes = dados_existentes.get("itens") or []
         if not is_admin:
-            itens_existentes = dados_existentes.get("itens") or []
             if not isinstance(itens_existentes, list) or not itens_existentes:
                 raise HTTPException(status_code=400, detail="Nao ha ressalvas do admin para validar")
 
@@ -387,6 +387,22 @@ def atualizar_ressalvas(data: RessalvasUpdateRequest, request: Request):
             data.responsavel = str(dados_existentes.get("responsavel") or "")
             data.cpf = dados_existentes.get("cpf")
             data.observacoes = dados_existentes.get("observacoes")
+        else:
+            # Admin apenas visualiza os checks; nao pode alterá-los.
+            aprovacao_existente_por_item = {}
+            if isinstance(itens_existentes, list):
+                for idx, item in enumerate(itens_existentes):
+                    if not isinstance(item, dict):
+                        continue
+                    item_key = str(item.get("item") or (idx + 1))
+                    aprovacao_existente_por_item[item_key] = bool(item.get("aprovacao"))
+
+            imagens_com_aprovacao_preservada: list[ImagemRessalva] = []
+            for img in (data.imagens or []):
+                item_key = str(img.item)
+                img.aprovacao = aprovacao_existente_por_item.get(item_key, False)
+                imagens_com_aprovacao_preservada.append(img)
+            data.imagens = imagens_com_aprovacao_preservada
 
         pdf_buffer = gerar_pdf_ressalvas(
             processo_codigo=processo_codigo,
