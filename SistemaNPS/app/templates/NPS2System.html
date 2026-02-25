@@ -565,11 +565,11 @@ textarea {
 
 <div class="breadcrumb-wrapper">
     <nav class="breadcrumb">
-        <a href="/index" class="breadcrumb-item">Página Inicial</a>
+        <a href="/index" class="breadcrumb-item" id="bc-home">Página Inicial</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
-        <a href="/termo" class="breadcrumb-item">Termo de Aceite</a>
+        <a href="/termo" class="breadcrumb-item" id="bc-termo">Termo de Aceite</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
-        <a href="/ressalvas" class="breadcrumb-item">Ressalva</a>
+        <a href="/ressalvas" class="breadcrumb-item" id="bc-ressalvas">Ressalva</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
         <div class="breadcrumb-item active">NPS</div>
     </nav>
@@ -742,6 +742,7 @@ const processoParam = urlParams.get("processo");
 const projectTokenParam = urlParams.get("project_token") || "{{ project_token or '' }}";
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
+const isAdmin = returnTo === "/admin";
 let processoEmAndamento = null;
 
 function getCookieValue(name) {
@@ -759,6 +760,19 @@ function getCookieValue(name) {
 function getProgressStorageKey() {
     const usuario = getCookieValue("nps_user") || "anon";
     return `nps_project_token::${usuario}`;
+}
+
+function buildFlowUrl(path) {
+    const qs = new URLSearchParams();
+    if (isAdmin) {
+        const fluxo = processoParam || projectTokenParam || getCurrentProcessId();
+        if (fluxo) qs.set("processo", fluxo);
+        qs.set("return", "/admin");
+        return `${path}?${qs.toString()}`;
+    }
+    const fluxo = projectTokenParam || getCurrentProcessId();
+    if (fluxo) qs.set("project_token", fluxo);
+    return qs.toString() ? `${path}?${qs.toString()}` : path;
 }
 
 function getCurrentProcessId() {
@@ -969,6 +983,13 @@ document.querySelector("form").addEventListener("submit", async (e) => {
 });
 
 async function inicializarPagina() {
+    const bcHome = document.getElementById("bc-home");
+    const bcTermo = document.getElementById("bc-termo");
+    const bcRessalvas = document.getElementById("bc-ressalvas");
+    if (bcHome) bcHome.href = isAdmin ? "/admin" : buildFlowUrl("/index");
+    if (bcTermo) bcTermo.href = buildFlowUrl("/termo");
+    if (bcRessalvas) bcRessalvas.href = buildFlowUrl("/ressalvas");
+
     processoEmAndamento = isEditMode
         ? null
         : (projectTokenParam || (await resolveDraftProcessId()) || await resolveDraftFromServer());

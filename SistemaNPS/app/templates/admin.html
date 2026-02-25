@@ -520,9 +520,7 @@
                     <td data-label="Criado">{{ p.criado_em or "-" }}</td>
                     <td data-label="Ações">
                         <div class="actions">
-                            <a class="btn" href="/termo?processo={{ p.project_token or p.codigo }}&return=/admin">Editar Termo</a>
-                            <a class="btn" href="/ressalvas?processo={{ p.project_token or p.codigo }}&return=/admin">Editar Ressalvas</a>
-                            <a class="btn" href="/nps?processo={{ p.project_token or p.codigo }}&return=/admin">Editar NPS</a>
+                            <a class="btn" href="/termo?processo={{ p.project_token or p.codigo }}&return=/admin">Editar</a>
                             {% if p.project_token %}<button class="btn light" type="button" onclick="copiarLink('{{ base_url }}/login?project_token={{ p.project_token }}')">Copiar link</button>{% endif %}
                             {% if p.termo_pdf %}<a class="btn secondary" href="/pdf/termo/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Termo</a>{% endif %}
                             {% if p.pdf_ressalvas %}<a class="btn secondary" href="/pdf/ressalvas/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Ressalvas</a>{% endif %}

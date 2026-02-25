@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, date
@@ -17,6 +17,14 @@ from app.services.pdf_layout import draw_header_footer, content_top, content_bot
 from app.services.final_pdf import regenerate_final_pdf_by_codigo
 
 router = APIRouter(prefix="/ressalvas", tags=["Ressalvas"])
+
+
+def _is_admin_request(request: Request) -> bool:
+    user_cookie = (request.cookies.get("nps_user") or "").strip().lower()
+    if user_cookie == "admin@gmail.com":
+        return True
+    referer = (request.headers.get("referer") or "").lower()
+    return "return=/admin" in referer
 
 # ============================================================
 # MODELS
@@ -215,8 +223,11 @@ def gerar_pdf_ressalvas(
 # ============================================================
 
 @router.post("/salvar", response_model=RessalvasResponse)
-def salvar_ressalvas(data: RessalvasRequest):
+def salvar_ressalvas(data: RessalvasRequest, request: Request):
     try:
+        if not _is_admin_request(request):
+            raise HTTPException(status_code=403, detail="Apenas admin pode criar ressalvas")
+
         # ----------------------------------------------------
         # 1. BUSCA PROCESSO PELO CÓDIGO (RETORNA UUID REAL)
         # ----------------------------------------------------
@@ -325,14 +336,57 @@ def salvar_ressalvas(data: RessalvasRequest):
 
 
 @router.post("/atualizar", response_model=RessalvasResponse)
-def atualizar_ressalvas(data: RessalvasUpdateRequest):
+def atualizar_ressalvas(data: RessalvasUpdateRequest, request: Request):
     try:
+        is_admin = _is_admin_request(request)
         proc = obter_processo_por_identificador(
             data.processo_id,
-            "id,codigo,project_token",
+            "id,codigo,project_token,ressalvas_dados",
         )
         processo_uuid = proc["id"]
         processo_codigo = proc.get("codigo") or data.processo_id
+
+        dados_existentes = proc.get("ressalvas_dados")
+        if isinstance(dados_existentes, str):
+            try:
+                import json
+                dados_existentes = json.loads(dados_existentes)
+            except Exception:
+                dados_existentes = {}
+        if not isinstance(dados_existentes, dict):
+            dados_existentes = {}
+
+        if not is_admin:
+            itens_existentes = dados_existentes.get("itens") or []
+            if not isinstance(itens_existentes, list) or not itens_existentes:
+                raise HTTPException(status_code=400, detail="Nao ha ressalvas do admin para validar")
+
+            aprovacao_por_item = {
+                str(img.item): bool(img.aprovacao)
+                for img in (data.imagens or [])
+            }
+
+            imagens_normalizadas: list[ImagemRessalva] = []
+            for idx, item in enumerate(itens_existentes):
+                if not isinstance(item, dict):
+                    continue
+                item_key = str(item.get("item") or (idx + 1))
+                imagens_normalizadas.append(
+                    ImagemRessalva(
+                        item=item_key,
+                        descricao=str(item.get("descricao") or ""),
+                        prazo=item.get("prazo"),
+                        responsavel=item.get("responsavel"),
+                        regiao_foto=item.get("regiao_foto"),
+                        aprovacao=aprovacao_por_item.get(item_key, bool(item.get("aprovacao"))),
+                        imagem_base64=item.get("imagem_base64"),
+                    )
+                )
+
+            data.imagens = imagens_normalizadas
+            data.responsavel = str(dados_existentes.get("responsavel") or "")
+            data.cpf = dados_existentes.get("cpf")
+            data.observacoes = dados_existentes.get("observacoes")
 
         pdf_buffer = gerar_pdf_ressalvas(
             processo_codigo=processo_codigo,
@@ -400,12 +454,15 @@ def atualizar_ressalvas(data: RessalvasUpdateRequest):
             ]
         }
 
-        supabase.table("processos").update({
-            "status": "RESSALVAS_REGISTRADAS",
+        payload_update = {
             "pdf_ressalvas": pdf_url,
             "ressalvas_dados": ressalvas_dados,
             "atualizado_em": datetime.utcnow().isoformat()
-        }).eq("id", processo_uuid).execute()
+        }
+        if is_admin:
+            payload_update["status"] = "RESSALVAS_REGISTRADAS"
+
+        supabase.table("processos").update(payload_update).eq("id", processo_uuid).execute()
 
         regenerate_final_pdf_by_codigo(processo_codigo, set_status_finalizado=False)
 

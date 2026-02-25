@@ -682,13 +682,13 @@ input.item-duplicado { border: 2px solid #dc2626; }
 
 <div class="breadcrumb-wrapper">
     <nav class="breadcrumb">
-        <a href="/index" class="breadcrumb-item">Página Inicial</a>
+        <a href="/index" class="breadcrumb-item" id="bc-home">Página Inicial</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
-        <a href="/termo" class="breadcrumb-item">Termo de Aceite</a>
+        <a href="/termo" class="breadcrumb-item" id="bc-termo">Termo de Aceite</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
         <div class="breadcrumb-item active">Ressalva</div>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
-        <a href="/nps" class="breadcrumb-item">NPS</a>
+        <a href="/nps" class="breadcrumb-item" id="bc-nps">NPS</a>
     </nav>
 </div>
 
@@ -830,7 +830,9 @@ async function executarSalvarRessalvas() {
         }
 
         /* 5. Envia para backend */
-    const endpoint = isEditMode ? "/ressalvas/atualizar" : "/ressalvas/salvar";
+    const endpoint = isAdmin
+        ? (isEditMode ? "/ressalvas/atualizar" : "/ressalvas/salvar")
+        : "/ressalvas/atualizar";
     const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1313,7 +1315,12 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         if (Array.isArray(dados?.itens) && dados.itens.length > 0) {
             dados.itens.forEach((item) => addRow(item));
         } else {
-            addRow();
+            if (isAdmin) {
+                addRow();
+            } else if (btnSalvar) {
+                btnSalvar.textContent = "AGUARDANDO RESSALVAS DO ADMIN";
+                btnSalvar.disabled = true;
+            }
         }
 
         btnSalvar.disabled = !validarFormulario();
@@ -1324,13 +1331,38 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         }
     } catch (e) {
         console.warn("Falha ao carregar edicao", e);
-        addRow();
+        if (isAdmin) {
+            addRow();
+        } else if (btnSalvar) {
+            btnSalvar.textContent = "AGUARDANDO RESSALVAS DO ADMIN";
+            btnSalvar.disabled = true;
+        }
     }
+}
+
+function buildFlowUrl(path) {
+    const qs = new URLSearchParams();
+    if (isAdmin) {
+        const fluxo = processoParam || projectTokenParam || getCurrentProcessId();
+        if (fluxo) qs.set("processo", fluxo);
+        qs.set("return", "/admin");
+        return `${path}?${qs.toString()}`;
+    }
+    const fluxo = projectTokenParam || getCurrentProcessId();
+    if (fluxo) qs.set("project_token", fluxo);
+    return qs.toString() ? `${path}?${qs.toString()}` : path;
 }
 
 
 /* linha inicial */
 async function inicializarPagina() {
+    const bcHome = document.getElementById("bc-home");
+    const bcTermo = document.getElementById("bc-termo");
+    const bcNps = document.getElementById("bc-nps");
+    if (bcHome) bcHome.href = isAdmin ? "/admin" : buildFlowUrl("/index");
+    if (bcTermo) bcTermo.href = buildFlowUrl("/termo");
+    if (bcNps) bcNps.href = buildFlowUrl("/nps");
+
     processoEmAndamento = isEditMode
         ? null
         : (projectTokenParam || (await resolveDraftProcessId()) || await resolveDraftFromServer());

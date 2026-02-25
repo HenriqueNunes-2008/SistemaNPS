@@ -876,13 +876,13 @@ input.cpf-valido {
 
 <div class="breadcrumb-wrapper">
     <nav class="breadcrumb">
-        <a href="/index" class="breadcrumb-item">Página Inicial</a>
+        <a href="/index" class="breadcrumb-item" id="bc-home">Página Inicial</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
         <div class="breadcrumb-item active">Termo de Aceite</div>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
-        <a href="/ressalvas" class="breadcrumb-item">Ressalva</a>
+        <a href="/ressalvas" class="breadcrumb-item" id="bc-ressalvas">Ressalva</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
-        <a href="/nps" class="breadcrumb-item">NPS</a>
+        <a href="/nps" class="breadcrumb-item" id="bc-nps">NPS</a>
     </nav>
 </div>
 <main id="capture-area">
@@ -1139,6 +1139,7 @@ const projectTokenParam = urlParams.get("project_token") || "{{ project_token or
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
 let processoEmAndamento = null;
+let processoCarregado = null;
 
 function getCookieValue(name) {
     const key = `${name}=`;
@@ -1150,6 +1151,21 @@ function getCookieValue(name) {
         }
     }
     return "";
+}
+
+const isAdmin = returnTo === "/admin";
+
+function buildFlowUrl(path) {
+    const qs = new URLSearchParams();
+    if (isAdmin) {
+        const fluxo = processoParam || projectTokenParam || getCurrentProcessId();
+        if (fluxo) qs.set("processo", fluxo);
+        qs.set("return", "/admin");
+        return `${path}?${qs.toString()}`;
+    }
+    const fluxo = projectTokenParam || getCurrentProcessId();
+    if (fluxo) qs.set("project_token", fluxo);
+    return qs.toString() ? `${path}?${qs.toString()}` : path;
 }
 
 function getProgressStorageKey() {
@@ -1225,8 +1241,8 @@ function unlockButton() {
 
 function atualizarEstadoBotao() {
     const nomeValido = nomeCliente.value.trim() !== "";
-    const cpfCompradorValido = validarCPF(cpfComprador.value);
-    const cpfRepresentanteValido = isEditMode ? validarCPF(cpfRepresentante.value) : true;
+    const cpfCompradorValido = validarCPF(cpfComprador.value || "");
+    const cpfRepresentanteValido = isAdmin ? validarCPF(cpfRepresentante.value || "") : true;
     const dataValida =
     diaInput.value &&
     mesInput.value &&
@@ -1237,8 +1253,8 @@ function atualizarEstadoBotao() {
         parseInt(anoInput.value)
     );
 
-    const statusSelecionado = document.querySelector(".status-card.active") !== null;
-    const fotosCompletas = todasFotosPreenchidas();
+    const statusSelecionado = isAdmin ? (document.querySelector(".status-card.active") !== null) : true;
+    const fotosCompletas = isAdmin ? todasFotosPreenchidas() : true;
 
     const tudoValido = nomeValido && cpfCompradorValido && cpfRepresentanteValido && dataValida && statusSelecionado && fotosCompletas;
 
@@ -1246,7 +1262,7 @@ function atualizarEstadoBotao() {
     cpfComprador.classList.toggle("cpf-invalido", !cpfCompradorValido && cpfComprador.value !== "");
 
     cpfRepresentante.classList.toggle("cpf-valido", cpfRepresentanteValido);
-    cpfRepresentante.classList.toggle("cpf-invalido", isEditMode && !cpfRepresentanteValido && cpfRepresentante.value !== "");
+    cpfRepresentante.classList.toggle("cpf-invalido", isAdmin && !cpfRepresentanteValido && cpfRepresentante.value !== "");
 
     btnSalvar.disabled = !tudoValido;
 }
@@ -1265,6 +1281,7 @@ function todasFotosPreenchidas() {
 
 /* ================= STATUS ================= */
 function selectStatus(el) {
+    if (!isAdmin) return;
     document.querySelectorAll(".status-card")
         .forEach(c => c.classList.remove("active"));
     el.classList.add("active");
@@ -1339,6 +1356,7 @@ async function carregarEdicao(codigoProcesso) {
         const res = await fetch(`/api/processos/${codigoProcesso}`);
         if (!res.ok) return;
         const data = await res.json();
+        processoCarregado = data;
 
         if (data.nome_cliente) nomeCliente.value = data.nome_cliente;
         if (data.cpf) cpfComprador.value = maskCPF(data.cpf);
@@ -1435,7 +1453,7 @@ async function carregarEdicao(codigoProcesso) {
         atualizarEstadoBotao();
 
         // Se não for modo edição (admin) e já tiver dados salvos, bloqueia o formulário
-        if (!isEditMode && data.termo_dados && Object.keys(data.termo_dados).length > 0) {
+        if (!isEditMode && data.termo_dados && Object.keys(data.termo_dados).length > 0 && !isAdmin) {
             desabilitarFormulario();
         }
     } catch (e) {
@@ -1444,6 +1462,13 @@ async function carregarEdicao(codigoProcesso) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+    const bcHome = document.getElementById("bc-home");
+    const bcRessalvas = document.getElementById("bc-ressalvas");
+    const bcNps = document.getElementById("bc-nps");
+    if (bcHome) bcHome.href = isAdmin ? "/admin" : buildFlowUrl("/index");
+    if (bcRessalvas) bcRessalvas.href = buildFlowUrl("/ressalvas");
+    if (bcNps) bcNps.href = buildFlowUrl("/nps");
+
     /* ================= CALENDÁRIO ================= */
     const icon = document.getElementById("calendar-icon");
     const dateInput = document.getElementById("data-hidden");
@@ -1638,13 +1663,28 @@ window.renderFotoGrid = function() {
     diaInput.addEventListener("input", atualizarEstadoBotao);
     mesInput.addEventListener("input", atualizarEstadoBotao);
     anoInput.addEventListener("input", atualizarEstadoBotao);
-    if (!isEditMode) {
+    if (!isAdmin) {
         document.querySelectorAll(".admin-only").forEach((el) => {
             el.style.display = "none";
         });
         document.querySelectorAll(".admin-only input").forEach((el) => {
             el.disabled = true;
         });
+    }
+    if (!isAdmin) {
+        document.querySelectorAll(".status-card").forEach((el) => {
+            el.style.pointerEvents = "none";
+            el.style.opacity = "0.7";
+        });
+        const imageBoxEl = document.getElementById("imageBox");
+        if (imageBoxEl) {
+            imageBoxEl.style.pointerEvents = "none";
+            imageBoxEl.style.opacity = "0.85";
+        }
+        const regiaoEl = document.getElementById("regiao-foto");
+        if (regiaoEl) {
+            regiaoEl.disabled = true;
+        }
     }
     if (regiaoSelect) {
         regiaoSelect.addEventListener("change", () => {
@@ -1695,9 +1735,11 @@ window.renderFotoGrid = function() {
             if (!dia || !mes || !ano || !validarData(dia, mes, ano)) throw new Error("Data inválida");
 
             const statusCard = document.querySelector(".status-card.active");
-            if (!statusCard) throw new Error("Selecione o status da entrega");
+            if (isAdmin && !statusCard) throw new Error("Selecione o status da entrega");
 
-            const status = statusCard.dataset.status;
+            const status = isAdmin
+                ? statusCard.dataset.status
+                : (processoCarregado?.status_entrega || "pendente_admin");
             const termoDados = coletarCamposTermo();
             const empresa = termoDados.campos?.["EMPRESA"] || "";
 
@@ -1727,7 +1769,7 @@ window.renderFotoGrid = function() {
                 }
             });
 
-            if (fotosPreenchidas !== 6) {
+            if (isAdmin && fotosPreenchidas !== 6) {
                 throw new Error("Tire as 6 fotos antes de salvar o termo");
             }
             /* === CAPTURA COM BACKGROUND DETERMINÍSTICO === */
@@ -1755,7 +1797,12 @@ window.renderFotoGrid = function() {
 
                                 /* === ENVIA PARA O BACKEND === */
                                 const codigoParaSalvar = isEditMode ? processoParam : (processoEmAndamento || await resolveDraftProcessId());
-                                const endpoint = codigoParaSalvar ? "/termo/atualizar" : "/termo/salvar";
+                                const endpoint = !isAdmin
+                                    ? "/termo/atualizar"
+                                    : (codigoParaSalvar ? "/termo/atualizar" : "/termo/salvar");
+                                if (!isAdmin && !codigoParaSalvar) {
+                                    throw new Error("Processo invalido para atualizacao do termo");
+                                }
                                 const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -1766,7 +1813,7 @@ window.renderFotoGrid = function() {
                     empresa: empresa,
                     status_entrega: status,
                     imagem: imagemBase64,
-                    imagens: imagens,
+                    imagens: isAdmin ? imagens : [],
                     termo_dados: termoDados
                 })
             });
@@ -1800,7 +1847,9 @@ window.renderFotoGrid = function() {
                     window.location.href = returnTo || "/admin";
                 } else {
                     const fluxoToken = encodeURIComponent(result.project_token || result.processo_id || "");
-                    if (status === "concluido_com_ressalva") {
+                    if (!isAdmin && !["concluido", "concluido_com_ressalva"].includes(status)) {
+                        window.location.href = fluxoToken ? `/index?project_token=${fluxoToken}` : "/index";
+                    } else if (status === "concluido_com_ressalva") {
                         window.location.href = fluxoToken ? `/ressalvas?project_token=${fluxoToken}` : "/ressalvas";
                     } else {
                         window.location.href = fluxoToken ? `/nps?project_token=${fluxoToken}` : "/nps";

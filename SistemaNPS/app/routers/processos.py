@@ -41,21 +41,42 @@ def obter_processo(identificador: str):
         "termo_dados,ressalvas_dados,nps_dados,imagens_termo",
     )
 
+    if not processo:
+        raise HTTPException(status_code=404, detail="Processo nao encontrado")
+
     # Garante que os campos JSON sejam objetos Python, nao strings
     json_fields = ["termo_dados", "ressalvas_dados", "nps_dados", "imagens_termo"]
     for field in json_fields:
-        if isinstance(processo.get(field), str):
+        value = processo.get(field)
+
+        if value is None:
+            processo[field] = {} if field.endswith("_dados") else []
+            continue
+
+        if isinstance(value, str):
             try:
-                processo[field] = json.loads(processo[field])
+                value = json.loads(value)
             except (json.JSONDecodeError, TypeError):
-                if field.endswith("_dados"):
-                    processo[field] = {}
-                else:
-                    processo[field] = []
+                value = {} if field.endswith("_dados") else []
+
+        if field.endswith("_dados") and not isinstance(value, dict):
+            value = {}
+
+        if field == "imagens_termo" and not isinstance(value, list):
+            value = []
+
+        processo[field] = value
 
     # Garante que o frontend sempre receba uma lista para 'imagens_termo'
-    if "imagens_termo" not in processo or not processo["imagens_termo"]:
-        if processo.get("termo_dados", {}).get("itens"):
-            processo["imagens_termo"] = processo["termo_dados"]["itens"]
+    termo_dados = processo.get("termo_dados")
+    if not isinstance(termo_dados, dict):
+        termo_dados = {}
+        processo["termo_dados"] = termo_dados
+
+    if not processo.get("imagens_termo"):
+        itens = termo_dados.get("itens")
+        if isinstance(itens, list) and itens:
+            processo["imagens_termo"] = itens
 
     return processo
+

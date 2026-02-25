@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import List, Optional
 import base64
@@ -270,6 +270,14 @@ def _draw_termo_content(c, width: float, height: float, data) -> None:
 router = APIRouter(prefix="/termo", tags=["Termo"])
 
 
+def _is_admin_request(request: Request) -> bool:
+    user_cookie = (request.cookies.get("nps_user") or "").strip().lower()
+    if user_cookie == "admin@gmail.com":
+        return True
+    referer = (request.headers.get("referer") or "").lower()
+    return "return=/admin" in referer
+
+
 # ============================================================
 # MODEL
 # ============================================================
@@ -436,7 +444,7 @@ def salvar_termo(data: TermoRequest):
 
 
 @router.post("/atualizar")
-def atualizar_termo(data: TermoUpdateRequest):
+def atualizar_termo(data: TermoUpdateRequest, request: Request):
     try:
         cpf_limpo = re.sub(r"\D", "", data.cpf)
         if not re.fullmatch(r"\d{11}", cpf_limpo):
@@ -448,12 +456,9 @@ def atualizar_termo(data: TermoUpdateRequest):
         if "," not in data.imagem:
             raise HTTPException(status_code=400, detail="Imagem Base64 invalida")
 
-        if data.status_entrega not in ("concluido", "concluido_com_ressalva"):
-            raise HTTPException(status_code=400, detail="Status de entrega invalido")
-
         proc = obter_processo_por_identificador(
             data.processo_codigo,
-            "id,codigo,project_token,imagens_termo",
+            "id,codigo,project_token,imagens_termo,status_entrega,termo_dados",
         )
         processo_uuid = proc["id"]
         processo_codigo = proc.get("codigo")
@@ -464,6 +469,7 @@ def atualizar_termo(data: TermoUpdateRequest):
             sufixo = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
             processo_codigo = f"{primeiro_nome}_{ultimos_cpf}_{data_hoje}_{sufixo}"
         project_token = proc.get("project_token")
+        is_admin = _is_admin_request(request)
 
         imagens_existentes = proc.get("imagens_termo")
         if isinstance(imagens_existentes, str):
@@ -471,6 +477,27 @@ def atualizar_termo(data: TermoUpdateRequest):
                 imagens_existentes = json.loads(imagens_existentes)
             except Exception:
                 imagens_existentes = []
+
+        termo_dados_existente = proc.get("termo_dados")
+        if isinstance(termo_dados_existente, str):
+            try:
+                termo_dados_existente = json.loads(termo_dados_existente)
+            except Exception:
+                termo_dados_existente = {}
+        if not isinstance(termo_dados_existente, dict):
+            termo_dados_existente = {}
+
+        if not is_admin:
+            # Usuario so pode atualizar os demais campos do termo.
+            # Status e fotos ficam sob controle do admin.
+            data.status_entrega = (proc.get("status_entrega") or data.status_entrega or "pendente_admin")
+            data.imagens = imagens_existentes or termo_dados_existente.get("itens") or []
+
+            termo_dados_informado = data.termo_dados if isinstance(data.termo_dados, dict) else {}
+            termo_dados_informado["itens"] = termo_dados_existente.get("itens") or data.imagens
+            data.termo_dados = termo_dados_informado
+        elif data.status_entrega not in ("concluido", "concluido_com_ressalva"):
+            raise HTTPException(status_code=400, detail="Status de entrega invalido")
 
         try:
             _, img_b64 = data.imagem.split(",", 1)
