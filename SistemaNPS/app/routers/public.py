@@ -92,11 +92,28 @@ def _append_project_token(url: str, token: str) -> str:
     sep = "&" if "?" in url else "?"
     return f"{url}{sep}project_token={token}"
 
+
+def _render_token_required(request: Request, status_code: int = 403):
+    return templates.TemplateResponse(
+        "User.html",
+        {
+            "request": request,
+            "mensagem_acesso": (
+                "Para acessar o sistema, entre pelo link que o Representante "
+                "da Fleximedical/Kure enviara para voce."
+            ),
+        },
+        status_code=status_code,
+    )
+
 @router.get("/", response_class=HTMLResponse)
 def login(request: Request):
     erro = request.query_params.get("erro")
     sucesso = request.query_params.get("sucesso")
     project_token = _extract_project_token(request)
+    if not project_token or not _token_is_active(project_token):
+        return _render_token_required(request)
+
     response = templates.TemplateResponse(
         "login.html",
         {
@@ -120,6 +137,9 @@ def login_alias(request: Request):
     erro = request.query_params.get("erro")
     sucesso = request.query_params.get("sucesso")
     project_token = _extract_project_token(request)
+    if not project_token or not _token_is_active(project_token):
+        return _render_token_required(request)
+
     response = templates.TemplateResponse(
         "login.html",
         {
@@ -168,6 +188,9 @@ def login_submit(
                 samesite="lax"
             )
         return response
+
+    if not project_token or not _token_is_active(project_token):
+        return _render_token_required(request)
 
     auth_client = _new_supabase_client()
 
@@ -650,4 +673,5 @@ def logout():
     )
     # Remove o cookie de autenticação para encerrar a sessão
     response.delete_cookie("nps_user")
+    response.delete_cookie("project_token")
     return response
