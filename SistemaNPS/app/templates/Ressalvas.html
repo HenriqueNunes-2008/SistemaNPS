@@ -870,17 +870,29 @@ if (!response.ok) {
 }
 
 
-/* SUCESSO CONFIRMADO - agora sim pode esconder */
-document.querySelector(".breadcrumb-wrapper")?.classList.add("pdf-hide");
-
-/* redireciona */
-if (isEditMode) {
-    window.location.href = returnTo || "/admin";
-} else {
-    const fluxoToken = processoId.trim();
+const fluxoToken = processoId.trim();
+if (fluxoToken) {
     saveCurrentProcessId(fluxoToken);
-    window.location.href = fluxoToken ? `/user?project_token=${encodeURIComponent(fluxoToken)}` : "/user";
 }
+await carregarEdicaoRessalvas(fluxoToken);
+
+if (!isAdmin) {
+    const itens = Array.from(document.querySelectorAll(".table-row"));
+    const validacaoConcluida = itens.length > 0
+        && itens.every((row) => row.querySelector(".aprovacao-item")?.checked);
+    if (validacaoConcluida) {
+        habilitarModoRessalvasJaSalvasUsuario();
+    } else {
+        habilitarModoValidacaoUsuario();
+    }
+}
+
+delete btn.dataset.locked;
+btn.textContent = isAdmin ? "SALVAR RESSALVA" : "VALIDAR RESSALVAS";
+btn.disabled = !validarFormulario();
+document.body.classList.remove("freeze");
+savingOverlay.classList.remove("active");
+alert("Ressalvas salvas com sucesso.");
 
 
 
@@ -891,7 +903,7 @@ if (isEditMode) {
 
     /* reativa botão */
     btn.disabled = false;
-    btn.textContent = "SALVAR RESSALVA";
+    btn.textContent = isAdmin ? "SALVAR RESSALVA" : "VALIDAR RESSALVAS";
     delete btn.dataset.locked;
 
     document.body.classList.remove("freeze");
@@ -915,7 +927,7 @@ const processoParam = urlParams.get("processo");
 const projectTokenParam = urlParams.get("project_token") || "{{ project_token or '' }}";
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
-const isAdmin = returnTo === "/admin";
+let isAdmin = returnTo === "/admin";
 const cpfInput = document.querySelector('section.approval input[placeholder="CPF"]');
 let processoEmAndamento = null;
 
@@ -1301,6 +1313,34 @@ function habilitarModoValidacaoUsuario() {
     }
 }
 
+function habilitarModoRessalvasJaSalvasUsuario() {
+    document.querySelectorAll(".add-item, .remove").forEach(el => {
+        el.style.display = "none";
+    });
+
+    document.querySelectorAll(".table-row").forEach((row) => {
+        row.querySelectorAll("input, select, textarea, button").forEach((el) => {
+            if (!el.classList.contains("aprovacao-item")) {
+                el.disabled = true;
+            }
+        });
+        const check = row.querySelector(".aprovacao-item");
+        if (check) {
+            check.disabled = true;
+        }
+        const imageBox = row.querySelector(".image-box");
+        if (imageBox) {
+            imageBox.style.pointerEvents = "none";
+            imageBox.style.opacity = "0.85";
+        }
+    });
+
+    if (btnSalvar) {
+        btnSalvar.textContent = "RESSALVAS JA SALVAS";
+        btnSalvar.disabled = true;
+    }
+}
+
 async function carregarEdicaoRessalvas(codigoProcesso) {
     if (!codigoProcesso) return;
     try {
@@ -1333,7 +1373,12 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
 
         // Usuario valida os itens do admin apenas com checkbox.
         if (!isAdmin && !isEditMode && dados && Array.isArray(dados.itens) && dados.itens.length > 0) {
-            habilitarModoValidacaoUsuario();
+            const todosAprovados = dados.itens.every((item) => Boolean(item?.aprovacao));
+            if (todosAprovados) {
+                habilitarModoRessalvasJaSalvasUsuario();
+            } else {
+                habilitarModoValidacaoUsuario();
+            }
         }
     } catch (e) {
         console.warn("Falha ao carregar edicao", e);
@@ -1344,6 +1389,11 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
             habilitarModoSomenteLeituraUsuario();
         }
     }
+}
+
+const roleCookie = (getCookieValue("nps_role") || "").toLowerCase();
+if (roleCookie === "admin") {
+    isAdmin = true;
 }
 
 function habilitarModoSomenteLeituraUsuario() {

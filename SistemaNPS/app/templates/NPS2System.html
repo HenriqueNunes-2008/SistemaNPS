@@ -742,7 +742,7 @@ const processoParam = urlParams.get("processo");
 const projectTokenParam = urlParams.get("project_token") || "{{ project_token or '' }}";
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
-const isAdmin = returnTo === "/admin";
+let isAdmin = returnTo === "/admin";
 let processoEmAndamento = null;
 
 function getCookieValue(name) {
@@ -760,6 +760,11 @@ function getCookieValue(name) {
 function getProgressStorageKey() {
     const usuario = getCookieValue("nps_user") || "anon";
     return `nps_project_token::${usuario}`;
+}
+
+const roleCookie = (getCookieValue("nps_role") || "").toLowerCase();
+if (roleCookie === "admin") {
+    isAdmin = true;
 }
 
 function buildFlowUrl(path) {
@@ -905,6 +910,10 @@ document.querySelector("form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const submitBtn = document.querySelector('.submit-btn');
 
+    if (isAdmin) {
+        return;
+    }
+
     const processoId = processoParam || processoEmAndamento || projectTokenParam;
 
     if (!processoId) {
@@ -993,10 +1002,31 @@ async function inicializarPagina() {
     processoEmAndamento = isEditMode
         ? null
         : (projectTokenParam || (await resolveDraftProcessId()) || await resolveDraftFromServer());
-    carregarEdicaoNps(isEditMode ? processoParam : processoEmAndamento);
+    await carregarEdicaoNps(isEditMode ? processoParam : processoEmAndamento);
+    if (isAdmin) {
+        habilitarModoSomenteLeituraAdminNps();
+    }
 }
 
 inicializarPagina();
+
+function habilitarModoSomenteLeituraAdminNps() {
+    document.querySelectorAll(".nps-btn").forEach((btn) => {
+        btn.disabled = true;
+        btn.style.cursor = "default";
+    });
+    document.querySelectorAll("input[type='radio']").forEach((input) => {
+        input.disabled = true;
+    });
+    document.querySelectorAll("textarea").forEach((area) => {
+        area.disabled = true;
+    });
+    const submitBtn = document.querySelector(".submit-btn");
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "VISUALIZAÇÃO DO ADMIN";
+    }
+}
 
 function openLogoutModal(e) {
     if(e) e.preventDefault();

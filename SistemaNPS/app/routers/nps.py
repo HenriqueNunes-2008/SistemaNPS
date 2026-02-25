@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from app.services.final_pdf import regenerate_final_pdf_by_codigo
@@ -8,6 +8,11 @@ from app.services.processo_resolver import obter_processo_por_identificador
 from app.services.supabase_client import supabase
 
 router = APIRouter(prefix="/nps", tags=["NPS"])
+
+
+def _is_admin_request(request: Request) -> bool:
+    role_cookie = (request.cookies.get("nps_role") or "").strip().lower()
+    return role_cookie == "admin"
 
 
 class NPSRequest(BaseModel):
@@ -25,8 +30,10 @@ class NPSUpdateRequest(BaseModel):
 
 
 @router.post("/finalizar")
-def finalizar_nps(data: NPSRequest):
+def finalizar_nps(data: NPSRequest, request: Request):
     try:
+        if _is_admin_request(request):
+            raise HTTPException(status_code=403, detail="Admin apenas visualiza a pesquisa NPS")
         processo_id = data.processo_id.strip()
         if not processo_id:
             raise HTTPException(status_code=400, detail="processo_id ausente")
@@ -62,8 +69,10 @@ def finalizar_nps(data: NPSRequest):
 
 
 @router.post("/atualizar")
-def atualizar_nps(data: NPSUpdateRequest):
+def atualizar_nps(data: NPSUpdateRequest, request: Request):
     try:
+        if _is_admin_request(request):
+            raise HTTPException(status_code=403, detail="Admin apenas visualiza a pesquisa NPS")
         processo_id = data.processo_id.strip()
         if not processo_id:
             raise HTTPException(status_code=400, detail="processo_id ausente")
