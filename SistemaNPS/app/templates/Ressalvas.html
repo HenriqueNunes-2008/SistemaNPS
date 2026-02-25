@@ -1317,9 +1317,9 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         } else {
             if (isAdmin) {
                 addRow();
-            } else if (btnSalvar) {
-                btnSalvar.textContent = "AGUARDANDO RESSALVAS DO ADMIN";
-                btnSalvar.disabled = true;
+            } else {
+                addRow();
+                habilitarModoSomenteLeituraUsuario();
             }
         }
 
@@ -1333,10 +1333,38 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         console.warn("Falha ao carregar edicao", e);
         if (isAdmin) {
             addRow();
-        } else if (btnSalvar) {
-            btnSalvar.textContent = "AGUARDANDO RESSALVAS DO ADMIN";
-            btnSalvar.disabled = true;
+        } else {
+            addRow();
+            habilitarModoSomenteLeituraUsuario();
         }
+    }
+}
+
+function habilitarModoSomenteLeituraUsuario() {
+    document.querySelectorAll(".add-item, .remove").forEach(el => {
+        el.style.display = "none";
+    });
+
+    document.querySelectorAll(".table-row").forEach((row) => {
+        row.querySelectorAll("input, select, textarea, button").forEach((el) => {
+            if (!el.classList.contains("aprovacao-item")) {
+                el.disabled = true;
+            }
+        });
+        const check = row.querySelector(".aprovacao-item");
+        if (check) {
+            check.disabled = true;
+        }
+        const imageBox = row.querySelector(".image-box");
+        if (imageBox) {
+            imageBox.style.pointerEvents = "none";
+            imageBox.style.opacity = "0.85";
+        }
+    });
+
+    if (btnSalvar) {
+        btnSalvar.textContent = "AGUARDANDO RESSALVAS DO ADMIN";
+        btnSalvar.disabled = true;
     }
 }
 

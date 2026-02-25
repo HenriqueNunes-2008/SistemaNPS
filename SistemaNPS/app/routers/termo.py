@@ -275,7 +275,7 @@ def _is_admin_request(request: Request) -> bool:
     if user_cookie == "admin@gmail.com":
         return True
     referer = (request.headers.get("referer") or "").lower()
-    return "return=/admin" in referer
+    return ("return=/admin" in referer) or ("return=%2fadmin" in referer)
 
 
 # ============================================================
