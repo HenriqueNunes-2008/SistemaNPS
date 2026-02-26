@@ -659,6 +659,14 @@ select.regiao-foto {
     height: auto;
 }
 
+.mobile-contact-info {
+    display: none;
+    text-align: center;
+    color: #e2e8f0;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
 input.cpf-invalido {
     border: 2px solid #dc2626;
 }
@@ -764,57 +772,58 @@ input.cpf-valido {
     }
 
     body {
-        padding-top: 150px;
+        padding-top: 118px;
     }
 
     .topbar {
         height: auto;
-        min-height: 140px;
+        min-height: 96px;
         border-radius: 0 0 28px 28px;
-        padding: 12px 14px;
+        padding: 10px 14px;
     }
 
     .logo-fixed {
         position: absolute;
-        top: 14px;
-        left: 14px;
-        transform: none;
-        height: 70px;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        height: 66px;
     }
 
     .logo-link {
-        top: 14px;
-        left: 14px;
-        transform: none;
-        width: 150px;
-        height: 70px;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 170px;
+        height: 66px;
     }
 
     .topbar-content {
-        height: auto;
-        padding: 0;
+        height: 100%;
+        padding: 0 6px;
+        justify-content: flex-end;
     }
 
     .header-info {
-        width: 100%;
+        width: auto;
         margin: 0;
-        padding-left: 160px;
-        gap: 8px;
+        padding-left: 0;
+        gap: 0;
         display: flex;
-        flex-direction: column;
-        align-items: flex-start;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
         font-size: 12px;
         line-height: 1.25;
     }
 
-    .header-info > div {
-        overflow-wrap: anywhere;
-        word-break: break-word;
+    .header-info .address,
+    .header-info .contact {
+        display: none;
     }
 
     .logout-link {
-        align-self: flex-end;
-        margin: 6px 0 0;
+        margin: 0;
         font-size: 15px;
     }
 
@@ -838,8 +847,25 @@ input.cpf-valido {
         padding: 0 14px 30px;
     }
 
+    .footer {
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 16px;
+        padding: 0 14px 24px;
+    }
+
+    #btnSalvar {
+        margin: 0 auto;
+    }
+
     .footer-logo {
-        width: min(85vw, 320px);
+        display: none;
+    }
+
+    .mobile-contact-info {
+        display: block;
+        max-width: 360px;
     }
 }
 </style>
@@ -1071,6 +1097,10 @@ input.cpf-valido {
     <img src="/static/logozinha.png"
  alt="Fleximedical_logo"
  class="footer-logo">
+    <div class="mobile-contact-info">
+        <div>R. José Antônio Valadares, 285 – Vila Liviero, São Paulo – SP. CEP: 04185-020</div>
+        <div>comercial@soukure.com.br<br>(11) 2372-7444</div>
+    </div>
 </div>
 
 <!-- MODAL LOGOUT -->
