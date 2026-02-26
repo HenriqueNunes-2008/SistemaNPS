@@ -4,6 +4,7 @@ import hmac
 import time
 import base64
 import hashlib
+import json
 from datetime import datetime, timezone
 from urllib.parse import quote_plus
 
@@ -264,6 +265,11 @@ def _is_admin_activation_granted(request: Request) -> bool:
 def _is_admin_mode_request(request: Request) -> bool:
     return request.query_params.get("admin") == "1" and _is_admin_activation_granted(request)
 
+
+def _extract_user_flow(raw: str | None) -> str:
+    flow = (raw or "").strip().lower()
+    return flow if flow in ("cliente", "motorista") else "cliente"
+
 @router.get("/", response_class=HTMLResponse)
 def login(request: Request):
     erro = request.query_params.get("erro")
@@ -281,6 +287,7 @@ def login(request: Request):
             "project_token": project_token,
             "form_action": "/login",
             "admin_mode": False,
+            "user_flow": _extract_user_flow(request.cookies.get("nps_tipo_acesso")),
             "esqueci_url": f"/esqueci-senha?project_token={project_token}" if project_token else "/esqueci-senha",
             "cadastro_url": f"/cadastro?project_token={project_token}" if project_token else "/cadastro",
         }
@@ -311,6 +318,7 @@ def login_alias(request: Request):
             "project_token": project_token,
             "form_action": "/login",
             "admin_mode": False,
+            "user_flow": _extract_user_flow(request.cookies.get("nps_tipo_acesso")),
             "esqueci_url": f"/esqueci-senha?project_token={project_token}" if project_token else "/esqueci-senha",
             "cadastro_url": f"/cadastro?project_token={project_token}" if project_token else "/cadastro",
         }
@@ -368,7 +376,8 @@ def login_submit(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
-    project_token: str = Form("")
+    project_token: str = Form(""),
+    user_flow: str = Form("cliente"),
 ):
     email = email.strip().lower()
     project_token = (project_token or request.cookies.get("project_token") or "").strip()
@@ -384,6 +393,7 @@ def login_submit(
 
     user_id = _extract_user_id(auth_response)
     role = _resolve_user_role(user_id, email)
+    flow = _extract_user_flow(user_flow)
 
     if role != "admin" and (not project_token or not _token_is_active(project_token)):
         return _render_token_required(request)
@@ -405,6 +415,13 @@ def login_submit(
         max_age=60 * 60 * 24 * 30,
         samesite="lax"
     )
+    if role != "admin":
+        response.set_cookie(
+            key="nps_tipo_acesso",
+            value=flow,
+            max_age=60 * 60 * 24 * 30,
+            samesite="lax",
+        )
     if project_token and _token_is_active(project_token):
         response.set_cookie(
             key="project_token",
@@ -917,6 +934,61 @@ def admin_alterar_senha_acesso(
 
     return JSONResponse({"success": True})
 
+
+@router.post("/admin/liberar-edicao")
+def admin_liberar_edicao(
+    request: Request,
+    project_token: str = Form(...),
+):
+    role = (request.cookies.get("nps_role") or "").strip().lower()
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
+
+    token = (project_token or "").strip().upper()
+    if not token:
+        raise HTTPException(status_code=400, detail="Project token obrigatorio")
+
+    proc = (
+        supabase
+        .table("processos")
+        .select("id,nps_dados")
+        .eq("project_token", token)
+        .limit(1)
+        .execute()
+    )
+    rows = proc.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="Processo nao encontrado para o token informado")
+
+    row = rows[0]
+    nps_dados = row.get("nps_dados")
+    if isinstance(nps_dados, str):
+        try:
+            nps_dados = json.loads(nps_dados)
+        except Exception:
+            nps_dados = {}
+    if not isinstance(nps_dados, dict):
+        nps_dados = {}
+
+    nps_dados["_edicao_bloqueada"] = False
+    nps_dados["_lock_termo"] = False
+    nps_dados["_lock_ressalvas"] = False
+    nps_dados["_lock_nps"] = False
+    nps_dados["_edicao_liberada_em"] = datetime.utcnow().isoformat()
+    nps_dados["_edicao_liberada_por"] = (request.cookies.get("nps_user") or "").strip()
+
+    upd = (
+        supabase
+        .table("processos")
+        .update({"nps_dados": nps_dados, "atualizado_em": datetime.utcnow().isoformat()})
+        .eq("id", row.get("id"))
+        .execute()
+    )
+    if hasattr(upd, "error") and upd.error:
+        raise HTTPException(status_code=500, detail=upd.error.message)
+
+    return JSONResponse({"success": True, "project_token": token})
+
 @router.get("/user", response_class=HTMLResponse)
 def user(request: Request):
     return templates.TemplateResponse(
@@ -1023,6 +1095,7 @@ def logout():
     response.delete_cookie("nps_user")
     response.delete_cookie("nps_role")
     response.delete_cookie("project_token")
+    response.delete_cookie("nps_tipo_acesso")
     response.delete_cookie("admin_activation_ok")
     return response
 

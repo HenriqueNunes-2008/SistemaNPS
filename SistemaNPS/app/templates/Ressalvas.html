@@ -753,6 +753,26 @@ function closeConfirmSaveModal() {
     document.getElementById('confirmSaveModal').style.display = 'none';
 }
 
+let supervisorLinkToCopy = "";
+function openMotoristaDoneModal(link) {
+    supervisorLinkToCopy = link || "";
+    const modal = document.getElementById("motoristaDoneModal");
+    if (modal) modal.style.display = "flex";
+}
+function closeMotoristaDoneModal() {
+    const modal = document.getElementById("motoristaDoneModal");
+    if (modal) modal.style.display = "none";
+}
+async function copySupervisorLink() {
+    if (!supervisorLinkToCopy) return;
+    try {
+        await navigator.clipboard.writeText(supervisorLinkToCopy);
+        alert("Link copiado.");
+    } catch (_) {
+        prompt("Copie o link:", supervisorLinkToCopy);
+    }
+}
+
 document.getElementById("btnSalvar").addEventListener("click", function () {
     if (this.disabled) return;
     openConfirmSaveModal();
@@ -760,6 +780,10 @@ document.getElementById("btnSalvar").addEventListener("click", function () {
 
 async function executarSalvarRessalvas() {
     closeConfirmSaveModal();
+    if (!isAdmin && userEditLocked) {
+        alert("Edicao bloqueada para este processo. Solicite liberacao ao admin.");
+        return;
+    }
     if (isAdmin && adminTokenFinalizado) {
         alert("Token expirado: o admin pode apenas visualizar este processo.");
         return;
@@ -842,8 +866,8 @@ async function executarSalvarRessalvas() {
     headers: { "Content-Type": "application/json" },
    body: JSON.stringify({
     processo_id: processoId.trim(),
-    responsavel: isAdmin ? (document.querySelector('section.approval input[placeholder="REPRESENTANTE"]')?.value || "") : "",
-    cpf: isAdmin ? (document.querySelector('section.approval input[placeholder="CPF"]')?.value || "") : "",
+    responsavel: (document.querySelector('section.approval input[placeholder="REPRESENTANTE"]')?.value || ""),
+    cpf: (document.querySelector('section.approval input[placeholder="CPF"]')?.value || ""),
     observacoes: null,
     imagens: imagens.map(img => ({
         item: String(img.item),
@@ -880,23 +904,20 @@ if (fluxoToken) {
 }
 await carregarEdicaoRessalvas(fluxoToken);
 
-if (!isAdmin) {
-    const itens = Array.from(document.querySelectorAll(".table-row"));
-    const validacaoConcluida = itens.length > 0
-        && itens.every((row) => row.querySelector(".aprovacao-item")?.checked);
-    if (validacaoConcluida) {
-        habilitarModoRessalvasJaSalvasUsuario();
-    } else {
-        habilitarModoValidacaoUsuario();
-    }
-}
-
 delete btn.dataset.locked;
-btn.textContent = isAdmin ? "SALVAR RESSALVA" : "VALIDAR RESSALVAS";
+btn.textContent = "SALVAR RESSALVA";
 btn.disabled = !validarFormulario();
 document.body.classList.remove("freeze");
 savingOverlay.classList.remove("active");
-alert("Ressalvas salvas com sucesso.");
+if (!isAdmin && userFlow === "motorista") {
+    const link = `${window.location.origin}/login?project_token=${encodeURIComponent(projectTokenParam || processoId || "")}`;
+    openMotoristaDoneModal(link);
+    return;
+}
+if (!isAdmin || (isAdmin && isEditMode)) {
+    window.location.href = buildFlowUrl("/nps");
+    return;
+}
 
 
 
@@ -907,7 +928,7 @@ alert("Ressalvas salvas com sucesso.");
 
     /* reativa botão */
     btn.disabled = false;
-    btn.textContent = isAdmin ? "SALVAR RESSALVA" : "VALIDAR RESSALVAS";
+    btn.textContent = "SALVAR RESSALVA";
     delete btn.dataset.locked;
 
     document.body.classList.remove("freeze");
@@ -933,6 +954,8 @@ const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
 let isAdmin = returnTo === "/admin";
 let adminTokenFinalizado = false;
+let userEditLocked = false;
+const userFlow = (getCookieValue("nps_tipo_acesso") || "cliente").toLowerCase();
 const cpfInput = document.querySelector('section.approval input[placeholder="CPF"]');
 let processoEmAndamento = null;
 
@@ -971,6 +994,11 @@ function clearCurrentProcessId() {
 function processoTokenFinalizado(data) {
     if (!data || typeof data !== "object") return false;
     return data.project_token_ativo === false || Boolean(data.project_token_expira_em);
+}
+
+function processoEdicaoBloqueada(data) {
+    const npsDados = data && typeof data === "object" ? (data.nps_dados || {}) : {};
+    return Boolean(npsDados && (npsDados._lock_ressalvas || npsDados._edicao_bloqueada));
 }
 
 async function resolveDraftProcessId() {
@@ -1056,9 +1084,6 @@ function addRow(item = null) {
 	`;
 
     const aprovacaoInputInit = row.querySelector(".aprovacao-item");
-    if (aprovacaoInputInit && isAdmin) {
-        aprovacaoInputInit.disabled = true;
-    }
 
 function enableDragAndDrop(box) {
     box.addEventListener("dragover", e => {
@@ -1261,10 +1286,6 @@ function validarFormulario() {
     const rows = document.querySelectorAll(".table-row");
     if (rows.length === 0) return false;
 
-    if (!isAdmin) {
-        return Array.from(rows).every((row) => row.querySelector(".aprovacao-item")?.checked);
-    }
-
     let temItemValido = false;
 
     rows.forEach(row => {
@@ -1358,6 +1379,7 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         if (!res.ok) return;
         const data = await res.json();
         adminTokenFinalizado = isAdmin && processoTokenFinalizado(data);
+        userEditLocked = !isAdmin && processoEdicaoBloqueada(data);
 
         const dados = data.ressalvas_dados;
 
@@ -1372,37 +1394,22 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         if (Array.isArray(dados?.itens) && dados.itens.length > 0) {
             dados.itens.forEach((item) => addRow(item));
         } else {
-            if (isAdmin) {
-                addRow();
-            } else {
-                addRow();
-                habilitarModoSomenteLeituraUsuario();
-            }
+            addRow();
         }
 
-        btnSalvar.disabled = !validarFormulario();
+        btnSalvar.disabled = !validarFormulario() || userEditLocked;
         if (adminTokenFinalizado) {
             habilitarModoSomenteLeituraAdminTokenFinalizado();
             return;
         }
-
-        // Usuario valida os itens do admin apenas com checkbox.
-        if (!isAdmin && !isEditMode && dados && Array.isArray(dados.itens) && dados.itens.length > 0) {
-            const todosAprovados = dados.itens.every((item) => Boolean(item?.aprovacao));
-            if (todosAprovados) {
-                habilitarModoRessalvasJaSalvasUsuario();
-            } else {
-                habilitarModoValidacaoUsuario();
-            }
+        if (userEditLocked) {
+            habilitarModoSomenteLeituraUsuario();
+            if (btnSalvar) btnSalvar.textContent = "VISUALIZACAO - AGUARDANDO LIBERACAO DO ADMIN";
+            return;
         }
     } catch (e) {
         console.warn("Falha ao carregar edicao", e);
-        if (isAdmin) {
-            addRow();
-        } else {
-            addRow();
-            habilitarModoSomenteLeituraUsuario();
-        }
+        addRow();
     }
 }
 
@@ -1488,20 +1495,20 @@ async function inicializarPagina() {
     processoEmAndamento = isEditMode
         ? null
         : (projectTokenParam || (await resolveDraftProcessId()) || await resolveDraftFromServer());
+    if (!isAdmin) {
+        document.querySelectorAll(".admin-only").forEach((el) => {
+            el.style.display = "none";
+        });
+        document.querySelectorAll(".admin-only input, .admin-only textarea, .admin-only select").forEach((el) => {
+            el.disabled = true;
+        });
+    }
     carregarEdicaoRessalvas(isEditMode ? processoParam : processoEmAndamento);
     btnSalvar.disabled = !validarFormulario();
 }
 
 inicializarPagina();
 
-if (!isAdmin) {
-    document.querySelectorAll(".admin-only").forEach((el) => {
-        el.style.display = "none";
-    });
-    document.querySelectorAll(".admin-only input").forEach((el) => {
-        el.disabled = true;
-    });
-}
 </script>
 
 <!-- MODAL CONFIRM SAVE -->
@@ -1519,6 +1526,16 @@ if (!isAdmin) {
     <span class="close" onclick="closeCamera()">&times;</span>
     <video id="video" autoplay></video>
     <button id="captureBtn" class="hidden" onclick="takePhoto()">Capturar</button>
+</div>
+
+<!-- MODAL MOTORISTA FINAL -->
+<div id="motoristaDoneModal" class="modal-logout" style="display: none;">
+    <div class="modal-logout-content" style="border-color:#0f766e;">
+        <div class="modal-logout-text" style="color:#0f766e;">Concluido</div>
+        <p class="modal-logout-sub">Obrigado por concluir o Termo! Copie o link de acesso e mande ao seu supervisor para concluir a pesquisa NPS.</p>
+        <button type="button" class="btn-logout-cancel" onclick="closeMotoristaDoneModal()">Fechar</button>
+        <button type="button" class="btn-logout-confirm" style="background:#0f766e;" onclick="copySupervisorLink()">Copiar link</button>
+    </div>
 </div>
 
 

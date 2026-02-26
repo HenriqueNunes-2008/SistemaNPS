@@ -1141,6 +1141,7 @@ const isEditMode = Boolean(processoParam);
 let processoEmAndamento = null;
 let processoCarregado = null;
 let adminTokenFinalizado = false;
+let userEditLocked = false;
 
 function getCookieValue(name) {
     const key = `${name}=`;
@@ -1155,6 +1156,7 @@ function getCookieValue(name) {
 }
 
 const isAdmin = returnTo === "/admin";
+const userFlow = (getCookieValue("nps_tipo_acesso") || "cliente").toLowerCase();
 
 function buildFlowUrl(path) {
     const qs = new URLSearchParams();
@@ -1192,6 +1194,11 @@ function clearCurrentProcessId() {
 function processoTokenFinalizado(data) {
     if (!data || typeof data !== "object") return false;
     return data.project_token_ativo === false || Boolean(data.project_token_expira_em);
+}
+
+function processoEdicaoBloqueada(data) {
+    const npsDados = data && typeof data === "object" ? (data.nps_dados || {}) : {};
+    return Boolean(npsDados && (npsDados._lock_termo || npsDados._edicao_bloqueada));
 }
 
 async function resolveDraftProcessId() {
@@ -1248,7 +1255,7 @@ function unlockButton() {
 function atualizarEstadoBotao() {
     const nomeValido = nomeCliente.value.trim() !== "";
     const cpfCompradorValido = validarCPF(cpfComprador.value || "");
-    const cpfRepresentanteValido = isAdmin ? validarCPF(cpfRepresentante.value || "") : true;
+    const cpfRepresentanteValido = isAdmin ? validarCPF(cpfRepresentante?.value || "") : true;
     const dataValida =
     diaInput.value &&
     mesInput.value &&
@@ -1259,18 +1266,20 @@ function atualizarEstadoBotao() {
         parseInt(anoInput.value)
     );
 
-    const statusSelecionado = isAdmin ? (document.querySelector(".status-card.active") !== null) : true;
-    const fotosCompletas = isAdmin ? todasFotosPreenchidas() : true;
+    const statusSelecionado = document.querySelector(".status-card.active") !== null;
+    const fotosCompletas = todasFotosPreenchidas();
 
     const tudoValido = nomeValido && cpfCompradorValido && cpfRepresentanteValido && dataValida && statusSelecionado && fotosCompletas;
 
     cpfComprador.classList.toggle("cpf-valido", cpfCompradorValido);
     cpfComprador.classList.toggle("cpf-invalido", !cpfCompradorValido && cpfComprador.value !== "");
 
-    cpfRepresentante.classList.toggle("cpf-valido", cpfRepresentanteValido);
-    cpfRepresentante.classList.toggle("cpf-invalido", isAdmin && !cpfRepresentanteValido && cpfRepresentante.value !== "");
+    if (cpfRepresentante) {
+        cpfRepresentante.classList.toggle("cpf-valido", cpfRepresentanteValido);
+        cpfRepresentante.classList.toggle("cpf-invalido", !cpfRepresentanteValido && cpfRepresentante.value !== "");
+    }
 
-    btnSalvar.disabled = !tudoValido;
+    btnSalvar.disabled = !tudoValido || userEditLocked;
 }
 
 function todasFotosPreenchidas() {
@@ -1287,7 +1296,6 @@ function todasFotosPreenchidas() {
 
 /* ================= STATUS ================= */
 function selectStatus(el) {
-    if (!isAdmin) return;
     document.querySelectorAll(".status-card")
         .forEach(c => c.classList.remove("active"));
     el.classList.add("active");
@@ -1387,6 +1395,7 @@ async function carregarEdicao(codigoProcesso) {
         const data = await res.json();
         processoCarregado = data;
         adminTokenFinalizado = isAdmin && processoTokenFinalizado(data);
+        userEditLocked = !isAdmin && processoEdicaoBloqueada(data);
 
         if (data.nome_cliente) nomeCliente.value = data.nome_cliente;
         if (data.cpf) cpfComprador.value = maskCPF(data.cpf);
@@ -1487,6 +1496,11 @@ async function carregarEdicao(codigoProcesso) {
         atualizarEstadoBotao();
         if (adminTokenFinalizado) {
             habilitarModoSomenteLeituraAdminTokenFinalizado();
+            return;
+        }
+        if (userEditLocked) {
+            desabilitarFormulario();
+            if (btnSalvar) btnSalvar.textContent = "VISUALIZACAO - AGUARDANDO LIBERACAO DO ADMIN";
             return;
         }
 
@@ -1692,10 +1706,12 @@ window.renderFotoGrid = function() {
         atualizarEstadoBotao();
     });
 
-    cpfRepresentante.addEventListener("input", function () {
-        this.value = maskCPF(this.value);
-        atualizarEstadoBotao();
-    });
+    if (cpfRepresentante) {
+        cpfRepresentante.addEventListener("input", function () {
+            this.value = maskCPF(this.value);
+            atualizarEstadoBotao();
+        });
+    }
 
     nomeCliente.addEventListener("input", atualizarEstadoBotao);
     diaInput.addEventListener("input", atualizarEstadoBotao);
@@ -1705,24 +1721,9 @@ window.renderFotoGrid = function() {
         document.querySelectorAll(".admin-only").forEach((el) => {
             el.style.display = "none";
         });
-        document.querySelectorAll(".admin-only input").forEach((el) => {
+        document.querySelectorAll(".admin-only input, .admin-only textarea, .admin-only select").forEach((el) => {
             el.disabled = true;
         });
-    }
-    if (!isAdmin) {
-        document.querySelectorAll(".status-card").forEach((el) => {
-            el.style.pointerEvents = "none";
-            el.style.opacity = "0.7";
-        });
-        const imageBoxEl = document.getElementById("imageBox");
-        if (imageBoxEl) {
-            imageBoxEl.style.pointerEvents = "none";
-            imageBoxEl.style.opacity = "0.85";
-        }
-        const regiaoEl = document.getElementById("regiao-foto");
-        if (regiaoEl) {
-            regiaoEl.disabled = true;
-        }
     }
     if (regiaoSelect) {
         regiaoSelect.addEventListener("change", () => {
@@ -1773,11 +1774,9 @@ window.renderFotoGrid = function() {
             if (!dia || !mes || !ano || !validarData(dia, mes, ano)) throw new Error("Data inválida");
 
             const statusCard = document.querySelector(".status-card.active");
-            if (isAdmin && !statusCard) throw new Error("Selecione o status da entrega");
+            if (!statusCard) throw new Error("Selecione o status da entrega");
 
-            const status = isAdmin
-                ? statusCard.dataset.status
-                : (processoCarregado?.status_entrega || "pendente_admin");
+            const status = statusCard.dataset.status;
             const termoDados = coletarCamposTermo();
             const empresa = termoDados.campos?.["EMPRESA"] || "";
 
@@ -1807,7 +1806,7 @@ window.renderFotoGrid = function() {
                 }
             });
 
-            if (isAdmin && fotosPreenchidas !== 6) {
+            if (fotosPreenchidas !== 6) {
                 throw new Error("Tire as 6 fotos antes de salvar o termo");
             }
             /* === CAPTURA COM BACKGROUND DETERMINÍSTICO === */
@@ -1851,7 +1850,7 @@ window.renderFotoGrid = function() {
                     empresa: empresa,
                     status_entrega: status,
                     imagem: imagemBase64,
-                    imagens: isAdmin ? imagens : [],
+                    imagens: imagens,
                     termo_dados: termoDados
                 })
             });

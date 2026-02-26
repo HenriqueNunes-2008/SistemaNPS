@@ -673,6 +673,7 @@
                                 {% else %}
                                     <button class="btn danger" type="button" onclick="expirarToken(this, '{{ p.project_token }}')">Expirar token</button>
                                 {% endif %}
+                                <button class="btn secondary" type="button" onclick="liberarEdicao('{{ p.project_token }}')">Permitir edicao</button>
                             {% endif %}
                             {% if p.termo_pdf %}<a class="btn secondary" href="/pdf/termo/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Termo</a>{% endif %}
                             {% if p.pdf_ressalvas %}<a class="btn secondary" href="/pdf/ressalvas/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Ressalvas</a>{% endif %}
@@ -895,6 +896,26 @@
             btn.disabled = false;
             btn.textContent = originalText;
             alert(err.message || 'Falha ao expirar token');
+        }
+    }
+
+    async function liberarEdicao(token) {
+        if (!token) return;
+        try {
+            const body = new URLSearchParams();
+            body.set('project_token', token);
+            const res = await fetch('/admin/liberar-edicao', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString(),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.detail || 'Falha ao liberar edicao');
+            }
+            alert('Edicao liberada para este processo.');
+        } catch (err) {
+            alert(err.message || 'Falha ao liberar edicao');
         }
     }
 

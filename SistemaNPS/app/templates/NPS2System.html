@@ -744,6 +744,7 @@ const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
 let isAdmin = returnTo === "/admin";
 let processoEmAndamento = null;
+let userEditLocked = false;
 
 function getCookieValue(name) {
     const key = `${name}=`;
@@ -761,6 +762,8 @@ function getProgressStorageKey() {
     const usuario = getCookieValue("nps_user") || "anon";
     return `nps_project_token::${usuario}`;
 }
+
+const userFlow = (getCookieValue("nps_tipo_acesso") || "cliente").toLowerCase();
 
 const roleCookie = (getCookieValue("nps_role") || "").toLowerCase();
 if (roleCookie === "admin") {
@@ -872,12 +875,18 @@ function setStar(name, value) {
     if (el) el.checked = true;
 }
 
+function processoEdicaoBloqueada(data) {
+    const npsDados = data && typeof data === "object" ? (data.nps_dados || {}) : {};
+    return Boolean(npsDados && (npsDados._lock_nps || npsDados._edicao_bloqueada));
+}
+
 async function carregarEdicaoNps(codigoProcesso) {
     if (!codigoProcesso) return;
     try {
         const res = await fetch(`/api/processos/${codigoProcesso}`);
         if (!res.ok) return;
         const data = await res.json();
+        userEditLocked = !isAdmin && processoEdicaoBloqueada(data);
         const nps = data.nps_dados;
         if (!nps) return;
 
@@ -911,6 +920,14 @@ document.querySelector("form").addEventListener("submit", async (e) => {
     const submitBtn = document.querySelector('.submit-btn');
 
     if (isAdmin) {
+        return;
+    }
+    if (userFlow === "motorista") {
+        alert("Perfil Motorista nao possui acesso a pesquisa NPS.");
+        return;
+    }
+    if (userEditLocked) {
+        alert("Edicao bloqueada para este processo. Solicite liberacao ao admin.");
         return;
     }
 
@@ -1003,7 +1020,7 @@ async function inicializarPagina() {
         ? null
         : (projectTokenParam || (await resolveDraftProcessId()) || await resolveDraftFromServer());
     await carregarEdicaoNps(isEditMode ? processoParam : processoEmAndamento);
-    if (isAdmin) {
+    if (isAdmin || userFlow === "motorista" || userEditLocked) {
         habilitarModoSomenteLeituraAdminNps();
     }
 }

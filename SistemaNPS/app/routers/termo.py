@@ -286,6 +286,28 @@ def _processo_token_finalizado(proc: dict | None) -> bool:
     return bool(proc.get("project_token_expira_em"))
 
 
+def _parse_json_object(value) -> dict:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _is_user_edit_locked(proc: dict | None) -> bool:
+    nps_dados = _parse_json_object((proc or {}).get("nps_dados"))
+    return bool(nps_dados.get("_lock_termo"))
+
+
+def _extract_user_flow(request: Request) -> str:
+    flow = (request.cookies.get("nps_tipo_acesso") or "").strip().lower()
+    return flow if flow in ("cliente", "motorista") else "cliente"
+
+
 # ============================================================
 # MODEL
 # ============================================================
@@ -467,7 +489,7 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
         proc = obter_processo_por_identificador(
             data.processo_codigo,
             "id,codigo,project_token,imagens_termo,status_entrega,termo_dados,"
-            "project_token_ativo,project_token_expira_em",
+            "project_token_ativo,project_token_expira_em,nps_dados",
         )
         processo_uuid = proc["id"]
         processo_codigo = proc.get("codigo")
@@ -483,6 +505,11 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
             raise HTTPException(
                 status_code=403,
                 detail="Token expirado: processo apenas para visualizacao do admin",
+            )
+        if not is_admin and _is_user_edit_locked(proc):
+            raise HTTPException(
+                status_code=403,
+                detail="Edicao bloqueada para este processo. Solicite liberacao ao admin",
             )
 
         imagens_existentes = proc.get("imagens_termo")
@@ -500,17 +527,22 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
                 termo_dados_existente = {}
         if not isinstance(termo_dados_existente, dict):
             termo_dados_existente = {}
-
         if not is_admin:
-            # Usuario so pode atualizar os demais campos do termo.
-            # Status e fotos ficam sob controle do admin.
-            data.status_entrega = (proc.get("status_entrega") or data.status_entrega or "pendente_admin")
-            data.imagens = imagens_existentes or termo_dados_existente.get("itens") or []
+            termo_informado = data.termo_dados if isinstance(data.termo_dados, dict) else {}
+            assinaturas_informadas = termo_informado.get("assinaturas")
+            if not isinstance(assinaturas_informadas, dict):
+                assinaturas_informadas = {}
+            assinaturas_existentes = termo_dados_existente.get("assinaturas")
+            if not isinstance(assinaturas_existentes, dict):
+                assinaturas_existentes = {}
+            termo_informado["assinaturas"] = {
+                "comprador": assinaturas_informadas.get("comprador") or {},
+                "representante": assinaturas_existentes.get("representante") or {},
+            }
+            termo_informado["aprovacao"] = termo_dados_existente.get("aprovacao") or {}
+            data.termo_dados = termo_informado
 
-            termo_dados_informado = data.termo_dados if isinstance(data.termo_dados, dict) else {}
-            termo_dados_informado["itens"] = termo_dados_existente.get("itens") or data.imagens
-            data.termo_dados = termo_dados_informado
-        elif data.status_entrega not in ("concluido", "concluido_com_ressalva"):
+        if data.status_entrega not in ("concluido", "concluido_com_ressalva"):
             raise HTTPException(status_code=400, detail="Status de entrega invalido")
 
         try:
@@ -549,7 +581,7 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
                 except Exception:
                     pass
 
-        supabase.table("processos").update({
+        payload_update = {
             "codigo": processo_codigo,
             "nome_cliente": data.nome_cliente,
             "empresa": data.empresa,
@@ -559,7 +591,16 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
             "imagens_termo": imagens_lista,
             "termo_dados": termo_dados_normalizado,
             "atualizado_em": datetime.utcnow().isoformat()
-        }).eq("id", processo_uuid).execute()
+        }
+
+        if not is_admin:
+            nps_dados = _parse_json_object(proc.get("nps_dados"))
+            nps_dados["_lock_termo"] = True
+            nps_dados["_lock_termo_em"] = datetime.utcnow().isoformat()
+            nps_dados["_lock_termo_por"] = _extract_user_flow(request)
+            payload_update["nps_dados"] = nps_dados
+
+        supabase.table("processos").update(payload_update).eq("id", processo_uuid).execute()
 
         regenerate_final_pdf_by_codigo(processo_codigo, set_status_finalizado=False)
         return {
