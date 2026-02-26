@@ -93,6 +93,18 @@
             text-align: left;
         }
 
+        .logout-link {
+            display: none;
+            color: var(--topbar-text);
+            font-weight: 800;
+            text-decoration: none;
+            font-size: 15px;
+        }
+
+        .mobile-contact-info {
+            display: none;
+        }
+
         .login-card {
             width: min(1000px, 96vw);
             background: var(--card-bg);
@@ -395,41 +407,60 @@
         }
 
         @media (max-width: 768px) {
-            body {
-                padding-top: 150px;
-            }
+            body { padding-top: 118px; }
             .topbar {
-                height: auto;
-                min-height: 140px;
+                height: 106px;
+                min-height: 106px;
                 border-radius: 0 0 28px 28px;
                 padding: 12px 14px;
             }
             .logo-fixed {
                 position: absolute;
-                top: 14px;
-                left: 14px;
-                transform: none;
-                height: 70px;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                height: 72px;
             }
             .logo-link {
-                top: 14px;
-                left: 14px;
-                transform: none;
-                width: 150px;
-                height: 70px;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 240px;
+                height: 72px;
             }
             .topbar-content {
-                height: auto;
+                height: 100%;
+                width: 100%;
                 padding: 0;
+                justify-content: flex-end;
+                align-items: center;
             }
             .header-info {
-                width: 100%;
+                width: auto;
                 margin: 0;
-                padding-left: 160px;
-                gap: 8px;
+                padding: 0;
+                gap: 0;
                 display: flex;
-                flex-direction: column;
-                align-items: flex-start;
+                align-items: center;
+                justify-content: flex-end;
+            }
+            .header-info .address,
+            .header-info .contact {
+                display: none;
+            }
+            .logout-link {
+                display: inline;
+            }
+            .mobile-contact-info {
+                display: block;
+                width: 100%;
+                max-width: 420px;
+                margin: 22px auto 12px;
+                text-align: center;
+                color: #ffffff;
+                font-size: 14px;
+                line-height: 1.5;
+                padding: 0 10px;
             }
         }
     </style>
@@ -450,6 +481,7 @@
                     <span class="email">comercial@soukure.com.br</span><br>
                     <span class="phone">(11) 2372-7444</span>
                 </div>
+                <a href="/logout" class="logout-link">SAIR</a>
             </div>
         </div>
     </div>
@@ -518,6 +550,11 @@
             </p>
         </section>
     </main>
+    <div class="mobile-contact-info">
+        <div>R. Jose Antonio Valadares, 285 - Vila Liviero, Sao Paulo - SP. CEP: 04185-020</div>
+        <div>comercial@soukure.com.br</div>
+        <div>(11) 2372-7444</div>
+    </div>
     {% if not admin_mode %}
     <div class="user-flow-modal" id="userFlowModal">
         <div class="user-flow-card">

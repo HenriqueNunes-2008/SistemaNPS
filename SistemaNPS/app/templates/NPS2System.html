@@ -333,15 +333,15 @@ body {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        height: 56px;
+        height: 72px;
     }
 
     .logo-link {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 190px;
-        height: 56px;
+        width: 240px;
+        height: 72px;
     }
 
     .topbar-content {
@@ -423,7 +423,7 @@ body {
         justify-content: center;
     }
 
-    .footer > div {
+    .footer > div:not(.mobile-contact-info) {
         width: 100%;
         display: flex;
         justify-content: center;
@@ -435,11 +435,17 @@ body {
 
     .mobile-contact-info {
         display: block;
+        width: 100%;
+        max-width: 420px;
         text-align: center;
         color: #ffffff;
         font-size: 14px;
         line-height: 1.5;
         margin-top: 8px;
+        margin-left: auto;
+        margin-right: auto;
+        white-space: normal;
+        word-break: normal;
     }
 }
 
