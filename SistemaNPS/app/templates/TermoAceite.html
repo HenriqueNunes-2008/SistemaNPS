@@ -1140,6 +1140,7 @@ const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
 let processoEmAndamento = null;
 let processoCarregado = null;
+let adminTokenFinalizado = false;
 
 function getCookieValue(name) {
     const key = `${name}=`;
@@ -1186,6 +1187,11 @@ function saveCurrentProcessId(processoId) {
 function clearCurrentProcessId() {
     localStorage.removeItem(getProgressStorageKey());
     sessionStorage.removeItem("project_token");
+}
+
+function processoTokenFinalizado(data) {
+    if (!data || typeof data !== "object") return false;
+    return data.project_token_ativo === false || Boolean(data.project_token_expira_em);
 }
 
 async function resolveDraftProcessId() {
@@ -1358,6 +1364,21 @@ function desabilitarFormulario() {
     }
 }
 
+function habilitarModoSomenteLeituraAdminTokenFinalizado() {
+    desabilitarFormulario();
+    document.querySelectorAll(".status-card").forEach((el) => {
+        el.style.pointerEvents = "none";
+        el.style.opacity = "0.7";
+    });
+    const regiaoEl = document.getElementById("regiao-foto");
+    if (regiaoEl) regiaoEl.disabled = true;
+    if (btnSalvar) {
+        btnSalvar.disabled = true;
+        btnSalvar.dataset.locked = "true";
+        btnSalvar.textContent = "VISUALIZACAO - TOKEN EXPIRADO";
+    }
+}
+
 async function carregarEdicao(codigoProcesso) {
     if (!codigoProcesso) return;
     try {
@@ -1365,6 +1386,7 @@ async function carregarEdicao(codigoProcesso) {
         if (!res.ok) return;
         const data = await res.json();
         processoCarregado = data;
+        adminTokenFinalizado = isAdmin && processoTokenFinalizado(data);
 
         if (data.nome_cliente) nomeCliente.value = data.nome_cliente;
         if (data.cpf) cpfComprador.value = maskCPF(data.cpf);
@@ -1463,6 +1485,10 @@ async function carregarEdicao(codigoProcesso) {
         }
 
         atualizarEstadoBotao();
+        if (adminTokenFinalizado) {
+            habilitarModoSomenteLeituraAdminTokenFinalizado();
+            return;
+        }
 
         // Se não for modo edição (admin) e já tiver dados salvos, bloqueia o formulário
         if (!isEditMode && data.termo_dados && Object.keys(data.termo_dados).length > 0 && !isAdmin) {

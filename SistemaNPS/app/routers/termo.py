@@ -278,6 +278,14 @@ def _is_admin_request(request: Request) -> bool:
     return ("return=/admin" in referer) or ("return=%2fadmin" in referer)
 
 
+def _processo_token_finalizado(proc: dict | None) -> bool:
+    if not isinstance(proc, dict):
+        return False
+    if proc.get("project_token_ativo") is False:
+        return True
+    return bool(proc.get("project_token_expira_em"))
+
+
 # ============================================================
 # MODEL
 # ============================================================
@@ -458,7 +466,8 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
 
         proc = obter_processo_por_identificador(
             data.processo_codigo,
-            "id,codigo,project_token,imagens_termo,status_entrega,termo_dados",
+            "id,codigo,project_token,imagens_termo,status_entrega,termo_dados,"
+            "project_token_ativo,project_token_expira_em",
         )
         processo_uuid = proc["id"]
         processo_codigo = proc.get("codigo")
@@ -470,6 +479,11 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
             processo_codigo = f"{primeiro_nome}_{ultimos_cpf}_{data_hoje}_{sufixo}"
         project_token = proc.get("project_token")
         is_admin = _is_admin_request(request)
+        if is_admin and _processo_token_finalizado(proc):
+            raise HTTPException(
+                status_code=403,
+                detail="Token expirado: processo apenas para visualizacao do admin",
+            )
 
         imagens_existentes = proc.get("imagens_termo")
         if isinstance(imagens_existentes, str):

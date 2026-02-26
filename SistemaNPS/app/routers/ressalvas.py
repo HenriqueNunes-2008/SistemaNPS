@@ -26,6 +26,14 @@ def _is_admin_request(request: Request) -> bool:
     referer = (request.headers.get("referer") or "").lower()
     return ("return=/admin" in referer) or ("return=%2fadmin" in referer)
 
+
+def _processo_token_finalizado(proc: dict | None) -> bool:
+    if not isinstance(proc, dict):
+        return False
+    if proc.get("project_token_ativo") is False:
+        return True
+    return bool(proc.get("project_token_expira_em"))
+
 # ============================================================
 # MODELS
 # ============================================================
@@ -233,8 +241,13 @@ def salvar_ressalvas(data: RessalvasRequest, request: Request):
         # ----------------------------------------------------
         proc = obter_processo_por_identificador(
             data.processo_id,
-            "id,codigo,project_token",
+            "id,codigo,project_token,project_token_ativo,project_token_expira_em",
         )
+        if _processo_token_finalizado(proc):
+            raise HTTPException(
+                status_code=403,
+                detail="Token expirado: processo apenas para visualizacao do admin",
+            )
         processo_uuid = proc["id"]
         processo_codigo = proc.get("codigo") or data.processo_id
 
@@ -341,8 +354,13 @@ def atualizar_ressalvas(data: RessalvasUpdateRequest, request: Request):
         is_admin = _is_admin_request(request)
         proc = obter_processo_por_identificador(
             data.processo_id,
-            "id,codigo,project_token,ressalvas_dados",
+            "id,codigo,project_token,ressalvas_dados,project_token_ativo,project_token_expira_em",
         )
+        if is_admin and _processo_token_finalizado(proc):
+            raise HTTPException(
+                status_code=403,
+                detail="Token expirado: processo apenas para visualizacao do admin",
+            )
         processo_uuid = proc["id"]
         processo_codigo = proc.get("codigo") or data.processo_id
 

@@ -15,6 +15,14 @@ def _is_admin_request(request: Request) -> bool:
     return role_cookie == "admin"
 
 
+def _processo_token_finalizado(proc: dict | None) -> bool:
+    if not isinstance(proc, dict):
+        return False
+    if proc.get("project_token_ativo") is False:
+        return True
+    return bool(proc.get("project_token_expira_em"))
+
+
 class NPSRequest(BaseModel):
     processo_id: str
     nps: int
@@ -40,8 +48,10 @@ def finalizar_nps(data: NPSRequest, request: Request):
 
         proc = obter_processo_por_identificador(
             processo_id,
-            "id,codigo,project_token",
+            "id,codigo,project_token,project_token_ativo,project_token_expira_em",
         )
+        if _processo_token_finalizado(proc):
+            raise HTTPException(status_code=403, detail="Token expirado: processo bloqueado para edicao")
         processo_uuid = proc["id"]
         processo_codigo = proc.get("codigo") or processo_id
 
@@ -79,8 +89,10 @@ def atualizar_nps(data: NPSUpdateRequest, request: Request):
 
         proc = obter_processo_por_identificador(
             processo_id,
-            "id,codigo,project_token",
+            "id,codigo,project_token,project_token_ativo,project_token_expira_em",
         )
+        if _processo_token_finalizado(proc):
+            raise HTTPException(status_code=403, detail="Token expirado: processo bloqueado para edicao")
         processo_uuid = proc["id"]
         processo_codigo = proc.get("codigo") or processo_id
 

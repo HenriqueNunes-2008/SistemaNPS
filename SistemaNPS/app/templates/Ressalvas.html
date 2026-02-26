@@ -760,6 +760,10 @@ document.getElementById("btnSalvar").addEventListener("click", function () {
 
 async function executarSalvarRessalvas() {
     closeConfirmSaveModal();
+    if (isAdmin && adminTokenFinalizado) {
+        alert("Token expirado: o admin pode apenas visualizar este processo.");
+        return;
+    }
 
     const btn = document.getElementById("btnSalvar");
     const savingOverlay = document.getElementById("savingOverlay");
@@ -928,6 +932,7 @@ const projectTokenParam = urlParams.get("project_token") || "{{ project_token or
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
 let isAdmin = returnTo === "/admin";
+let adminTokenFinalizado = false;
 const cpfInput = document.querySelector('section.approval input[placeholder="CPF"]');
 let processoEmAndamento = null;
 
@@ -961,6 +966,11 @@ function saveCurrentProcessId(processoId) {
 function clearCurrentProcessId() {
     localStorage.removeItem(getProgressStorageKey());
     sessionStorage.removeItem("project_token");
+}
+
+function processoTokenFinalizado(data) {
+    if (!data || typeof data !== "object") return false;
+    return data.project_token_ativo === false || Boolean(data.project_token_expira_em);
 }
 
 async function resolveDraftProcessId() {
@@ -1347,6 +1357,7 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         const res = await fetch(`/api/processos/${codigoProcesso}`);
         if (!res.ok) return;
         const data = await res.json();
+        adminTokenFinalizado = isAdmin && processoTokenFinalizado(data);
 
         const dados = data.ressalvas_dados;
 
@@ -1370,6 +1381,10 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         }
 
         btnSalvar.disabled = !validarFormulario();
+        if (adminTokenFinalizado) {
+            habilitarModoSomenteLeituraAdminTokenFinalizado();
+            return;
+        }
 
         // Usuario valida os itens do admin apenas com checkbox.
         if (!isAdmin && !isEditMode && dados && Array.isArray(dados.itens) && dados.itens.length > 0) {
@@ -1421,6 +1436,29 @@ function habilitarModoSomenteLeituraUsuario() {
     if (btnSalvar) {
         btnSalvar.textContent = "AGUARDANDO RESSALVAS DO ADMIN";
         btnSalvar.disabled = true;
+    }
+}
+
+function habilitarModoSomenteLeituraAdminTokenFinalizado() {
+    document.querySelectorAll(".add-item, .remove").forEach(el => {
+        el.style.display = "none";
+    });
+
+    document.querySelectorAll(".table-row").forEach((row) => {
+        row.querySelectorAll("input, select, textarea, button").forEach((el) => {
+            el.disabled = true;
+        });
+        const imageBox = row.querySelector(".image-box");
+        if (imageBox) {
+            imageBox.style.pointerEvents = "none";
+            imageBox.style.opacity = "0.85";
+        }
+    });
+
+    if (btnSalvar) {
+        btnSalvar.textContent = "VISUALIZACAO - TOKEN EXPIRADO";
+        btnSalvar.disabled = true;
+        btnSalvar.dataset.locked = "true";
     }
 }
 

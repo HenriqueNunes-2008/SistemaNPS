@@ -317,10 +317,37 @@
             text-decoration: none;
             font-size: 12px;
             font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: background-color .2s ease, opacity .2s ease;
         }
 
         .btn.secondary { background: #0a287a; }
         .btn.light { background: #94a3b8; }
+        .btn.copy-link { background: #4b49c8; }
+        .btn.copy-link.copied { background: #94a3b8; }
+        .btn.danger { background: #b91c1c; }
+        .btn:disabled { opacity: .7; cursor: not-allowed; }
+
+        .project-state {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #334155;
+        }
+
+        .project-state-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex: 0 0 10px;
+        }
+
+        .project-state-dot.is-active { background: #f59e0b; }
+        .project-state-dot.is-finished { background: #16a34a; }
 
         @media (max-width: 900px) {
             .stats-grid { grid-template-columns: 1fr; }
@@ -510,18 +537,32 @@
             </thead>
             <tbody>
             {% for p in processos %}
+                {% set token_finalizado = (p.project_token_ativo is sameas false) or (p.project_token_expira_em) %}
                 <tr>
                     <td data-label="Token">{{ p.project_token or "-" }}</td>
                     <td data-label="Código">{{ p.codigo }}</td>
                     <td data-label="Cliente">{{ p.nome_cliente or "-" }}</td>
                     <td data-label="Empresa">{{ p.empresa or "-" }}</td>
-                    <td data-label="Status">{{ p.status_entrega or p.status or "-" }}</td>
+                    <td data-label="Status">
+                        {{ p.status_entrega or p.status or "-" }}
+                        <div class="project-state">
+                            <span class="project-state-dot {{ 'is-finished' if token_finalizado else 'is-active' }}"></span>
+                            <span class="project-state-text">{{ "Projeto finalizado" if token_finalizado else "Projeto ativo" }}</span>
+                        </div>
+                    </td>
                     <td data-label="NPS">{{ p.nps_nota if p.nps_nota is not none else "-" }}</td>
                     <td data-label="Criado">{{ p.criado_em or "-" }}</td>
                     <td data-label="Ações">
                         <div class="actions">
                             <a class="btn" href="/termo?processo={{ p.project_token or p.codigo }}&return=/admin">Editar</a>
-                            {% if p.project_token %}<button class="btn light" type="button" onclick="copiarLink('{{ base_url }}/login?project_token={{ p.project_token }}')">Copiar link</button>{% endif %}
+                            {% if p.project_token %}<button class="btn copy-link" type="button" onclick="copiarLink(this, '{{ base_url }}/login?project_token={{ p.project_token }}')">Copiar link</button>{% endif %}
+                            {% if p.project_token %}
+                                {% if token_finalizado %}
+                                    <button class="btn light" type="button" disabled>Token expirado</button>
+                                {% else %}
+                                    <button class="btn danger" type="button" onclick="expirarToken(this, '{{ p.project_token }}')">Expirar token</button>
+                                {% endif %}
+                            {% endif %}
                             {% if p.termo_pdf %}<a class="btn secondary" href="/pdf/termo/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Termo</a>{% endif %}
                             {% if p.pdf_ressalvas %}<a class="btn secondary" href="/pdf/ressalvas/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Ressalvas</a>{% endif %}
                             {% if p.pdf_final %}<a class="btn secondary" href="/pdf/final/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Final</a>{% endif %}
@@ -617,12 +658,66 @@
         }
     }
 
-    async function copiarLink(url) {
+    function marcarBotaoCopiado(btn) {
+        if (!btn) return;
+        btn.classList.add('copied');
+        btn.disabled = true;
+        setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.disabled = false;
+        }, 2000);
+    }
+
+    async function copiarLink(btn, url) {
+        marcarBotaoCopiado(btn);
         try {
             await navigator.clipboard.writeText(url);
             alert('Link copiado.');
         } catch (_) {
             prompt('Copie o link:', url);
+        }
+    }
+
+    async function expirarToken(btn, token) {
+        if (!token) return;
+        const confirmar = confirm(`Deseja expirar o token ${token}? O acesso por este link sera bloqueado.`);
+        if (!confirmar) return;
+
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Expirando...';
+
+        try {
+            const body = new URLSearchParams();
+            body.set('project_token', token);
+
+            const res = await fetch('/admin/expirar-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString(),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.detail || 'Falha ao expirar token');
+            }
+
+            const row = btn.closest('tr');
+            const dot = row?.querySelector('.project-state-dot');
+            const text = row?.querySelector('.project-state-text');
+            if (dot) {
+                dot.classList.remove('is-active');
+                dot.classList.add('is-finished');
+            }
+            if (text) text.textContent = 'Projeto finalizado';
+
+            btn.classList.remove('danger');
+            btn.classList.add('light');
+            btn.textContent = 'Token expirado';
+            alert('Token expirado com sucesso.');
+        } catch (err) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+            alert(err.message || 'Falha ao expirar token');
         }
     }
 </script>

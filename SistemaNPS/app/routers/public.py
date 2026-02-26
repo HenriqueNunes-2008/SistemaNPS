@@ -814,6 +814,47 @@ def admin_gerar_processo(request: Request):
     link = _append_project_token(str(request.base_url).rstrip("/") + "/login", token)
     return JSONResponse({"success": True, "project_token": token, "link": link})
 
+
+@router.post("/admin/expirar-token")
+def admin_expirar_token(
+    request: Request,
+    project_token: str = Form(...),
+):
+    role = (request.cookies.get("nps_role") or "").strip().lower()
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
+
+    token = (project_token or "").strip().upper()
+    if not token:
+        raise HTTPException(status_code=400, detail="Project token obrigatorio")
+
+    now_iso = datetime.utcnow().isoformat()
+    res = (
+        supabase
+        .table("processos")
+        .update({
+            "project_token_expira_em": now_iso,
+            "project_token_ativo": False,
+        })
+        .eq("project_token", token)
+        .execute()
+    )
+
+    if hasattr(res, "error") and res.error:
+        raise HTTPException(status_code=500, detail=res.error.message)
+
+    updated = res.data or []
+    if not updated:
+        raise HTTPException(status_code=404, detail="Processo nao encontrado para o token informado")
+
+    return JSONResponse(
+        {
+            "success": True,
+            "project_token": token,
+            "project_token_expira_em": now_iso,
+        }
+    )
+
 @router.get("/user", response_class=HTMLResponse)
 def user(request: Request):
     return templates.TemplateResponse(

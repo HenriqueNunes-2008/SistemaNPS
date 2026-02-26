@@ -38,7 +38,8 @@ def obter_processo(identificador: str):
     processo = obter_processo_por_identificador(
         identificador,
         "codigo,project_token,nome_cliente,empresa,cpf,status,status_entrega,"
-        "termo_dados,ressalvas_dados,nps_dados,imagens_termo",
+        "termo_dados,ressalvas_dados,nps_dados,imagens_termo,"
+        "project_token_ativo,project_token_expira_em",
     )
 
     if not processo:
