@@ -328,6 +328,13 @@
         .btn.copy-link.copied { background: #94a3b8; }
         .btn.danger { background: #b91c1c; }
         .btn:disabled { opacity: .7; cursor: not-allowed; }
+        .btn.flash { animation: btnPulse .35s ease-in-out; }
+
+        @keyframes btnPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.04); }
+            100% { transform: scale(1); }
+        }
 
         .project-state {
             display: inline-flex;
@@ -673,7 +680,7 @@
                                 {% else %}
                                     <button class="btn danger" type="button" onclick="expirarToken(this, '{{ p.project_token }}')">Expirar token</button>
                                 {% endif %}
-                                <button class="btn secondary" type="button" onclick="liberarEdicao('{{ p.project_token }}')">Permitir edicao</button>
+                                <button class="btn secondary" type="button" onclick="liberarEdicao(this, '{{ p.project_token }}')">{{ 'edicao permitida' if p.edicao_permitida else 'permitir edicao' }}</button>
                             {% endif %}
                             {% if p.termo_pdf %}<a class="btn secondary" href="/pdf/termo/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Termo</a>{% endif %}
                             {% if p.pdf_ressalvas %}<a class="btn secondary" href="/pdf/ressalvas/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Ressalvas</a>{% endif %}
@@ -899,8 +906,9 @@
         }
     }
 
-    async function liberarEdicao(token) {
+    async function liberarEdicao(btn, token) {
         if (!token) return;
+        if (btn) btn.disabled = true;
         try {
             const body = new URLSearchParams();
             body.set('project_token', token);
@@ -913,8 +921,17 @@
             if (!res.ok || !data.success) {
                 throw new Error(data.detail || 'Falha ao liberar edicao');
             }
-            alert('Edicao liberada para este processo.');
+            const permitida = Boolean(data.edicao_permitida);
+            if (btn) {
+                btn.textContent = permitida ? 'edicao permitida' : 'permitir edicao';
+                btn.classList.remove('flash');
+                void btn.offsetWidth;
+                btn.classList.add('flash');
+                btn.disabled = false;
+            }
+            alert(permitida ? 'edicao permitida' : 'edicao fechada');
         } catch (err) {
+            if (btn) btn.disabled = false;
             alert(err.message || 'Falha ao liberar edicao');
         }
     }

@@ -1500,14 +1500,10 @@ async function carregarEdicao(codigoProcesso) {
         }
         if (userEditLocked) {
             desabilitarFormulario();
-            if (btnSalvar) btnSalvar.textContent = "VISUALIZACAO - AGUARDANDO LIBERACAO DO ADMIN";
+            if (btnSalvar) btnSalvar.textContent = "TERMO SALVO";
             return;
         }
 
-        // Se não for modo edição (admin) e já tiver dados salvos, bloqueia o formulário
-        if (!isEditMode && data.termo_dados && Object.keys(data.termo_dados).length > 0 && !isAdmin) {
-            desabilitarFormulario();
-        }
     } catch (e) {
         console.warn("Falha ao carregar edição", e);
     }
@@ -1520,6 +1516,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (bcHome) bcHome.href = isAdmin ? "/admin" : buildFlowUrl("/index");
     if (bcRessalvas) bcRessalvas.href = buildFlowUrl("/ressalvas");
     if (bcNps) bcNps.href = buildFlowUrl("/nps");
+    if (userFlow === "motorista" && bcNps) {
+        const arrow = bcNps.previousElementSibling;
+        if (arrow && arrow.classList.contains("breadcrumb-arrow")) arrow.style.display = "none";
+        bcNps.style.display = "none";
+    }
 
     /* ================= CALENDÁRIO ================= */
     const icon = document.getElementById("calendar-icon");

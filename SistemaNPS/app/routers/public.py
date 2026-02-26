@@ -729,7 +729,7 @@ def admin(request: Request):
             .select(
                 "codigo,project_token,project_token_ativo,project_token_expira_em,"
                 "nome_cliente,empresa,cpf,status,status_entrega,"
-                "criado_em,atualizado_em,termo_pdf,pdf_ressalvas,pdf_final,nps_nota"
+                "criado_em,atualizado_em,termo_pdf,pdf_ressalvas,pdf_final,nps_nota,nps_dados"
             )
             .order("criado_em", desc=True)
             .execute()
@@ -746,7 +746,7 @@ def admin(request: Request):
             .table("processos")
             .select(
                 "codigo,project_token,nome_cliente,cpf,status,status_entrega,criado_em,"
-                "termo_pdf,pdf_ressalvas,pdf_final"
+                "termo_pdf,pdf_ressalvas,pdf_final,nps_dados"
             )
             .order("criado_em", desc=True)
             .execute()
@@ -757,6 +757,24 @@ def admin(request: Request):
             p.setdefault("nps_nota", None)
             p.setdefault("atualizado_em", None)
             p.setdefault("project_token", None)
+            p.setdefault("nps_dados", {})
+
+    for p in processos:
+        nps_dados = p.get("nps_dados")
+        if isinstance(nps_dados, str):
+            try:
+                nps_dados = json.loads(nps_dados)
+            except Exception:
+                nps_dados = {}
+        if not isinstance(nps_dados, dict):
+            nps_dados = {}
+        p["nps_dados"] = nps_dados
+        p["edicao_permitida"] = not bool(
+            nps_dados.get("_edicao_bloqueada")
+            or nps_dados.get("_lock_termo")
+            or nps_dados.get("_lock_ressalvas")
+            or nps_dados.get("_lock_nps")
+        )
 
     q = (request.query_params.get("q") or "").strip().lower()
     if q:
@@ -970,24 +988,43 @@ def admin_liberar_edicao(
     if not isinstance(nps_dados, dict):
         nps_dados = {}
 
-    nps_dados["_edicao_bloqueada"] = False
-    nps_dados["_lock_termo"] = False
-    nps_dados["_lock_ressalvas"] = False
-    nps_dados["_lock_nps"] = False
-    nps_dados["_edicao_liberada_em"] = datetime.utcnow().isoformat()
-    nps_dados["_edicao_liberada_por"] = (request.cookies.get("nps_user") or "").strip()
+    edit_locked = bool(
+        nps_dados.get("_edicao_bloqueada")
+        or nps_dados.get("_lock_termo")
+        or nps_dados.get("_lock_ressalvas")
+        or nps_dados.get("_lock_nps")
+    )
+    now_iso = datetime.utcnow().isoformat()
+    actor = (request.cookies.get("nps_user") or "").strip()
+
+    if edit_locked:
+        nps_dados["_edicao_bloqueada"] = False
+        nps_dados["_lock_termo"] = False
+        nps_dados["_lock_ressalvas"] = False
+        nps_dados["_lock_nps"] = False
+        nps_dados["_edicao_liberada_em"] = now_iso
+        nps_dados["_edicao_liberada_por"] = actor
+        edicao_permitida = True
+    else:
+        nps_dados["_edicao_bloqueada"] = True
+        nps_dados["_lock_termo"] = True
+        nps_dados["_lock_ressalvas"] = True
+        nps_dados["_lock_nps"] = True
+        nps_dados["_edicao_fechada_em"] = now_iso
+        nps_dados["_edicao_fechada_por"] = actor
+        edicao_permitida = False
 
     upd = (
         supabase
         .table("processos")
-        .update({"nps_dados": nps_dados, "atualizado_em": datetime.utcnow().isoformat()})
+        .update({"nps_dados": nps_dados, "atualizado_em": now_iso})
         .eq("id", row.get("id"))
         .execute()
     )
     if hasattr(upd, "error") and upd.error:
         raise HTTPException(status_code=500, detail=upd.error.message)
 
-    return JSONResponse({"success": True, "project_token": token})
+    return JSONResponse({"success": True, "project_token": token, "edicao_permitida": edicao_permitida})
 
 @router.get("/user", response_class=HTMLResponse)
 def user(request: Request):

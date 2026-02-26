@@ -1404,7 +1404,7 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         }
         if (userEditLocked) {
             habilitarModoSomenteLeituraUsuario();
-            if (btnSalvar) btnSalvar.textContent = "VISUALIZACAO - AGUARDANDO LIBERACAO DO ADMIN";
+            if (btnSalvar) btnSalvar.textContent = "RESSALVAS SALVAS";
             return;
         }
     } catch (e) {
@@ -1441,7 +1441,7 @@ function habilitarModoSomenteLeituraUsuario() {
     });
 
     if (btnSalvar) {
-        btnSalvar.textContent = "AGUARDANDO RESSALVAS DO ADMIN";
+        btnSalvar.textContent = "RESSALVAS SALVAS";
         btnSalvar.disabled = true;
     }
 }
@@ -1491,6 +1491,11 @@ async function inicializarPagina() {
     if (bcHome) bcHome.href = isAdmin ? "/admin" : buildFlowUrl("/index");
     if (bcTermo) bcTermo.href = buildFlowUrl("/termo");
     if (bcNps) bcNps.href = buildFlowUrl("/nps");
+    if (userFlow === "motorista" && bcNps) {
+        const arrow = bcNps.previousElementSibling;
+        if (arrow && arrow.classList.contains("breadcrumb-arrow")) arrow.style.display = "none";
+        bcNps.style.display = "none";
+    }
 
     processoEmAndamento = isEditMode
         ? null
