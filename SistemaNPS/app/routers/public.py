@@ -775,6 +775,19 @@ def admin(request: Request):
             or nps_dados.get("_lock_ressalvas")
             or nps_dados.get("_lock_nps")
         )
+        criado_em_raw = p.get("criado_em")
+        created_text = str(criado_em_raw or "").strip()
+        match_dt = re.match(r"^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})", created_text)
+        if match_dt:
+            yyyy, mm, dd, hh, mi = match_dt.groups()
+            p["criado_em_fmt"] = f"{dd}/{mm}/{yyyy} {hh}:{mi}"
+        else:
+            match_d = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", created_text)
+            if match_d:
+                yyyy, mm, dd = match_d.groups()
+                p["criado_em_fmt"] = f"{dd}/{mm}/{yyyy}"
+            else:
+                p["criado_em_fmt"] = created_text or "-"
 
     q = (request.query_params.get("q") or "").strip().lower()
     if q:

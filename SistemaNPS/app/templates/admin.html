@@ -669,7 +669,7 @@
                         </div>
                     </td>
                     <td data-label="NPS">{{ p.nps_nota if p.nps_nota is not none else "-" }}</td>
-                    <td data-label="Criado">{{ p.criado_em or "-" }}</td>
+                    <td data-label="Criado">{{ p.criado_em_fmt or p.criado_em or "-" }}</td>
                     <td data-label="Ações">
                         <div class="actions">
                             <a class="btn" href="/termo?processo={{ p.project_token or p.codigo }}&return=/admin">Editar</a>
