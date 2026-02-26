@@ -224,6 +224,20 @@ def _verify_admin_activation_password(password: str) -> bool:
     return hmac.compare_digest(derived, expected)
 
 
+def _encode_admin_activation_password(password: str, iterations: int = 390000) -> str:
+    salt = os.urandom(16)
+    derived = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt,
+        iterations,
+        dklen=32,
+    )
+    salt_b64 = base64.b64encode(salt).decode("utf-8")
+    hash_b64 = base64.b64encode(derived).decode("utf-8")
+    return f"pbkdf2_sha256${iterations}${salt_b64}${hash_b64}"
+
+
 def _build_admin_activation_cookie(max_age_seconds: int = 600) -> str:
     exp = str(int(time.time()) + max_age_seconds)
     secret = _get_admin_cookie_secret().encode("utf-8")
@@ -854,6 +868,54 @@ def admin_expirar_token(
             "project_token_expira_em": now_iso,
         }
     )
+
+
+@router.post("/admin/alterar-senha-acesso")
+def admin_alterar_senha_acesso(
+    request: Request,
+    senha_atual: str = Form(...),
+    nova_senha: str = Form(...),
+    confirmar_senha: str = Form(...),
+):
+    role = (request.cookies.get("nps_role") or "").strip().lower()
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
+
+    senha_atual = (senha_atual or "").strip()
+    nova_senha = (nova_senha or "").strip()
+    confirmar_senha = (confirmar_senha or "").strip()
+
+    if not _verify_admin_activation_password(senha_atual):
+        raise HTTPException(status_code=400, detail="Senha atual invalida")
+    if not _password_is_valid(nova_senha):
+        raise HTTPException(
+            status_code=400,
+            detail="Nova senha invalida. Use ao menos 6 caracteres com letras e numeros",
+        )
+    if nova_senha != confirmar_senha:
+        raise HTTPException(status_code=400, detail="Confirmacao de senha nao confere")
+    if senha_atual == nova_senha:
+        raise HTTPException(status_code=400, detail="A nova senha deve ser diferente da senha atual")
+
+    novo_hash = _encode_admin_activation_password(nova_senha)
+    atualizado_por = (request.cookies.get("nps_user") or "").strip() or None
+
+    res = (
+        supabase
+        .table("configuracoes_seguras")
+        .upsert(
+            {
+                "chave": "admin_activation_hash",
+                "valor_hash": novo_hash,
+                "atualizado_por": atualizado_por,
+            }
+        )
+        .execute()
+    )
+    if hasattr(res, "error") and res.error:
+        raise HTTPException(status_code=500, detail=res.error.message)
+
+    return JSONResponse({"success": True})
 
 @router.get("/user", response_class=HTMLResponse)
 def user(request: Request):

@@ -438,6 +438,117 @@
         }
         .btn-logout-confirm { background: #dc2626; color: #fff; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-logout-cancel { background: #e5e7eb; color: #374151; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-right: 10px; }
+
+        .security-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .security-box-title {
+            color: #1e3a8a;
+            font-size: 16px;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .security-box-hint {
+            margin: 4px 0 0;
+            font-size: 13px;
+            color: #475569;
+        }
+
+        .security-modal-content {
+            background: #fff;
+            border: 2px solid #1e3a8a;
+            padding: 24px;
+            border-radius: 12px;
+            width: 92%;
+            max-width: 440px;
+            text-align: left;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+
+        .security-modal-title {
+            margin: 0 0 14px;
+            color: #1e3a8a;
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        .security-field {
+            margin-bottom: 12px;
+        }
+
+        .security-field label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .security-field input {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+            font-size: 14px;
+        }
+
+        .password-wrap {
+            position: relative;
+        }
+
+        .password-wrap input {
+            padding-right: 46px;
+        }
+
+        .reveal-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .eye-icon {
+            width: 18px;
+            height: 12px;
+            border: 2px solid #334155;
+            border-radius: 12px / 9px;
+            position: relative;
+            display: inline-block;
+        }
+
+        .eye-icon::after {
+            content: "";
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #334155;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .security-error {
+            min-height: 18px;
+            color: #b91c1c;
+            font-size: 12px;
+            margin: 4px 0 10px;
+            font-weight: 700;
+        }
     </style>
 </head>
 <body>
@@ -576,6 +687,16 @@
         <p>Nenhum processo encontrado.</p>
         {% endif %}
     </div>
+
+    <div class="card">
+        <div class="security-box">
+            <div>
+                <p class="security-box-title">Alterar senha de acesso</p>
+                <p class="security-box-hint">Atualize a senha usada na ativacao administrativa.</p>
+            </div>
+            <button class="btn secondary" type="button" onclick="openSecurityModal()">Alterar senha</button>
+        </div>
+    </div>
 </main>
 
 <!-- MODAL LOGOUT -->
@@ -585,6 +706,47 @@
         <p class="modal-logout-sub">Tem certeza que deseja sair da sua conta? Lembre-se de salvar as requisições para registro.</p>
         <button onclick="closeLogoutModal()" class="btn-logout-cancel">Cancelar</button>
         <button onclick="confirmLogout()" class="btn-logout-confirm">SAIR</button>
+    </div>
+</div>
+
+<!-- MODAL ALTERAR SENHA -->
+<div id="securityModal" class="modal-logout" style="display: none;">
+    <div class="security-modal-content">
+        <div class="security-modal-title">Alterar senha de acesso</div>
+        <form id="securityForm">
+            <div class="security-field">
+                <label for="senhaAtual">Senha atual:</label>
+                <div class="password-wrap">
+                    <input id="senhaAtual" name="senhaAtual" type="password" required>
+                    <button class="reveal-btn" type="button" data-reveal-target="senhaAtual" aria-label="Mostrar senha">
+                        <span class="eye-icon" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="security-field">
+                <label for="novaSenha">Nova senha:</label>
+                <div class="password-wrap">
+                    <input id="novaSenha" name="novaSenha" type="password" required>
+                    <button class="reveal-btn" type="button" data-reveal-target="novaSenha" aria-label="Mostrar senha">
+                        <span class="eye-icon" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="security-field">
+                <label for="confirmarSenha">Confirmar senha:</label>
+                <div class="password-wrap">
+                    <input id="confirmarSenha" name="confirmarSenha" type="password" required>
+                    <button class="reveal-btn" type="button" data-reveal-target="confirmarSenha" aria-label="Mostrar senha">
+                        <span class="eye-icon" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </div>
+            <div id="securityError" class="security-error"></div>
+            <div style="display:flex;justify-content:flex-end;gap:10px;">
+                <button type="button" class="btn-logout-cancel" onclick="closeSecurityModal()">Cancelar</button>
+                <button id="securitySaveBtn" type="submit" class="btn secondary">Salvar</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -641,6 +803,21 @@
     }
     function confirmLogout() {
         window.location.href = '/logout';
+    }
+
+    function openSecurityModal() {
+        const modal = document.getElementById('securityModal');
+        if (!modal) return;
+        const err = document.getElementById('securityError');
+        if (err) err.textContent = '';
+        const form = document.getElementById('securityForm');
+        if (form) form.reset();
+        modal.style.display = 'flex';
+    }
+
+    function closeSecurityModal() {
+        const modal = document.getElementById('securityModal');
+        if (modal) modal.style.display = 'none';
     }
 
     async function gerarNovoProcesso() {
@@ -720,6 +897,82 @@
             alert(err.message || 'Falha ao expirar token');
         }
     }
+
+    document.getElementById('securityForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const err = document.getElementById('securityError');
+        const saveBtn = document.getElementById('securitySaveBtn');
+        if (err) err.textContent = '';
+
+        const senhaAtual = document.getElementById('senhaAtual')?.value || '';
+        const novaSenha = document.getElementById('novaSenha')?.value || '';
+        const confirmarSenha = document.getElementById('confirmarSenha')?.value || '';
+
+        if (!senhaAtual || !novaSenha || !confirmarSenha) {
+            if (err) err.textContent = 'Preencha todos os campos.';
+            return;
+        }
+        if (novaSenha !== confirmarSenha) {
+            if (err) err.textContent = 'Confirmacao de senha nao confere.';
+            return;
+        }
+
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Salvando...';
+        }
+
+        try {
+            const body = new URLSearchParams();
+            body.set('senha_atual', senhaAtual);
+            body.set('nova_senha', novaSenha);
+            body.set('confirmar_senha', confirmarSenha);
+
+            const res = await fetch('/admin/alterar-senha-acesso', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString(),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.detail || 'Falha ao alterar senha');
+            }
+
+            closeSecurityModal();
+            alert('Senha de acesso alterada com sucesso.');
+        } catch (error) {
+            if (err) err.textContent = error.message || 'Falha ao alterar senha.';
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Salvar';
+            }
+        }
+    });
+
+    function bindPressToRevealPassword(btn) {
+        const targetId = btn.getAttribute('data-reveal-target');
+        const input = targetId ? document.getElementById(targetId) : null;
+        if (!input) return;
+
+        const show = (ev) => {
+            if (ev) ev.preventDefault();
+            input.type = 'text';
+        };
+        const hide = () => {
+            input.type = 'password';
+        };
+
+        btn.addEventListener('mousedown', show);
+        btn.addEventListener('touchstart', show, { passive: false });
+        btn.addEventListener('mouseup', hide);
+        btn.addEventListener('mouseleave', hide);
+        btn.addEventListener('touchend', hide);
+        btn.addEventListener('touchcancel', hide);
+        btn.addEventListener('blur', hide);
+    }
+
+    document.querySelectorAll('.reveal-btn[data-reveal-target]').forEach(bindPressToRevealPassword);
 </script>
 
 </body>

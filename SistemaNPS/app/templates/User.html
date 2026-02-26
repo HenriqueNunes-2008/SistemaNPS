@@ -163,6 +163,53 @@ body {
     min-height: 16px;
 }
 
+.password-wrap {
+    position: relative;
+    margin-bottom: 12px;
+}
+
+.password-wrap .admin-input {
+    margin-bottom: 0;
+    padding-right: 46px;
+}
+
+.reveal-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.eye-icon {
+    width: 18px;
+    height: 12px;
+    border: 2px solid #334155;
+    border-radius: 12px / 9px;
+    position: relative;
+    display: inline-block;
+}
+
+.eye-icon::after {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #334155;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
 @media (max-width: 768px) {
     .card {
         padding: 26px 20px;
@@ -199,7 +246,12 @@ body {
             <h2>Acesso Administrativo</h2>
             <p>Digite a senha de ativacao para abrir a area administrativa.</p>
             <div class="admin-error" id="adminError"></div>
-            <input id="adminPassword" class="admin-input" type="password" placeholder="Senha de ativacao" />
+            <div class="password-wrap">
+                <input id="adminPassword" class="admin-input" type="password" placeholder="Senha de ativacao" />
+                <button class="reveal-btn" type="button" id="adminPasswordReveal" aria-label="Mostrar senha">
+                    <span class="eye-icon" aria-hidden="true"></span>
+                </button>
+            </div>
             <div class="admin-actions">
                 <button class="admin-btn cancel" type="button" id="closeAdminModal">Cancelar</button>
                 <button class="admin-btn confirm" type="button" id="confirmAdminAccess">Entrar</button>
@@ -214,7 +266,28 @@ body {
             const closeBtn = document.getElementById("closeAdminModal");
             const confirmBtn = document.getElementById("confirmAdminAccess");
             const passwordInput = document.getElementById("adminPassword");
+            const passwordRevealBtn = document.getElementById("adminPasswordReveal");
             const errorEl = document.getElementById("adminError");
+
+            function bindPressToRevealPassword(btn, input) {
+                if (!btn || !input) return;
+                const show = (ev) => {
+                    if (ev) ev.preventDefault();
+                    input.type = "text";
+                };
+                const hide = () => {
+                    input.type = "password";
+                };
+                btn.addEventListener("mousedown", show);
+                btn.addEventListener("touchstart", show, { passive: false });
+                btn.addEventListener("mouseup", hide);
+                btn.addEventListener("mouseleave", hide);
+                btn.addEventListener("touchend", hide);
+                btn.addEventListener("touchcancel", hide);
+                btn.addEventListener("blur", hide);
+            }
+
+            bindPressToRevealPassword(passwordRevealBtn, passwordInput);
 
             function openModal() {
                 errorEl.textContent = "";
