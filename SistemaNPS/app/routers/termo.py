@@ -614,3 +614,31 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+    
+@router.get("/dados/{identificador}")
+def obter_dados_termo(identificador: str):
+    try:
+        # Busca os dados básicos e o lock de edição
+        proc = obter_processo_por_identificador(
+            identificador, 
+            "id,codigo,nome_cliente,empresa,cpf,status_entrega,termo_dados,imagens_termo,nps_dados"
+        )
+        
+        # Parse dos dados JSON para garantir que cheguem como objeto ao frontend
+        termo_dados = _parse_json_object(proc.get("termo_dados"))
+        nps_dados = _parse_json_object(proc.get("nps_dados"))
+        
+        return {
+            "success": True,
+            "dados": {
+                "nome_cliente": proc.get("nome_cliente"),
+                "empresa": proc.get("empresa"),
+                "cpf": proc.get("cpf"),
+                "status_entrega": proc.get("status_entrega"),
+                "termo_dados": termo_dados,
+                "imagens": proc.get("imagens_termo") or [],
+                "bloqueado": bool(nps_dados.get("_lock_termo"))
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=404, detail="Processo não encontrado")

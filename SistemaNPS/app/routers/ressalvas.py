@@ -533,4 +533,3 @@ def atualizar_ressalvas(data: RessalvasUpdateRequest, request: Request):
             status_code=500,
             detail=f"Erro interno ao salvar ressalvas: {str(e)}"
         )
-

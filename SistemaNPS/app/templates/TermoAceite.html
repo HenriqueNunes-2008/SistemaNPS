@@ -868,6 +868,16 @@ input.cpf-valido {
         max-width: 360px;
     }
 }
+.loading-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    z-index: 9999; display: flex; align-items: center; justify-content: center;
+}
+.spinner {
+    border: 4px solid #f3f3f3; border-top: 4px solid #3498db;
+    border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
 </head>
 
@@ -2002,8 +2012,66 @@ window.renderFotoGrid = function() {
     window.closeMotoristaDoneModal = closeMotoristaDoneModal;
     window.copySupervisorLink = copySupervisorLink;
 });
-</script>
+const campoStatus = document.getElementById('status_entrega'); // Ajuste o ID conforme seu HTML
+const areaRessalvas = document.getElementById('termo_dados_ressalvas'); // Onde ficam os inputs de ressalva
 
+function gerenciarBloqueioRessalvas() {
+    const status = campoStatus.value;
+    
+    // Se o Admin permitiu edição, mas o status é 'concluido', bloqueamos as ressalvas.
+    // Se for 'concluido_com_ressalva', liberamos.
+    if (status === 'concluido') {
+        areaRessalvas.style.pointerEvents = 'none';
+        areaRessalvas.style.opacity = '0.6';
+        // Opcional: desabilitar todos os inputs dentro da área
+        areaRessalvas.querySelectorAll('input, textarea').forEach(el => el.disabled = true);
+    } else {
+        areaRessalvas.style.pointerEvents = 'auto';
+        areaRessalvas.style.opacity = '1';
+        areaRessalvas.querySelectorAll('input, textarea').forEach(el => el.disabled = false);
+    }
+}
+
+campoStatus.addEventListener('change', gerenciarBloqueioRessalvas);
+
+async function carregarDadosIniciais() {
+    const overlay = document.getElementById('loadingOverlay');
+    overlay.style.display = 'flex';
+    
+    try {
+        const response = await fetch(`/termo/dados/${processoId}`); 
+        const result = await response.json();
+        
+        if (result.success) {
+            const d = result.dados;
+            // Preenchimento dos campos básicos
+            document.getElementById('nome_cliente').value = d.nome_cliente || '';
+            document.getElementById('status_entrega').value = d.status_entrega || 'concluido';
+            
+            // ... Preencher outros campos de termo_dados ...
+
+            // SE estiver bloqueado pelo Admin, desabilita o formulário INTEIRO
+            if (d.bloqueado) {
+                document.getElementById('meuFormulario').style.pointerEvents = 'none';
+                document.getElementById('btnSalvar').display = 'none';
+            } else {
+                // SE NÃO estiver bloqueado, roda a lógica das ressalvas baseada no status
+                gerenciarBloqueioRessalvas(); 
+            }
+        }
+    } catch (err) {
+        console.error("Erro ao carregar dados", err);
+    } finally {
+        setTimeout(() => { overlay.style.display = 'none'; }, 500);
+    }
+}
+</script>
+<div id="loadingOverlay" class="loading-overlay" style="display:none;">
+    <div class="loader-content">
+        <div class="spinner"></div>
+        <p>Carregando dados já salvos...</p>
+    </div>
+</div>
 </body>
 </html>
 
