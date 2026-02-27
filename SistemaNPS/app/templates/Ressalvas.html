@@ -1367,7 +1367,7 @@ function habilitarModoRessalvasJaSalvasUsuario() {
     document.querySelectorAll(".table-row").forEach((row) => {
         row.querySelectorAll("input, select, textarea, button").forEach((el) => {
             el.disabled = true;
-        }
+        })
         const imageBox = row.querySelector(".image-box");
         if (imageBox) {
             imageBox.style.pointerEvents = "none";
@@ -1476,7 +1476,7 @@ function habilitarModoSomenteLeituraUsuario() {
     document.querySelectorAll(".table-row").forEach((row) => {
         row.querySelectorAll("input, select, textarea, button").forEach((el) => {
             el.disabled = true;
-        }
+        })
         const imageBox = row.querySelector(".image-box");
         if (imageBox) {
             imageBox.style.pointerEvents = "none";
