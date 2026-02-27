@@ -221,7 +221,7 @@ body {
 .table-header,
 .table-row {
     display: grid;
-    grid-template-columns: 1fr 0.8fr 0.8fr 0.9fr 1fr 0.5fr;
+    grid-template-columns: 1fr 0.8fr 0.8fr 0.9fr 1fr;
     gap: 8px;
 }
 
@@ -709,7 +709,7 @@ input.item-duplicado { border: 2px solid #dc2626; }
         <a href="/termo" class="breadcrumb-item" id="bc-termo">Termo de Aceite</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
         <div class="breadcrumb-item active">Ressalva</div>
-        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <img src="/static/arrow.png" class="breadcrumb-arrow" id="bc-nps-arrow">
         <a href="/nps" class="breadcrumb-item" id="bc-nps">NPS</a>
     </nav>
 </div>
@@ -729,13 +729,12 @@ input.item-duplicado { border: 2px solid #dc2626; }
                 <div style="font-weight:800;margin-bottom:6px;">FOTOS</div>
             </div>
             <div>REGIÃO DA FOTO</div>
-            <div>APROVAR</div>
         </div>
             <div id="tableBody"></div>
             <button class="add-item" onclick="addRow()">ADICIONAR ITEM +</button>
         </section>
 
-        <section class="approval admin-only">
+        <section class="approval admin-only" id="approvalSection" style="display:none;">
             <strong>APROVAÇÃO FINAL DAS RESSALVAS:</strong>
             <div class="approval-fields">
                 <label>REPRESENTANTE</label>
@@ -796,6 +795,8 @@ async function copySupervisorLink() {
         alert("Link copiado.");
     } catch (_) {
         prompt("Copie o link:", supervisorLinkToCopy);
+    } finally {
+        window.location.href = "/login";
     }
 }
 
@@ -853,7 +854,6 @@ async function executarSalvarRessalvas() {
            const descricao = inputs[0]?.value || "";
            const prazo = inputs[1]?.value || "";
            const responsavel = inputs[2]?.value || "";
-           const aprovacao = row.querySelector(".aprovacao-item")?.checked || false;
            const regiao = row.querySelector(".regiao-foto")?.value || null;
 
             const box = row.querySelector(".image-box");
@@ -864,7 +864,6 @@ async function executarSalvarRessalvas() {
                 prazo,
                 responsavel,
                 regiao_foto: regiao,
-                aprovacao,
                 imagem: box.dataset.image
             });
         });
@@ -901,7 +900,7 @@ async function executarSalvarRessalvas() {
         prazo: img.prazo || null,
         responsavel: img.responsavel,
         regiao_foto: img.regiao_foto,
-        aprovacao: Boolean(img.aprovacao),
+        aprovacao: false,
         imagem_base64: img.imagem
     }))
 })
@@ -981,7 +980,8 @@ const isEditMode = Boolean(processoParam);
 let isAdmin = returnTo === "/admin";
 let adminTokenFinalizado = false;
 let userEditLocked = false;
-const userFlow = (getCookieValue("nps_tipo_acesso") || "cliente").toLowerCase();
+const userFlowCookie = (getCookieValue("nps_tipo_acesso") || "").toLowerCase();
+const userFlow = ["cliente", "motorista"].includes(userFlowCookie) ? userFlowCookie : "";
 const cpfInput = document.querySelector('section.approval input[placeholder="CPF"]');
 let processoEmAndamento = null;
 
@@ -1103,13 +1103,7 @@ function addRow(item = null) {
             <option value="inferior">Inferior</option>
         </select>
     </div>
-    <div class="field-wrap" style="display:flex;align-items:center;justify-content:center;">
-        <span class="field-label-mobile">APROVAR</span>
-        <input type="checkbox" class="aprovacao-item" style="width:22px;height:22px;">
-    </div>
-	`;
-
-    const aprovacaoInputInit = row.querySelector(".aprovacao-item");
+		`;
 
 function enableDragAndDrop(box) {
     box.addEventListener("dragover", e => {
@@ -1167,9 +1161,6 @@ enableDragAndDrop(imageBox);
         rowInputs[0].value = item.descricao || "";
         rowInputs[1].value = item.prazo || "";
         rowInputs[2].value = item.responsavel || "";
-        const aprovacaoInput = row.querySelector(".aprovacao-item");
-        if (aprovacaoInput) aprovacaoInput.checked = Boolean(item.aprovacao);
-        if (aprovacaoInput && isAdmin) aprovacaoInput.disabled = true;
         const regiao = row.querySelector(".regiao-foto");
         if (regiao) regiao.value = item.regiao_foto || "";
         if (item.imagem_base64) {
@@ -1353,9 +1344,7 @@ function habilitarModoValidacaoUsuario() {
 
     document.querySelectorAll(".table-row").forEach((row) => {
         row.querySelectorAll("input, select").forEach((el) => {
-            if (!el.classList.contains("aprovacao-item")) {
-                el.disabled = true;
-            }
+            el.disabled = true;
         });
         const imageBox = row.querySelector(".image-box");
         if (imageBox) {
@@ -1377,13 +1366,7 @@ function habilitarModoRessalvasJaSalvasUsuario() {
 
     document.querySelectorAll(".table-row").forEach((row) => {
         row.querySelectorAll("input, select, textarea, button").forEach((el) => {
-            if (!el.classList.contains("aprovacao-item")) {
-                el.disabled = true;
-            }
-        });
-        const check = row.querySelector(".aprovacao-item");
-        if (check) {
-            check.disabled = true;
+            el.disabled = true;
         }
         const imageBox = row.querySelector(".image-box");
         if (imageBox) {
@@ -1406,6 +1389,24 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         const data = await res.json();
         adminTokenFinalizado = isAdmin && processoTokenFinalizado(data);
         userEditLocked = !isAdmin && processoEdicaoBloqueada(data);
+        const statusEntrega = String(data?.status_entrega || "").toLowerCase();
+        const lockFlow = String(
+            data?.nps_dados?._lock_termo_por ||
+            data?.nps_dados?._lock_ressalvas_por ||
+            ""
+        ).toLowerCase();
+        const flowEfetivo = userFlow || (lockFlow === "motorista" ? "motorista" : "cliente");
+        const motoristaContext = !isAdmin && flowEfetivo === "motorista";
+        const concluidoSemRessalva = motoristaContext && statusEntrega === "concluido";
+        const approvalSection = document.getElementById("approvalSection");
+        if (approvalSection) {
+            approvalSection.style.display = isAdmin ? "" : "none";
+        }
+        if (motoristaContext) {
+            ocultarBreadcrumbNps();
+        } else if (!isAdmin) {
+            exibirBreadcrumbNps();
+        }
 
         const dados = data.ressalvas_dados;
 
@@ -1428,6 +1429,10 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
             habilitarModoSomenteLeituraAdminTokenFinalizado();
             return;
         }
+        if (concluidoSemRessalva) {
+            habilitarModoRessalvasNaoEncontradas();
+            return;
+        }
         if (userEditLocked) {
             habilitarModoSomenteLeituraUsuario();
             if (btnSalvar) btnSalvar.textContent = "RESSALVAS SALVAS";
@@ -1440,8 +1445,27 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
 }
 
 const roleCookie = (getCookieValue("nps_role") || "").toLowerCase();
-if (roleCookie === "admin") {
+if (roleCookie === "admin" && (isEditMode || returnTo === "/admin")) {
     isAdmin = true;
+}
+if (projectTokenParam && !isEditMode && returnTo !== "/admin") {
+    isAdmin = false;
+}
+
+function ocultarBreadcrumbNps() {
+    const bcNps = document.getElementById("bc-nps");
+    const bcNpsArrow = document.getElementById("bc-nps-arrow");
+    if (!bcNps) return;
+    if (bcNpsArrow) bcNpsArrow.style.display = "none";
+    bcNps.style.display = "none";
+}
+
+function exibirBreadcrumbNps() {
+    const bcNps = document.getElementById("bc-nps");
+    const bcNpsArrow = document.getElementById("bc-nps-arrow");
+    if (!bcNps) return;
+    if (bcNpsArrow) bcNpsArrow.style.display = "";
+    bcNps.style.display = "";
 }
 
 function habilitarModoSomenteLeituraUsuario() {
@@ -1451,13 +1475,7 @@ function habilitarModoSomenteLeituraUsuario() {
 
     document.querySelectorAll(".table-row").forEach((row) => {
         row.querySelectorAll("input, select, textarea, button").forEach((el) => {
-            if (!el.classList.contains("aprovacao-item")) {
-                el.disabled = true;
-            }
-        });
-        const check = row.querySelector(".aprovacao-item");
-        if (check) {
-            check.disabled = true;
+            el.disabled = true;
         }
         const imageBox = row.querySelector(".image-box");
         if (imageBox) {
@@ -1469,6 +1487,35 @@ function habilitarModoSomenteLeituraUsuario() {
     if (btnSalvar) {
         btnSalvar.textContent = "RESSALVAS SALVAS";
         btnSalvar.disabled = true;
+    }
+}
+
+function habilitarModoRessalvasNaoEncontradas() {
+    const approvalSection = document.querySelector("section.approval");
+    if (approvalSection) {
+        approvalSection.style.display = "none";
+    }
+    ocultarBreadcrumbNps();
+
+    document.querySelectorAll(".add-item, .remove").forEach(el => {
+        el.style.display = "none";
+    });
+
+    document.querySelectorAll(".table-row").forEach((row) => {
+        row.querySelectorAll("input, select, textarea, button").forEach((el) => {
+            el.disabled = true;
+        });
+        const imageBox = row.querySelector(".image-box");
+        if (imageBox) {
+            imageBox.style.pointerEvents = "none";
+            imageBox.style.opacity = "0.85";
+        }
+    });
+
+    if (btnSalvar) {
+        btnSalvar.textContent = "Ressalvas não encontradas";
+        btnSalvar.disabled = true;
+        btnSalvar.dataset.locked = "true";
     }
 }
 
@@ -1514,13 +1561,21 @@ async function inicializarPagina() {
     const bcHome = document.getElementById("bc-home");
     const bcTermo = document.getElementById("bc-termo");
     const bcNps = document.getElementById("bc-nps");
+    const approvalSection = document.getElementById("approvalSection");
     if (bcHome) bcHome.href = isAdmin ? "/admin" : buildFlowUrl("/index");
     if (bcTermo) bcTermo.href = buildFlowUrl("/termo");
     if (bcNps) bcNps.href = buildFlowUrl("/nps");
+    if (approvalSection) {
+        approvalSection.style.display = isAdmin ? "" : "none";
+    }
     if (userFlow === "motorista" && bcNps) {
-        const arrow = bcNps.previousElementSibling;
-        if (arrow && arrow.classList.contains("breadcrumb-arrow")) arrow.style.display = "none";
-        bcNps.style.display = "none";
+        ocultarBreadcrumbNps();
+    } else if (!isAdmin && bcNps) {
+        exibirBreadcrumbNps();
+    }
+
+    if (!isAdmin && projectTokenParam && !isEditMode && window.location.search.includes("project_token=")) {
+        window.history.replaceState({}, "", "/ressalvas");
     }
 
     processoEmAndamento = isEditMode
