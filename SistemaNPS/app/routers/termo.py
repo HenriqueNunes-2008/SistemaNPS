@@ -542,6 +542,12 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
             termo_informado["aprovacao"] = termo_dados_existente.get("aprovacao") or {}
             data.termo_dados = termo_informado
 
+            # Apos a primeira definicao pelo usuário, o status da entrega não pode mais ser alterado por ele.
+            # O admin ainda pode alterar.
+            existing_status = proc.get("status_entrega")
+            if existing_status and existing_status != "pendente_admin":
+                data.status_entrega = existing_status
+
         if data.status_entrega not in ("concluido", "concluido_com_ressalva"):
             raise HTTPException(status_code=400, detail="Status de entrega invalido")
 
