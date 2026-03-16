@@ -63,10 +63,7 @@ class NPSUpdateRequest(BaseModel):
 @router.post("/finalizar")
 def finalizar_nps(data: NPSRequest, request: Request):
     try:
-        if _is_admin_request(request):
-            raise HTTPException(status_code=403, detail="Admin apenas visualiza a pesquisa NPS")
-        if _extract_user_flow(request) == "motorista":
-            raise HTTPException(status_code=403, detail="Motorista nao possui permissao para responder NPS")
+        # Removido check admin/motorista para acesso direto
         processo_id = data.processo_id.strip()
         if not processo_id:
             raise HTTPException(status_code=400, detail="processo_id ausente")
@@ -113,10 +110,7 @@ def finalizar_nps(data: NPSRequest, request: Request):
 @router.post("/atualizar")
 def atualizar_nps(data: NPSUpdateRequest, request: Request):
     try:
-        if _is_admin_request(request):
-            raise HTTPException(status_code=403, detail="Admin apenas visualiza a pesquisa NPS")
-        if _extract_user_flow(request) == "motorista":
-            raise HTTPException(status_code=403, detail="Motorista nao possui permissao para responder NPS")
+        # Removido check admin/motorista para acesso direto
         processo_id = data.processo_id.strip()
         if not processo_id:
             raise HTTPException(status_code=400, detail="processo_id ausente")
