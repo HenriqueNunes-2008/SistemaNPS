@@ -517,7 +517,7 @@ def admin_liberar_edicao(
     # Logica simplificada: se Termo ou Ressalvas estao travados, consideramos bloqueado (estado de envio pro cliente)
     edit_locked = bool(nps_dados.get("_lock_termo") or nps_dados.get("_lock_ressalvas"))
     now_iso = datetime.utcnow().isoformat()
-    actor = (request.cookies.get("nps_user") or "").strip()
+    actor = "Administrador"
 
     if edit_locked:
         nps_dados["_lock_termo"] = False
