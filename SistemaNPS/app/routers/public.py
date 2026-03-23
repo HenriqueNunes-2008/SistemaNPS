@@ -19,21 +19,6 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/templates", auto_reload=True)
 
 
-def _new_supabase_client():
-    return create_client(
-        os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-    )
-
-
-def _password_is_valid(password: str) -> bool:
-    return (
-        len(password) >= 6
-        and bool(re.search(r"[A-Za-z]", password))
-        and bool(re.search(r"\d", password))
-    )
-
-
 def _extract_storage_path(public_url: str) -> str | None:
     marker = "/storage/v1/object/public/processos/"
     if marker in public_url:
@@ -57,7 +42,15 @@ def _download_pdf(url: str) -> bytes:
 
 
 def _extract_project_token(request: Request) -> str:
-    return (request.query_params.get("project_token") or request.cookies.get("project_token") or "").strip()
+    # Tenta extrair token de varios parametros possiveis para robustez
+    token = request.query_params.get("project_token")
+    if not token:
+        token = request.query_params.get("processo")
+    if not token:
+        token = request.query_params.get("id")
+    if not token:
+        token = request.cookies.get("project_token")
+    return (token or "").strip()
 
 
 def _token_is_active(token: str) -> bool:
@@ -96,73 +89,6 @@ def _append_project_token(url: str, token: str) -> str:
         return url
     sep = "&" if "?" in url else "?"
     return f"{url}{sep}project_token={token}"
-
-
-def _render_token_required(request: Request, status_code: int = 403):
-    return templates.TemplateResponse(
-        "User.html",
-        {
-            "request": request,
-            "mensagem_acesso": (
-                "Para acessar o sistema, entre pelo link que o Representante "
-                "da Fleximedical/Kure enviara para voce."
-            ),
-        },
-        status_code=status_code,
-    )
-
-
-def _extract_user_id(auth_response) -> str:
-    user_obj = getattr(auth_response, "user", None)
-    if user_obj is None:
-        session = getattr(auth_response, "session", None)
-        user_obj = getattr(session, "user", None)
-    if user_obj is None:
-        return ""
-    if isinstance(user_obj, dict):
-        return str(user_obj.get("id") or "")
-    return str(getattr(user_obj, "id", "") or "")
-
-
-def _resolve_user_role(user_id: str, email: str) -> str:
-    if not user_id:
-        return "user"
-    try:
-        res = (
-            supabase
-            .table("perfis")
-            .select("role")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
-        rows = res.data or []
-        if rows:
-            role = str(rows[0].get("role") or "user").strip().lower()
-            return role if role in ("user", "admin") else "user"
-    except Exception:
-        pass
-
-    try:
-        supabase.table("perfis").insert(
-            {"id": user_id, "email": email, "role": "user"}
-        ).execute()
-    except Exception:
-        pass
-    return "user"
-
-
-def _authenticate_user(email: str, password: str):
-    auth_client = _new_supabase_client()
-    try:
-        return auth_client.auth.sign_in_with_password(
-            {
-                "email": email,
-                "password": password
-            }
-        )
-    except Exception:
-        return None
 
 
 def _get_admin_cookie_secret() -> str:
@@ -266,170 +192,36 @@ def _is_admin_mode_request(request: Request) -> bool:
     return request.query_params.get("admin") == "1" and _is_admin_activation_granted(request)
 
 
-def _extract_user_flow(raw: str | None) -> str:
-    flow = (raw or "").strip().lower()
-    return flow if flow in ("cliente", "motorista") else "cliente"
+# REMOVIDO: /login alias - não mais necessário
 
-@router.get("/", response_class=HTMLResponse)
-def login(request: Request):
+
+
+@router.get("/admin-password", response_class=HTMLResponse)
+def admin_password_page(request: Request):
     erro = request.query_params.get("erro")
-    sucesso = request.query_params.get("sucesso")
-    project_token = _extract_project_token(request)
-    if not project_token or not _token_is_active(project_token):
-        return _render_token_required(request)
+    return templates.TemplateResponse("admin-password.html", {"request": request, "erro": erro})
 
-    response = templates.TemplateResponse(
-        "login.html",
-        {
-            "request": request,
-            "erro": erro,
-            "sucesso": sucesso,
-            "project_token": project_token,
-            "form_action": "/login",
-            "admin_mode": False,
-            "user_flow": _extract_user_flow(request.cookies.get("nps_tipo_acesso")),
-            "esqueci_url": f"/esqueci-senha?project_token={project_token}" if project_token else "/esqueci-senha",
-            "cadastro_url": f"/cadastro?project_token={project_token}" if project_token else "/cadastro",
-        }
-    )
-    if project_token and _token_is_active(project_token):
-        response.set_cookie(
-            key="project_token",
-            value=project_token,
-            max_age=60 * 60 * 24 * 30,
-            samesite="lax"
-        )
-    return response
-
-@router.get("/login", response_class=HTMLResponse)
-def login_alias(request: Request):
-    erro = request.query_params.get("erro")
-    sucesso = request.query_params.get("sucesso")
-    project_token = _extract_project_token(request)
-    if not project_token or not _token_is_active(project_token):
-        return _render_token_required(request)
-
-    response = templates.TemplateResponse(
-        "login.html",
-        {
-            "request": request,
-            "erro": erro,
-            "sucesso": sucesso,
-            "project_token": project_token,
-            "form_action": "/login",
-            "admin_mode": False,
-            "user_flow": _extract_user_flow(request.cookies.get("nps_tipo_acesso")),
-            "esqueci_url": f"/esqueci-senha?project_token={project_token}" if project_token else "/esqueci-senha",
-            "cadastro_url": f"/cadastro?project_token={project_token}" if project_token else "/cadastro",
-        }
-    )
-    if project_token and _token_is_active(project_token):
-        response.set_cookie(
-            key="project_token",
-            value=project_token,
-            max_age=60 * 60 * 24 * 30,
-            samesite="lax"
-        )
-    return response
-
-
-@router.get("/admin-login", response_class=HTMLResponse)
-def admin_login(request: Request):
-    if not _is_admin_activation_granted(request):
-        return _render_token_required(request, status_code=401)
-
-    erro = request.query_params.get("erro")
-    sucesso = request.query_params.get("sucesso")
-    return templates.TemplateResponse(
-        "login.html",
-        {
-            "request": request,
-            "erro": erro,
-            "sucesso": sucesso,
-            "project_token": "",
-            "form_action": "/admin-login",
-            "admin_mode": True,
-            "esqueci_url": "/esqueci-senha?admin=1",
-            "cadastro_url": "/cadastro?admin=1",
-        }
-    )
-
-
-@router.post("/admin-activate")
-def admin_activate(request: Request, password: str = Form(...)):
+@router.post("/admin-password")
+def admin_password_post(password: str = Form(...)):
     if not _verify_admin_activation_password(password):
-        return JSONResponse({"success": False, "detail": "Senha de ativacao invalida."}, status_code=401)
+        # Redirect with error
+        from urllib.parse import quote_plus
+        erro = quote_plus("Senha inválida.")
+        return RedirectResponse(url=f"/admin-password?erro={erro}", status_code=303)
 
-    response = JSONResponse({"success": True, "redirect": "/admin-login"})
+    response = RedirectResponse(url="/admin", status_code=303)
     response.set_cookie(
         key="admin_activation_ok",
-        value=_build_admin_activation_cookie(max_age_seconds=600),
-        max_age=600,
+        value=_build_admin_activation_cookie(max_age_seconds=3600),  # 1h
+        max_age=3600,
         httponly=True,
         samesite="lax",
     )
     return response
 
 
-@router.post("/login")
-def login_submit(
-    request: Request,
-    email: str = Form(...),
-    password: str = Form(...),
-    project_token: str = Form(""),
-    user_flow: str = Form("cliente"),
-):
-    email = email.strip().lower()
-    project_token = (project_token or request.cookies.get("project_token") or "").strip()
+# REMOVIDO: login_submit - não mais necessário
 
-    auth_response = _authenticate_user(email, password)
-
-    if not auth_response or not getattr(auth_response, "session", None):
-        erro = quote_plus("Email ou senha invalidos.")
-        return RedirectResponse(
-            url=_append_project_token(f"/login?erro={erro}", project_token),
-            status_code=status.HTTP_303_SEE_OTHER
-        )
-
-    user_id = _extract_user_id(auth_response)
-    role = _resolve_user_role(user_id, email)
-    flow = _extract_user_flow(user_flow)
-
-    if role != "admin" and (not project_token or not _token_is_active(project_token)):
-        return _render_token_required(request)
-
-    redirect_url = "/admin" if role == "admin" else _append_project_token("/index", project_token)
-    response = RedirectResponse(
-        url=redirect_url,
-        status_code=status.HTTP_303_SEE_OTHER
-    )
-    response.set_cookie(
-        key="nps_user",
-        value=email,
-        max_age=60 * 60 * 24 * 30,
-        samesite="lax"
-    )
-    response.set_cookie(
-        key="nps_role",
-        value=role,
-        max_age=60 * 60 * 24 * 30,
-        samesite="lax"
-    )
-    if role != "admin":
-        response.set_cookie(
-            key="nps_tipo_acesso",
-            value=flow,
-            max_age=60 * 60 * 24 * 30,
-            samesite="lax",
-        )
-    if project_token and _token_is_active(project_token):
-        response.set_cookie(
-            key="project_token",
-            value=project_token,
-            max_age=60 * 60 * 24 * 30,
-            samesite="lax"
-        )
-    return response
 
 @router.get("/index", response_class=HTMLResponse)
 def index(request: Request):
@@ -439,263 +231,18 @@ def index(request: Request):
         {"request": request, "project_token": project_token}
     )
 
-@router.get("/cadastro", response_class=HTMLResponse)
-def cadastro(request: Request):
-    erro = request.query_params.get("erro")
-    sucesso = request.query_params.get("sucesso")
-    admin_mode = _is_admin_mode_request(request)
-    project_token = _extract_project_token(request)
-    if not admin_mode and (not project_token or not _token_is_active(project_token)):
-        return _render_token_required(request)
-    return templates.TemplateResponse(
-        "cadastro.html",
-        {
-            "request": request,
-            "erro": erro,
-            "sucesso": sucesso,
-            "project_token": project_token if not admin_mode else "",
-            "admin_mode": admin_mode,
-            "form_action": "/cadastro",
-            "login_url": "/admin-login" if admin_mode else _append_project_token("/login", project_token),
-        }
-    )
+# REMOVIDO: cadastro routes - não mais necessário
 
-
-@router.post("/cadastro")
-def cadastro_submit(
-    request: Request,
-    nome: str = Form(...),
-    sobrenome: str = Form(...),
-    email: str = Form(...),
-    password: str = Form(...),
-    project_token: str = Form(""),
-    admin_mode: str = Form(""),
-):
-    nome = nome.strip()
-    sobrenome = sobrenome.strip()
-    email = email.strip().lower()
-    is_admin_mode = admin_mode == "1" and _is_admin_activation_granted(request)
-    project_token = (project_token or request.cookies.get("project_token") or "").strip()
-    if not is_admin_mode and (not project_token or not _token_is_active(project_token)):
-        return _render_token_required(request)
-    if not _password_is_valid(password):
-        erro = quote_plus("A senha deve ter no minimo 6 caracteres e incluir letras e numeros.")
-        base_url = "/cadastro?admin=1" if is_admin_mode else "/cadastro"
-        return RedirectResponse(
-            url=(f"{base_url}&erro={erro}" if is_admin_mode else _append_project_token(f"/cadastro?erro={erro}", project_token)),
-            status_code=status.HTTP_303_SEE_OTHER
-        )
-
-    auth_client = _new_supabase_client()
-
-    created_user_id = ""
-    try:
-        create_res = auth_client.auth.admin.create_user(
-            {
-                "email": email,
-                "password": password,
-                "email_confirm": True,
-                "user_metadata": {
-                    "nome": nome,
-                    "sobrenome": sobrenome
-                }
-            }
-        )
-        created_user_id = _extract_user_id(create_res)
-    except Exception:
-        erro = quote_plus("Nao foi possivel concluir o cadastro. Verifique os dados.")
-        base_url = "/cadastro?admin=1" if is_admin_mode else "/cadastro"
-        return RedirectResponse(
-            url=(f"{base_url}&erro={erro}" if is_admin_mode else _append_project_token(f"/cadastro?erro={erro}", project_token)),
-            status_code=status.HTTP_303_SEE_OTHER
-        )
-
-    if created_user_id:
-        try:
-            supabase.table("perfis").upsert(
-                {"id": created_user_id, "email": email, "role": "user"}
-            ).execute()
-        except Exception:
-            pass
-        try:
-            supabase.table("usuarios").upsert(
-                {
-                    "nome": nome,
-                    "sobrenome": sobrenome,
-                    "email": email,
-                    "auth_user_id": created_user_id,
-                }
-            ).execute()
-        except Exception:
-            pass
-
-    return RedirectResponse(
-        url=("/admin-login" if is_admin_mode else _append_project_token("/login", project_token)),
-        status_code=status.HTTP_303_SEE_OTHER
-    )
-
-
-@router.get("/esqueci-senha", response_class=HTMLResponse)
-def esqueci_senha(request: Request):
-    erro = request.query_params.get("erro")
-    sucesso = request.query_params.get("sucesso")
-    admin_mode = _is_admin_mode_request(request)
-    project_token = _extract_project_token(request)
-    if not admin_mode and (not project_token or not _token_is_active(project_token)):
-        return _render_token_required(request)
-    return templates.TemplateResponse(
-        "esqueci_senha.html",
-        {
-            "request": request,
-            "erro": erro,
-            "sucesso": sucesso,
-            "project_token": project_token if not admin_mode else "",
-            "admin_mode": admin_mode,
-            "form_action": "/esqueci-senha",
-            "login_url": "/admin-login" if admin_mode else _append_project_token("/login", project_token),
-        }
-    )
-
-
-@router.post("/esqueci-senha")
-def esqueci_senha_submit(
-    request: Request,
-    email: str = Form(...),
-    project_token: str = Form(""),
-    admin_mode: str = Form(""),
-):
-    email = email.strip().lower()
-    is_admin_mode = admin_mode == "1" and _is_admin_activation_granted(request)
-    project_token = (project_token or request.cookies.get("project_token") or "").strip()
-    if not is_admin_mode and (not project_token or not _token_is_active(project_token)):
-        return _render_token_required(request)
-    auth_client = _new_supabase_client()
-    redirect_to = (
-        str(request.url_for("redefinir_senha")) + "?admin=1"
-        if is_admin_mode
-        else _append_project_token(str(request.url_for("redefinir_senha")), project_token)
-    )
-
-    try:
-        auth_client.auth.reset_password_for_email(
-            email,
-            {"redirect_to": redirect_to}
-        )
-    except Exception:
-        pass
-
-    sucesso = quote_plus(
-        "Se o email estiver cadastrado, voce recebera um link para redefinir a senha."
-    )
-    if is_admin_mode:
-        return RedirectResponse(url=f"/esqueci-senha?admin=1&sucesso={sucesso}", status_code=status.HTTP_303_SEE_OTHER)
-    return RedirectResponse(url=_append_project_token(f"/esqueci-senha?sucesso={sucesso}", project_token), status_code=status.HTTP_303_SEE_OTHER)
-
-
-@router.get("/redefinir-senha", response_class=HTMLResponse)
-def redefinir_senha(request: Request):
-    erro = request.query_params.get("erro")
-    admin_mode = _is_admin_mode_request(request)
-    project_token = _extract_project_token(request)
-    if not admin_mode and (not project_token or not _token_is_active(project_token)):
-        return _render_token_required(request)
-    return templates.TemplateResponse(
-        "redefinir_senha.html",
-        {
-            "request": request,
-            "erro": erro,
-            "project_token": project_token if not admin_mode else "",
-            "admin_mode": admin_mode,
-            "form_action": "/redefinir-senha",
-            "login_url": "/admin-login" if admin_mode else _append_project_token("/login", project_token),
-        }
-    )
-
-
-@router.post("/redefinir-senha", response_class=HTMLResponse)
-def redefinir_senha_submit(
-    request: Request,
-    access_token: str = Form(""),
-    refresh_token: str = Form(""),
-    project_token: str = Form(""),
-    admin_mode: str = Form(""),
-    password: str = Form(...),
-    password_confirm: str = Form(...)
-):
-    is_admin_mode = admin_mode == "1" and _is_admin_activation_granted(request)
-    project_token = (project_token or request.cookies.get("project_token") or "").strip()
-    if not is_admin_mode and (not project_token or not _token_is_active(project_token)):
-        return _render_token_required(request)
-    if password != password_confirm:
-        return templates.TemplateResponse(
-            "redefinir_senha.html",
-            {
-                "request": request,
-                "erro": "As senhas nao conferem.",
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "project_token": project_token,
-                "admin_mode": is_admin_mode,
-                "form_action": "/redefinir-senha",
-                "login_url": "/admin-login" if is_admin_mode else _append_project_token("/login", project_token),
-            }
-        )
-
-    if not _password_is_valid(password):
-        return templates.TemplateResponse(
-            "redefinir_senha.html",
-            {
-                "request": request,
-                "erro": "A nova senha deve ter no minimo 6 caracteres e incluir letras e numeros.",
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "project_token": project_token,
-                "admin_mode": is_admin_mode,
-                "form_action": "/redefinir-senha",
-                "login_url": "/admin-login" if is_admin_mode else _append_project_token("/login", project_token),
-            }
-        )
-
-    if not access_token or not refresh_token:
-        return templates.TemplateResponse(
-            "redefinir_senha.html",
-            {
-                "request": request,
-                "erro": "Link invalido. Solicite um novo link de recuperacao.",
-                "project_token": project_token,
-                "admin_mode": is_admin_mode,
-                "form_action": "/redefinir-senha",
-                "login_url": "/admin-login" if is_admin_mode else _append_project_token("/login", project_token),
-            }
-        )
-
-    auth_client = _new_supabase_client()
-    try:
-        auth_client.auth.set_session(access_token, refresh_token)
-        auth_client.auth.update_user({"password": password})
-    except Exception:
-        return templates.TemplateResponse(
-            "redefinir_senha.html",
-            {
-                "request": request,
-                "erro": "Nao foi possivel redefinir a senha. Solicite um novo link.",
-                "project_token": project_token,
-                "admin_mode": is_admin_mode,
-                "form_action": "/redefinir-senha",
-                "login_url": "/admin-login" if is_admin_mode else _append_project_token("/login", project_token),
-            }
-        )
-
-    sucesso = quote_plus("Senha atualizada com sucesso. Faca login novamente.")
-    if is_admin_mode:
-        return RedirectResponse(url=f"/admin-login?sucesso={sucesso}", status_code=status.HTTP_303_SEE_OTHER)
-    return RedirectResponse(url=_append_project_token(f"/login?sucesso={sucesso}", project_token), status_code=status.HTTP_303_SEE_OTHER)
 
 @router.get("/termo", response_class=HTMLResponse)
 def termo(request: Request):
     return templates.TemplateResponse(
         "TermoAceite.html",
-        {"request": request, "project_token": _extract_project_token(request)}
+        {
+            "request": request, 
+            "project_token": _extract_project_token(request),
+            "is_admin": _is_admin_activation_granted(request)
+        }
     )
 
 
@@ -703,7 +250,11 @@ def termo(request: Request):
 def ressalvas(request: Request):
     return templates.TemplateResponse(
         "Ressalvas.html",
-        {"request": request, "project_token": _extract_project_token(request)}
+        {
+            "request": request, 
+            "project_token": _extract_project_token(request),
+            "is_admin": _is_admin_activation_granted(request)
+        }
     )
 
 
@@ -711,17 +262,18 @@ def ressalvas(request: Request):
 def nps(request: Request):
     return templates.TemplateResponse(
         "NPS2System.html",
-        {"request": request, "project_token": _extract_project_token(request)}
+        {"request": request, "project_token": _extract_project_token(request),
+         "is_admin": _is_admin_activation_granted(request)}
     )
 
 
 @router.get("/admin", response_class=HTMLResponse)
 def admin(request: Request):
-    role = (request.cookies.get("nps_role") or "").strip().lower()
-    if role != "admin":
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+    if not _is_admin_activation_granted(request):
+        return RedirectResponse(url="/admin-password", status_code=303)
 
     processos = []
+
     try:
         res = (
             supabase
@@ -769,6 +321,8 @@ def admin(request: Request):
         if not isinstance(nps_dados, dict):
             nps_dados = {}
         p["nps_dados"] = nps_dados
+        # Garante que o link de acesso seja sempre para o index com o token
+        p["link_acesso"] = f"{str(request.base_url).rstrip('/')}/index?project_token={p.get('project_token')}"
         p["edicao_permitida"] = not bool(
             nps_dados.get("_edicao_bloqueada")
             or nps_dados.get("_lock_termo")
@@ -837,9 +391,9 @@ def admin(request: Request):
 
 @router.post("/admin/gerar-processo")
 def admin_gerar_processo(request: Request):
-    role = (request.cookies.get("nps_role") or "").strip().lower()
-    if role != "admin":
+    if not _is_admin_activation_granted(request):
         raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
+
 
     process_uuid = str(uuid.uuid4())
 
@@ -873,8 +427,9 @@ def admin_gerar_processo(request: Request):
     if hasattr(res, "error") and res.error:
         raise HTTPException(status_code=500, detail=res.error.message)
 
-    link = _append_project_token(str(request.base_url).rstrip("/") + "/login", token)
+    link = str(request.base_url).rstrip("/") + f"/index?project_token={token}"
     return JSONResponse({"success": True, "project_token": token, "link": link})
+
 
 
 @router.post("/admin/expirar-token")
@@ -882,9 +437,9 @@ def admin_expirar_token(
     request: Request,
     project_token: str = Form(...),
 ):
-    role = (request.cookies.get("nps_role") or "").strip().lower()
-    if role != "admin":
+    if not _is_admin_activation_granted(request):
         raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
+
 
     token = (project_token or "").strip().upper()
     if not token:
@@ -918,52 +473,10 @@ def admin_expirar_token(
     )
 
 
-@router.post("/admin/alterar-senha-acesso")
-def admin_alterar_senha_acesso(
-    request: Request,
-    senha_atual: str = Form(...),
-    nova_senha: str = Form(...),
-    confirmar_senha: str = Form(...),
-):
-    role = (request.cookies.get("nps_role") or "").strip().lower()
-    if role != "admin":
-        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
+# REMOVED: alterar-senha-acesso (não mais necessário)
 
-    senha_atual = (senha_atual or "").strip()
-    nova_senha = (nova_senha or "").strip()
-    confirmar_senha = (confirmar_senha or "").strip()
 
-    if not _verify_admin_activation_password(senha_atual):
-        raise HTTPException(status_code=400, detail="Senha atual invalida")
-    if not _password_is_valid(nova_senha):
-        raise HTTPException(
-            status_code=400,
-            detail="Nova senha invalida. Use ao menos 6 caracteres com letras e numeros",
-        )
-    if nova_senha != confirmar_senha:
-        raise HTTPException(status_code=400, detail="Confirmacao de senha nao confere")
-    if senha_atual == nova_senha:
-        raise HTTPException(status_code=400, detail="A nova senha deve ser diferente da senha atual")
-
-    novo_hash = _encode_admin_activation_password(nova_senha)
-    atualizado_por = (request.cookies.get("nps_user") or "").strip() or None
-
-    res = (
-        supabase
-        .table("configuracoes_seguras")
-        .upsert(
-            {
-                "chave": "admin_activation_hash",
-                "valor_hash": novo_hash,
-                "atualizado_por": atualizado_por,
-            }
-        )
-        .execute()
-    )
-    if hasattr(res, "error") and res.error:
-        raise HTTPException(status_code=500, detail=res.error.message)
-
-    return JSONResponse({"success": True})
+# REMOVIDO: alterar senha admin - não mais necessário
 
 
 @router.post("/admin/liberar-edicao")
@@ -971,9 +484,9 @@ def admin_liberar_edicao(
     request: Request,
     project_token: str = Form(...),
 ):
-    role = (request.cookies.get("nps_role") or "").strip().lower()
-    if role != "admin":
+    if not _is_admin_activation_granted(request):
         raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
+
 
     token = (project_token or "").strip().upper()
     if not token:
@@ -1001,17 +514,12 @@ def admin_liberar_edicao(
     if not isinstance(nps_dados, dict):
         nps_dados = {}
 
-    edit_locked = bool(
-        nps_dados.get("_edicao_bloqueada")
-        or nps_dados.get("_lock_termo")
-        or nps_dados.get("_lock_ressalvas")
-        or nps_dados.get("_lock_nps")
-    )
+    # Logica simplificada: se Termo ou Ressalvas estao travados, consideramos bloqueado (estado de envio pro cliente)
+    edit_locked = bool(nps_dados.get("_lock_termo") or nps_dados.get("_lock_ressalvas"))
     now_iso = datetime.utcnow().isoformat()
     actor = (request.cookies.get("nps_user") or "").strip()
 
     if edit_locked:
-        nps_dados["_edicao_bloqueada"] = False
         nps_dados["_lock_termo"] = False
         nps_dados["_lock_ressalvas"] = False
         nps_dados["_lock_nps"] = False
@@ -1019,10 +527,10 @@ def admin_liberar_edicao(
         nps_dados["_edicao_liberada_por"] = actor
         edicao_permitida = True
     else:
-        nps_dados["_edicao_bloqueada"] = True
+        # Bloqueia Termo/Ressalvas (para admin nao mexer sem querer) e Libera NPS (para cliente preencher)
         nps_dados["_lock_termo"] = True
         nps_dados["_lock_ressalvas"] = True
-        nps_dados["_lock_nps"] = True
+        nps_dados["_lock_nps"] = False
         nps_dados["_edicao_fechada_em"] = now_iso
         nps_dados["_edicao_fechada_por"] = actor
         edicao_permitida = False
@@ -1038,13 +546,6 @@ def admin_liberar_edicao(
         raise HTTPException(status_code=500, detail=upd.error.message)
 
     return JSONResponse({"success": True, "project_token": token, "edicao_permitida": edicao_permitida})
-
-@router.get("/user", response_class=HTMLResponse)
-def user(request: Request):
-    return templates.TemplateResponse(
-        "User.html",
-        {"request": request, "project_token": _extract_project_token(request)}
-    )
 
 @router.get("/nps-motor", response_class=HTMLResponse)
 def nps_motor(request: Request):
@@ -1138,7 +639,7 @@ def chrome_devtools():
 @router.get("/logout")
 def logout():
     response = RedirectResponse(
-        url="/login",
+        url="/admin-password",
         status_code=status.HTTP_303_SEE_OTHER
     )
     # Remove o cookie de autenticação para encerrar a sessão
@@ -1147,48 +648,4 @@ def logout():
     response.delete_cookie("project_token")
     response.delete_cookie("nps_tipo_acesso")
     response.delete_cookie("admin_activation_ok")
-    return response
-
-
-@router.post("/admin-login")
-def admin_login_submit(
-    request: Request,
-    email: str = Form(...),
-    password: str = Form(...),
-):
-    if not _is_admin_activation_granted(request):
-        return _render_token_required(request, status_code=401)
-
-    email = email.strip().lower()
-    auth_response = _authenticate_user(email, password)
-
-    if not auth_response or not getattr(auth_response, "session", None):
-        erro = quote_plus("Email ou senha invalidos.")
-        return RedirectResponse(
-            url="/admin-login?erro=" + erro,
-            status_code=status.HTTP_303_SEE_OTHER
-        )
-
-    user_id = _extract_user_id(auth_response)
-    role = _resolve_user_role(user_id, email)
-    if role != "admin":
-        erro = quote_plus("Acesso restrito ao administrador.")
-        return RedirectResponse(
-            url="/admin-login?erro=" + erro,
-            status_code=status.HTTP_303_SEE_OTHER
-        )
-
-    response = RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
-    response.set_cookie(
-        key="nps_user",
-        value=email,
-        max_age=60 * 60 * 24 * 30,
-        samesite="lax"
-    )
-    response.set_cookie(
-        key="nps_role",
-        value="admin",
-        max_age=60 * 60 * 24 * 30,
-        samesite="lax"
-    )
     return response
