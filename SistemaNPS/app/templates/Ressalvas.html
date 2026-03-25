@@ -977,7 +977,7 @@ const processoParam = urlParams.get("processo");
 const projectTokenParam = urlParams.get("project_token") || "{{ project_token or '' }}";
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
-let isAdmin = returnTo === "/admin";
+let isAdmin = returnTo === "/admin" && "{{ is_admin }}" === "True";
 let adminTokenFinalizado = false;
 let userEditLocked = false;
 const userFlowCookie = (getCookieValue("nps_tipo_acesso") || "").toLowerCase();
@@ -1384,11 +1384,12 @@ function habilitarModoRessalvasJaSalvasUsuario() {
 async function carregarEdicaoRessalvas(codigoProcesso) {
     if (!codigoProcesso) return;
     try {
-        const res = await fetch(`/api/processos/${codigoProcesso}`);
+        const res = await fetch(`/ressalvas/dados/${codigoProcesso}?t=${new Date().getTime()}`);
         if (!res.ok) return;
-        const data = await res.json();
+        const json = await res.json();
+        const data = json.dados || json; // Garante acesso aos dados corretos
         adminTokenFinalizado = isAdmin && processoTokenFinalizado(data);
-        userEditLocked = !isAdmin && processoEdicaoBloqueada(data);
+        userEditLocked = processoEdicaoBloqueada(data);
         const statusEntrega = String(data?.status_entrega || "").toLowerCase();
         const lockFlow = String(
             data?.nps_dados?._lock_termo_por ||
@@ -1408,7 +1409,8 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
             exibirBreadcrumbNps();
         }
 
-        const dados = data.ressalvas_dados;
+        // Se o router retornar flat, usamos data. Se retornar aninhado (padrão Termo), usamos ressalvas_dados
+        const dados = data.ressalvas_dados || data;
 
         if (isAdmin && (dados?.responsavel || dados?.cpf)) {
             const rep = document.querySelector('section.approval input[placeholder="REPRESENTANTE"]');
@@ -1646,5 +1648,3 @@ inicializarPagina();
 
 </body>
 </html>
-
-
