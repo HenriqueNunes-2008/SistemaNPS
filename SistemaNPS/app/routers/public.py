@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.services.supabase_client import supabase
 # Adicionamos o servico de upload (assumindo que existe em app.services.upload)
 from app.services.upload import upload_pdf 
+from app.services.processo_resolver import obter_processo_por_identificador
 from supabase import create_client
 import os
 
@@ -613,6 +614,17 @@ def admin_toggle_edit_lock(
         raise HTTPException(status_code=500, detail=upd.error.message)
 
     return JSONResponse({"success": True, "project_token": token, "is_editable_by_admin": is_editable_by_admin})
+
+@router.get("/api/processos/{identificador}")
+def api_obter_processo(identificador: str):
+    try:
+        proc = obter_processo_por_identificador(
+            identificador,
+            "id,codigo,project_token,nome_cliente,cpf,status,status_entrega,nps_nota,nps_dados,project_token_ativo,project_token_expira_em"
+        )
+        return proc
+    except Exception:
+        raise HTTPException(status_code=404, detail="Processo não encontrado")
 
 @router.get("/nps-motor", response_class=HTMLResponse)
 def nps_motor(request: Request):
