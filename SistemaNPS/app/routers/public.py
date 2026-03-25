@@ -12,6 +12,8 @@ from fastapi import APIRouter, Request, HTTPException, Response, Form, status
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.services.supabase_client import supabase
+# Adicionamos o servico de upload (assumindo que existe em app.services.upload)
+from app.services.upload import upload_pdf 
 from supabase import create_client
 import os
 
@@ -189,7 +191,10 @@ def _is_admin_activation_granted(request: Request) -> bool:
 
 
 def _is_admin_mode_request(request: Request) -> bool:
-    return request.query_params.get("admin") == "1" and _is_admin_activation_granted(request)
+    is_granted = _is_admin_activation_granted(request)
+    # Considera modo admin apenas se tiver o cookie E (parâmetro admin=1 OU vindo do painel /admin)
+    has_admin_param = request.query_params.get("admin") == "1" or request.query_params.get("return") == "/admin"
+    return is_granted and has_admin_param
 
 
 # REMOVIDO: /login alias - não mais necessário
@@ -241,7 +246,7 @@ def termo(request: Request):
         {
             "request": request, 
             "project_token": _extract_project_token(request),
-            "is_admin": _is_admin_activation_granted(request)
+            "is_admin": _is_admin_mode_request(request)
         }
     )
 
@@ -253,7 +258,7 @@ def ressalvas(request: Request):
         {
             "request": request, 
             "project_token": _extract_project_token(request),
-            "is_admin": _is_admin_activation_granted(request)
+            "is_admin": _is_admin_mode_request(request)
         }
     )
 
@@ -263,7 +268,7 @@ def nps(request: Request):
     return templates.TemplateResponse(
         "NPS2System.html",
         {"request": request, "project_token": _extract_project_token(request),
-         "is_admin": _is_admin_activation_granted(request)}
+         "is_admin": _is_admin_mode_request(request)}
     )
 
 
@@ -279,7 +284,7 @@ def admin(request: Request):
             supabase
             .table("processos")
             .select(
-                "codigo,project_token,project_token_ativo,project_token_expira_em,"
+                "codigo,project_token,projeto,project_token_ativo,project_token_expira_em,"
                 "nome_cliente,empresa,cpf,status,status_entrega,"
                 "criado_em,atualizado_em,termo_pdf,pdf_ressalvas,pdf_final,nps_nota,nps_dados"
             )
@@ -323,7 +328,7 @@ def admin(request: Request):
         p["nps_dados"] = nps_dados
         # Garante que o link de acesso seja sempre para o index com o token
         p["link_acesso"] = f"{str(request.base_url).rstrip('/')}/index?project_token={p.get('project_token')}"
-        p["edicao_permitida"] = not bool(
+        p["is_editable_by_admin"] = not bool(
             nps_dados.get("_edicao_bloqueada")
             or nps_dados.get("_lock_termo")
             or nps_dados.get("_lock_ressalvas")
@@ -349,6 +354,7 @@ def admin(request: Request):
             p for p in processos
             if q in (p.get("codigo") or "").lower()
             or q in (p.get("project_token") or "").lower()
+            or q in (p.get("projeto") or "").lower()
             or q in (p.get("nome_cliente") or "").lower()
             or q in (p.get("empresa") or "").lower()
         ]
@@ -377,7 +383,7 @@ def admin(request: Request):
         "count_positivas": len(positivas)
     }
 
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         "admin.html",
         {
             "request": request,
@@ -387,6 +393,12 @@ def admin(request: Request):
             "base_url": str(request.base_url).rstrip("/")
         }
     )
+    # FORÇA O NAVEGADOR A NÃO FAZER CACHE DA PÁGINA ADMIN
+    # Isso resolve o problema de reabrir a pagina e ver dados antigos (token ativo quando ja foi expirado)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @router.post("/admin/gerar-processo")
@@ -431,6 +443,61 @@ def admin_gerar_processo(request: Request):
     return JSONResponse({"success": True, "project_token": token, "link": link})
 
 
+@router.post("/admin/update-project")
+def admin_update_project(request: Request, project_token: str = Form(...), projeto: str = Form("")):
+    if not _is_admin_activation_granted(request):
+        raise HTTPException(status_code=403, detail="Acesso restrito")
+
+    token = (project_token or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Token invalido")
+
+    res = (
+        supabase
+        .table("processos")
+        .update({"projeto": projeto})
+        .eq("project_token", token)
+        .execute()
+    )
+    if hasattr(res, "error") and res.error:
+        raise HTTPException(status_code=500, detail=res.error.message)
+    
+    return JSONResponse({"success": True})
+
+@router.post("/admin/upload-foto-projeto")
+def admin_upload_foto_projeto(
+    request: Request, 
+    projeto: str = Form(...), 
+    observacao: str = Form(""),
+    imagem: str = Form(...) # Base64 string
+):
+    if not _is_admin_activation_granted(request):
+        raise HTTPException(status_code=403, detail="Acesso restrito")
+
+    if not projeto or not imagem:
+        raise HTTPException(status_code=400, detail="Projeto e Imagem são obrigatórios")
+
+    # 1. Upload para o Storage (reutilizando a logica de upload existente)
+    # Define uma pasta baseada no nome do projeto (limpeza basica)
+    folder_name = "".join(x for x in projeto if x.isalnum() or x in " -_").strip()
+    path = f"projetos_avulsos/{folder_name}"
+    
+    public_url = upload_pdf(imagem, path) # Retorna a URL publica
+
+    if not public_url:
+        raise HTTPException(status_code=500, detail="Erro ao fazer upload da imagem")
+
+    # 2. Salvar no banco
+    res = supabase.table("projetos_fotos").insert({
+        "projeto": projeto,
+        "observacao": observacao,
+        "imagem_url": public_url
+    }).execute()
+
+    if hasattr(res, "error") and res.error:
+        raise HTTPException(status_code=500, detail=res.error.message)
+    
+    return JSONResponse({"success": True})
 
 @router.post("/admin/expirar-token")
 def admin_expirar_token(
@@ -479,8 +546,8 @@ def admin_expirar_token(
 # REMOVIDO: alterar senha admin - não mais necessário
 
 
-@router.post("/admin/liberar-edicao")
-def admin_liberar_edicao(
+@router.post("/admin/toggle-lock")
+def admin_toggle_edit_lock(
     request: Request,
     project_token: str = Form(...),
 ):
@@ -515,17 +582,17 @@ def admin_liberar_edicao(
         nps_dados = {}
 
     # Logica simplificada: se Termo ou Ressalvas estao travados, consideramos bloqueado (estado de envio pro cliente)
-    edit_locked = bool(nps_dados.get("_lock_termo") or nps_dados.get("_lock_ressalvas"))
+    is_locked_for_client = bool(nps_dados.get("_lock_termo") or nps_dados.get("_lock_ressalvas"))
     now_iso = datetime.utcnow().isoformat()
     actor = "Administrador"
 
-    if edit_locked:
+    if is_locked_for_client:
         nps_dados["_lock_termo"] = False
         nps_dados["_lock_ressalvas"] = False
         nps_dados["_lock_nps"] = False
         nps_dados["_edicao_liberada_em"] = now_iso
         nps_dados["_edicao_liberada_por"] = actor
-        edicao_permitida = True
+        is_editable_by_admin = True
     else:
         # Bloqueia Termo/Ressalvas (para admin nao mexer sem querer) e Libera NPS (para cliente preencher)
         nps_dados["_lock_termo"] = True
@@ -533,7 +600,7 @@ def admin_liberar_edicao(
         nps_dados["_lock_nps"] = False
         nps_dados["_edicao_fechada_em"] = now_iso
         nps_dados["_edicao_fechada_por"] = actor
-        edicao_permitida = False
+        is_editable_by_admin = False
 
     upd = (
         supabase
@@ -545,7 +612,7 @@ def admin_liberar_edicao(
     if hasattr(upd, "error") and upd.error:
         raise HTTPException(status_code=500, detail=upd.error.message)
 
-    return JSONResponse({"success": True, "project_token": token, "edicao_permitida": edicao_permitida})
+    return JSONResponse({"success": True, "project_token": token, "is_editable_by_admin": is_editable_by_admin})
 
 @router.get("/nps-motor", response_class=HTMLResponse)
 def nps_motor(request: Request):
