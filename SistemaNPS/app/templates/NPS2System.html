@@ -914,7 +914,7 @@ function processoEdicaoBloqueada(data) {
 async function carregarEdicaoNps(codigoProcesso) {
     if (!codigoProcesso) return;
     try {
-        const res = await fetch(`/api/processos/${codigoProcesso}`);
+        const res = await fetch(`/api/processos/${codigoProcesso}?t=${new Date().getTime()}`);
         if (!res.ok) return;
         const data = await res.json();
         userEditLocked = !isAdmin && processoEdicaoBloqueada(data);
@@ -1099,5 +1099,3 @@ function confirmLogout() {
 
 </body>
 </html>
-
-
