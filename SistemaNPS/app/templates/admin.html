@@ -11,6 +11,62 @@
     <style>
         * { box-sizing: border-box; }
 
+        /* ================= ACTION SHEET & MODAL (FOTOS PROJETO) ================= */
+        .sheet {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1100;
+        }
+        .sheet.active { display: flex; }
+        .sheet-box {
+            background: #fff;
+            border-radius: 18px;
+            padding: 20px;
+            width: 280px;
+            text-align: center;
+        }
+        .sheet-box button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .btn-select { background:#4b49c8; color:#fff; }
+        .btn-camera { background:#0a287a; color:#fff; }
+        .btn-cancel { background:#e5e7eb; }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.75);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal.active { display: flex; }
+        .modal img { max-width: 85vw; max-height: 85vh; border-radius: 12px; }
+        .close-modal {
+            position: absolute;
+            top: 24px;
+            right: 32px;
+            font-size: 38px;
+            color: #fff;
+            cursor: pointer;
+        }
+        #cameraModal video {
+            width: min(92vw, 720px);
+            border-radius: 12px;
+            background: #000;
+        }
+
         body {
             margin: 0;
             font-family: 'Inter', Arial, sans-serif;
@@ -412,6 +468,38 @@
             }
         }
 
+        /* Estilos para as linhas de fotos */
+        .foto-table-header, .foto-table-row {
+            display: grid;
+            grid-template-columns: 1fr 140px 1.5fr 40px;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .foto-table-header {
+            font-weight: 800;
+            color: #1e3a8a;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+        .foto-table-row input {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-size: 13px;
+        }
+        .image-box-foto {
+            background: #e2e8f0;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
         /* Modal de Logout */
         .modal-logout {
             position: fixed;
@@ -590,25 +678,23 @@
     <h1 class="title">Dashboard de NPS</h1>
     <p class="subtitle">Edite Termo, Ressalvas e NPS por projeto (project token).</p>
 
-    <!-- NOVA DIV DE FOTOS -->
     <div class="card">
-        <div style="margin-bottom: 16px;">
-            <h3 style="margin: 0; color: #1e3a8a; font-size: 18px;">Fotos de Projeto</h3>
-            <p style="margin: 4px 0 0; font-size: 13px; color: #475569;">Adicione fotos vinculadas a um projeto específico.</p>
-        </div>
-        <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
-            <div style="flex: 1; min-width: 200px;">
-                <label style="display: block; font-size: 13px; font-weight: 700; color: #1e3a8a; margin-bottom: 6px;">Projeto</label>
-                <input type="text" id="fotoProjetoNome" placeholder="Nome do projeto" style="width: 100%; border: 1px solid #cbd5e1;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+                <h3 style="margin: 0; color: #1e3a8a; font-size: 18px;">Fotos de Projeto</h3>
+                <p style="margin: 4px 0 0; font-size: 13px; color: #475569;">Vincule até 15 fotos a projetos específicos.</p>
             </div>
-            <div style="flex: 2; min-width: 200px;">
-                <label style="display: block; font-size: 13px; font-weight: 700; color: #1e3a8a; margin-bottom: 6px;">Observação</label>
-                <input type="text" id="fotoObservacao" placeholder="Observações sobre as fotos" style="width: 100%; border: 1px solid #cbd5e1;">
-            </div>
+            <button class="btn" type="button" onclick="addRowFoto()">Adicionar Foto +</button>
         </div>
-        <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
-            <input type="file" id="fotosInput" multiple accept="image/*" style="border: 1px solid #cbd5e1; background: #fff; max-width: 300px;">
-            <button class="btn secondary" type="button" onclick="salvarFotosProjeto()">Salvar Fotos</button>
+        <div class="foto-table-header">
+            <div>Projeto</div>
+            <div>Foto</div>
+            <div>Observação</div>
+            <div></div>
+        </div>
+        <div id="fotoTableBody"></div>
+        <div style="margin-top: 16px; text-align: right;">
+            <button class="btn secondary" type="button" onclick="salvarTodasFotosProjeto()">Salvar Todas as Fotos</button>
         </div>
     </div>
 
@@ -736,6 +822,29 @@
         </div>
     </div>
 </main>
+
+<!-- MODAL CAMERA (FOTOS PROJETO) -->
+<div class="modal" id="cameraModal">
+    <span class="close-modal" onclick="closeCamera()">&times;</span>
+    <video id="video" autoplay playsinline></video>
+    <button class="btn" id="captureBtn" onclick="takePhoto()" style="margin-top: 15px; width: 200px; height: 50px; font-size: 16px;">Capturar Foto</button>
+</div>
+
+<!-- MODAL PREVIEW IMAGEM -->
+<div class="modal" id="imageModal" onclick="closeModal()">
+    <span class="close-modal">&times;</span>
+    <img id="modalImg">
+</div>
+
+<!-- ACTION SHEET (FOTOS PROJETO) -->
+<div class="sheet" id="actionSheet">
+    <div class="sheet-box">
+        <h4 style="margin: 0 0 15px; color: #1e3a8a;">Escolha a origem</h4>
+        <button class="btn-select" onclick="selectFile()">Galeria de Imagens</button>
+        <button class="btn-camera" onclick="openCamera()">Tirar Foto (Câmera)</button>
+        <button class="btn-cancel" onclick="closeSheet()">Cancelar</button>
+    </div>
+</div>
 
 <!-- MODAL LOGOUT -->
 <div id="logoutModal" class="modal-logout" style="display: none;">
@@ -1045,54 +1154,130 @@
 
     document.querySelectorAll('.reveal-btn[data-reveal-target]').forEach(bindPressToRevealPassword);
 
-    async function salvarFotosProjeto() {
-        const projetoInput = document.getElementById('fotoProjetoNome');
-        const obsInput = document.getElementById('fotoObservacao');
-        const fileInput = document.getElementById('fotosInput');
-        const btn = document.querySelector('button[onclick="salvarFotosProjeto()"]');
+    /* ================= LOGICA DE FOTOS POR ITEM (ESTILO RESSALVAS) ================= */
+    let currentBox = null;
+    let cameraStream = null;
 
-        const projeto = projetoInput.value.trim();
-        if (!projeto) return alert("Digite o nome do projeto.");
-        if (fileInput.files.length === 0) return alert("Selecione pelo menos uma foto.");
+    function addRowFoto() {
+        const body = document.getElementById('fotoTableBody');
+        if (body.children.length >= 15) return alert("Limite de 15 fotos atingido.");
+
+        const row = document.createElement('div');
+        row.className = 'foto-table-row';
+        row.innerHTML = `
+            <input type="text" placeholder="Nome do projeto" class="row-projeto">
+            <div class="image-box-foto" onclick="imageClick(this)">+ FOTO</div>
+            <input type="text" placeholder="Observação" class="row-obs">
+            <button class="remove-btn" onclick="this.parentElement.remove()" style="background:none; border:none; color:#dc2626; cursor:pointer; font-weight:800; font-size:18px;">&times;</button>
+        `;
+        body.appendChild(row);
+    }
+
+    function imageClick(box) {
+        currentBox = box;
+        if (!box.dataset.image) {
+            document.getElementById('actionSheet').classList.add('active');
+        } else {
+            document.getElementById('modalImg').src = box.dataset.image;
+            document.getElementById('imageModal').classList.add('active');
+        }
+    }
+
+    function closeSheet() { document.getElementById('actionSheet').classList.remove('active'); }
+    function closeModal() { document.getElementById('imageModal').classList.remove('active'); }
+
+    function selectFile() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = () => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                currentBox.dataset.image = e.target.result;
+                currentBox.textContent = 'VER FOTO';
+                currentBox.style.background = '#dcfce7';
+            };
+            reader.readAsDataURL(input.files[0]);
+        };
+        input.click();
+        closeSheet();
+    }
+
+    function openCamera() {
+        closeSheet();
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+            .then(stream => {
+                cameraStream = stream;
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                document.getElementById('cameraModal').classList.add('active');
+            }).catch(() => alert("Câmera não disponível"));
+    }
+
+    function takePhoto() {
+        const video = document.getElementById('video');
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        currentBox.dataset.image = canvas.toDataURL('image/jpeg');
+        currentBox.textContent = 'VER FOTO';
+        currentBox.style.background = '#dcfce7';
+        closeCamera();
+    }
+
+    function closeCamera() {
+        if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
+        document.getElementById('cameraModal').classList.remove('active');
+    }
+
+    async function salvarTodasFotosProjeto() {
+        const rows = document.querySelectorAll('.foto-table-row');
+        const btn = document.querySelector('button[onclick="salvarTodasFotosProjeto()"]');
+        
+        let enviadas = 0;
+        const total = Array.from(rows).filter(r => r.querySelector('.row-projeto').value && r.querySelector('.image-box-foto').dataset.image).length;
+
+        if (total === 0) return alert("Preencha pelo menos uma linha com Projeto e Foto.");
 
         const originalText = btn.textContent;
         btn.disabled = true;
-        btn.textContent = "Enviando...";
+        btn.textContent = "Salvando...";
 
         try {
-            // Envia uma foto por vez para simplificar
-            for (let i = 0; i < fileInput.files.length; i++) {
-                const file = fileInput.files[i];
-                const base64 = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
+            for (const row of rows) {
+                const projeto = row.querySelector('.row-projeto').value.trim();
+                const obs = row.querySelector('.row-obs').value.trim();
+                const imagem = row.querySelector('.image-box-foto').dataset.image;
+
+                if (!projeto || !imagem) continue;
 
                 const body = new URLSearchParams();
                 body.set('projeto', projeto);
-                body.set('observacao', obsInput.value);
-                body.set('imagem', base64);
+                body.set('observacao', obs);
+                body.set('imagem', imagem);
 
                 const res = await fetch('/admin/upload-foto-projeto', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: body.toString()
                 });
-                if (!res.ok) throw new Error("Erro ao enviar imagem " + (i+1));
+
+                if (res.ok) enviadas++;
             }
 
-            alert("Fotos salvas com sucesso!");
-            fileInput.value = ""; // Limpa seleção
-            obsInput.value = "";
+            alert(`${enviadas} fotos salvas com sucesso!`);
+            document.getElementById('fotoTableBody').innerHTML = ''; // Limpa a lista
         } catch (err) {
-            alert(err.message);
+            alert("Ocorreu um erro ao salvar algumas fotos.");
         } finally {
             btn.disabled = false;
             btn.textContent = originalText;
         }
     }
+
+    // Inicia com uma linha vazia
+    document.addEventListener('DOMContentLoaded', () => { addRowFoto(); });
 
     async function salvarNomeProjeto(input, token) {
         const valor = input.value;
