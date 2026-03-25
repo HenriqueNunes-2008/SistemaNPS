@@ -654,6 +654,7 @@ def obter_dados_termo(identificador: str, response: Response):
             "cpf": proc.get("cpf"),
             "status_entrega": proc.get("status_entrega"),
             "termo_dados": termo_dados,
+            "nps_dados": nps_dados,
             "imagens": proc.get("imagens_termo") or [],
             "bloqueado": bool(nps_dados.get("_lock_termo"))
         }
