@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 from typing import List, Optional
 import base64
@@ -8,6 +8,7 @@ import re
 import random
 import string
 import uuid
+import httpx
 from datetime import datetime
 from io import BytesIO
 import json
@@ -246,11 +247,18 @@ def _draw_termo_content(c, width: float, height: float, data) -> None:
             c.drawString(cx, cy_top, label)
             c.rect(cx, img_y, cell_w, cell_h - 12, stroke=1, fill=0)
 
-            b64 = img_data.get("imagem_base64")
-            if b64 and "," in b64:
+            img_src = img_data.get("imagem_base64")
+            if img_src:
                 try:
-                    _, raw = b64.split(",", 1)
-                    img_bytes = base64.b64decode(raw)
+                    if img_src.startswith("data:"):
+                        _, raw = img_src.split(",", 1)
+                        img_bytes = base64.b64decode(raw)
+                    else:
+                        # Caso seja uma URL de storage ja salva
+                        resp = httpx.get(img_src, timeout=10)
+                        resp.raise_for_status()
+                        img_bytes = resp.content
+                    
                     c.drawImage(
                         ImageReader(BytesIO(img_bytes)),
                         cx + 3,
@@ -268,14 +276,6 @@ def _draw_termo_content(c, width: float, height: float, data) -> None:
                 c.drawString(cx + 6, img_y + (cell_h / 2) - 6, "Imagem nao informada")
 
 router = APIRouter(prefix="/termo", tags=["Termo"])
-
-
-def _is_admin_request(request: Request) -> bool:
-    role_cookie = (request.cookies.get("nps_role") or "").strip().lower()
-    if role_cookie == "admin":
-        return True
-    referer = (request.headers.get("referer") or "").lower()
-    return ("return=/admin" in referer) or ("return=%2fadmin" in referer)
 
 
 def _processo_token_finalizado(proc: dict | None) -> bool:
@@ -320,6 +320,7 @@ class ImagemTermo(BaseModel):
 
 
 class TermoRequest(BaseModel):
+    processo_id: Optional[str] = None
     cpf: str
     nome_cliente: str
     empresa: str | None = None
@@ -327,6 +328,9 @@ class TermoRequest(BaseModel):
     imagem: str  # base64 (data:image/...)
     imagens: List[ImagemTermo] | list = []
     termo_dados: dict | None = None
+    campos: dict | None = None
+    assinaturas: dict | None = None
+    data: dict | None = None
 
 
 class TermoUpdateRequest(BaseModel):
@@ -338,6 +342,9 @@ class TermoUpdateRequest(BaseModel):
     imagem: str
     imagens: List[ImagemTermo] | list = []
     termo_dados: dict | None = None
+    campos: dict | None = None
+    assinaturas: dict | None = None
+    data: dict | None = None
 
 
 # ============================================================
@@ -347,6 +354,15 @@ class TermoUpdateRequest(BaseModel):
 @router.post("/salvar")
 def salvar_termo(data: TermoRequest):
     try:
+        existing_proc = None
+        if data.processo_id:
+            try:
+                existing_proc = obter_processo_por_identificador(
+                    data.processo_id, "id,codigo,project_token"
+                )
+            except Exception:
+                pass
+
         # ====================================================
         # 1. VALIDAÇÕES
         # ====================================================
@@ -366,14 +382,27 @@ def salvar_termo(data: TermoRequest):
         # ====================================================
         # 2. GERA CÓDIGO HUMANO + UUID REAL
         # ====================================================
-        primeiro_nome = re.sub(r"[^A-Z]", "", data.nome_cliente.split()[0].upper())
+        primeiro_nome_raw = data.nome_cliente.split()[0].upper()
+        primeiro_nome = re.sub(r"[^A-Z]", "", primeiro_nome_raw)
         ultimos_cpf = cpf_limpo[-3:]
         data_hoje = datetime.now().strftime("%Y-%m-%d")
         sufixo = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        
+        # Se ja existe, mantem IDs e Token
+        processo_uuid = existing_proc["id"] if existing_proc else str(uuid.uuid4())
+        project_token = existing_proc["project_token"] if existing_proc else _gerar_project_token()
+        codigo_processo = existing_proc.get("codigo") if existing_proc else f"{primeiro_nome}_{ultimos_cpf}_{data_hoje}_{sufixo}"
 
-        codigo_processo = f"{primeiro_nome}_{ultimos_cpf}_{data_hoje}_{sufixo}"
-        processo_uuid = str(uuid.uuid4())  # ✅ UUID REAL (IMPORTANTE)
-        project_token = _gerar_project_token()
+        # Reconstruir termo_dados se os campos vierem na raiz (flattened)
+        if not data.termo_dados:
+            data.termo_dados = {}
+        
+        if data.campos and not data.termo_dados.get("campos"):
+            data.termo_dados["campos"] = data.campos
+        if data.assinaturas and not data.termo_dados.get("assinaturas"):
+            data.termo_dados["assinaturas"] = data.assinaturas
+        if data.data and not data.termo_dados.get("data"):
+            data.termo_dados["data"] = data.data
 
         termo_dados_normalizado = _normalizar_termo_dados(data.termo_dados, data.imagens)
         data.termo_dados = termo_dados_normalizado
@@ -432,7 +461,7 @@ def salvar_termo(data: TermoRequest):
         # ====================================================
         # 7. INSERE PROCESSO NO BANCO
         # ====================================================
-        res = supabase.table("processos").insert({
+        payload = {
             "id": processo_uuid,
             "codigo": codigo_processo,
             "project_token": project_token,
@@ -445,7 +474,12 @@ def salvar_termo(data: TermoRequest):
             "imagens_termo": imagens_lista,
             "termo_dados": termo_dados_normalizado,
             "criado_em": datetime.utcnow().isoformat()
-        }).execute()
+        }
+
+        if existing_proc:
+            res = supabase.table("processos").update(payload).eq("id", processo_uuid).execute()
+        else:
+            res = supabase.table("processos").insert(payload).execute()
 
         if hasattr(res, "error") and res.error:
             raise HTTPException(
@@ -476,6 +510,12 @@ def salvar_termo(data: TermoRequest):
 @router.post("/atualizar")
 def atualizar_termo(data: TermoUpdateRequest, request: Request):
     try:
+        proc = obter_processo_por_identificador(
+            data.processo_codigo,
+            "id,codigo,project_token,imagens_termo,status_entrega,termo_dados,"
+            "project_token_ativo,project_token_expira_em,nps_dados",
+        )
+
         cpf_limpo = re.sub(r"\D", "", data.cpf)
         if not re.fullmatch(r"\d{11}", cpf_limpo):
             raise HTTPException(status_code=400, detail="CPF invalido")
@@ -485,32 +525,16 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
 
         if "," not in data.imagem:
             raise HTTPException(status_code=400, detail="Imagem Base64 invalida")
-
-        proc = obter_processo_por_identificador(
-            data.processo_codigo,
-            "id,codigo,project_token,imagens_termo,status_entrega,termo_dados,"
-            "project_token_ativo,project_token_expira_em,nps_dados",
-        )
         processo_uuid = proc["id"]
         processo_codigo = proc.get("codigo")
         if not processo_codigo:
-            primeiro_nome = re.sub(r"[^A-Z]", "", data.nome_cliente.split()[0].upper())
+            primeiro_nome_raw = data.nome_cliente.split()[0].upper()
+            primeiro_nome = re.sub(r"[^A-Z]", "", primeiro_nome_raw)
             ultimos_cpf = cpf_limpo[-3:]
             data_hoje = datetime.now().strftime("%Y-%m-%d")
             sufixo = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
             processo_codigo = f"{primeiro_nome}_{ultimos_cpf}_{data_hoje}_{sufixo}"
         project_token = proc.get("project_token")
-        is_admin = _is_admin_request(request)
-        if is_admin and _processo_token_finalizado(proc):
-            raise HTTPException(
-                status_code=403,
-                detail="Token expirado: processo apenas para visualizacao do admin",
-            )
-        if not is_admin and _is_user_edit_locked(proc):
-            raise HTTPException(
-                status_code=403,
-                detail="Edicao bloqueada para este processo. Solicite liberacao ao admin",
-            )
 
         imagens_existentes = proc.get("imagens_termo")
         if isinstance(imagens_existentes, str):
@@ -527,26 +551,6 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
                 termo_dados_existente = {}
         if not isinstance(termo_dados_existente, dict):
             termo_dados_existente = {}
-        if not is_admin:
-            termo_informado = data.termo_dados if isinstance(data.termo_dados, dict) else {}
-            assinaturas_informadas = termo_informado.get("assinaturas")
-            if not isinstance(assinaturas_informadas, dict):
-                assinaturas_informadas = {}
-            assinaturas_existentes = termo_dados_existente.get("assinaturas")
-            if not isinstance(assinaturas_existentes, dict):
-                assinaturas_existentes = {}
-            termo_informado["assinaturas"] = {
-                "comprador": assinaturas_informadas.get("comprador") or {},
-                "representante": assinaturas_existentes.get("representante") or {},
-            }
-            termo_informado["aprovacao"] = termo_dados_existente.get("aprovacao") or {}
-            data.termo_dados = termo_informado
-
-            # Apos a primeira definicao pelo usuário, o status da entrega não pode mais ser alterado por ele.
-            # O admin ainda pode alterar.
-            existing_status = proc.get("status_entrega")
-            if existing_status and existing_status != "pendente_admin":
-                data.status_entrega = existing_status
 
         if data.status_entrega not in ("concluido", "concluido_com_ressalva"):
             raise HTTPException(status_code=400, detail="Status de entrega invalido")
@@ -556,6 +560,17 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
             _ = base64.b64decode(img_b64)
         except Exception:
             raise HTTPException(status_code=400, detail="Falha ao decodificar imagem")
+
+        # Reconstruir termo_dados se os campos vierem na raiz (flattened)
+        if not data.termo_dados:
+            data.termo_dados = {}
+        
+        if data.campos and not data.termo_dados.get("campos"):
+            data.termo_dados["campos"] = data.campos
+        if data.assinaturas and not data.termo_dados.get("assinaturas"):
+            data.termo_dados["assinaturas"] = data.assinaturas
+        if data.data and not data.termo_dados.get("data"):
+            data.termo_dados["data"] = data.data
 
         termo_dados_normalizado = _normalizar_termo_dados(data.termo_dados, data.imagens, imagens_existentes)
         data.termo_dados = termo_dados_normalizado
@@ -599,12 +614,6 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
             "atualizado_em": datetime.utcnow().isoformat()
         }
 
-        if not is_admin:
-            nps_dados = _parse_json_object(proc.get("nps_dados"))
-            nps_dados["_lock_termo"] = True
-            nps_dados["_lock_termo_em"] = datetime.utcnow().isoformat()
-            nps_dados["_lock_termo_por"] = _extract_user_flow(request)
-            payload_update["nps_dados"] = nps_dados
 
         supabase.table("processos").update(payload_update).eq("id", processo_uuid).execute()
 
@@ -622,29 +631,51 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
     
 @router.get("/dados/{identificador}")
-def obter_dados_termo(identificador: str):
+def obter_dados_termo(identificador: str, response: Response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     try:
         # Busca os dados básicos e o lock de edição
         proc = obter_processo_por_identificador(
             identificador, 
-            "id,codigo,nome_cliente,empresa,cpf,status_entrega,termo_dados,imagens_termo,nps_dados"
+            "id,codigo,project_token,nome_cliente,empresa,cpf,status_entrega,termo_dados,imagens_termo,nps_dados"
         )
         
         # Parse dos dados JSON para garantir que cheguem como objeto ao frontend
         termo_dados = _parse_json_object(proc.get("termo_dados"))
         nps_dados = _parse_json_object(proc.get("nps_dados"))
         
+        dados = {
+            "codigo": proc.get("codigo"),
+            "project_token": proc.get("project_token"),
+            "nome_cliente": proc.get("nome_cliente"),
+            "empresa": proc.get("empresa"),
+            "cpf": proc.get("cpf"),
+            "status_entrega": proc.get("status_entrega"),
+            "termo_dados": termo_dados,
+            "imagens": proc.get("imagens_termo") or [],
+            "bloqueado": bool(nps_dados.get("_lock_termo"))
+        }
+
+        # Expõe campos internos do termo_dados na raiz para facilitar o preenchimento no frontend
+        if isinstance(termo_dados, dict):
+            for k, v in termo_dados.items():
+                # Ignora chaves complexas que já tratamos ou não são campos diretos
+                if k not in dados and k not in ("campos", "itens"):
+                    dados[k] = v
+            
+            # DEEP FLATTENING: Extrai os campos dinâmicos (ex: inputs do formulário) para a raiz
+            # Isso garante que inputs com name="endereco" recebam o valor corretamente
+            campos_internos = termo_dados.get("campos")
+            if isinstance(campos_internos, dict):
+                for k, v in campos_internos.items():
+                    if k not in dados:
+                        dados[k] = v
+
         return {
             "success": True,
-            "dados": {
-                "nome_cliente": proc.get("nome_cliente"),
-                "empresa": proc.get("empresa"),
-                "cpf": proc.get("cpf"),
-                "status_entrega": proc.get("status_entrega"),
-                "termo_dados": termo_dados,
-                "imagens": proc.get("imagens_termo") or [],
-                "bloqueado": bool(nps_dados.get("_lock_termo"))
-            }
+            "dados": dados
         }
     except Exception as e:
         raise HTTPException(status_code=404, detail="Processo não encontrado")
