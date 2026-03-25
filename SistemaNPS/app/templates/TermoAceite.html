@@ -1205,7 +1205,7 @@ function getCookieValue(name) {
     return "";
 }
 
-const isAdmin = returnTo === "/admin";
+const isAdmin = returnTo === "/admin" && "{{ is_admin }}" === "True";
 const userFlow = (getCookieValue("nps_tipo_acesso") || "cliente").toLowerCase();
 
 function buildFlowUrl(path) {
@@ -1317,9 +1317,8 @@ function atualizarEstadoBotao() {
     );
 
     const statusSelecionado = document.querySelector(".status-card.active") !== null;
-    const fotosCompletas = todasFotosPreenchidas();
 
-    const tudoValido = nomeValido && cpfCompradorValido && cpfRepresentanteValido && dataValida && statusSelecionado && fotosCompletas;
+    const tudoValido = nomeValido && cpfCompradorValido && cpfRepresentanteValido && dataValida && statusSelecionado;
 
     cpfComprador.classList.toggle("cpf-valido", cpfCompradorValido);
     cpfComprador.classList.toggle("cpf-invalido", !cpfCompradorValido && cpfComprador.value !== "");
@@ -1404,7 +1403,7 @@ function coletarCamposTermo() {
 
 function desabilitarFormulario() {
     // Desabilita inputs, selects e textareas dentro da área principal
-    document.querySelectorAll("#capture-area input, #capture-area select, #capture-area textarea").forEach(el => {
+    document.querySelectorAll("#capture-area input, #capture-area select, #capture-area textarea, .status-card").forEach(el => {
         el.disabled = true;
     });
 
@@ -1414,6 +1413,13 @@ function desabilitarFormulario() {
         imageBox.style.pointerEvents = "none";
         imageBox.style.opacity = "0.7";
     }
+
+    // Desabilita cards de status e seleção de região
+    document.querySelectorAll(".status-card, #regiao-foto").forEach(el => {
+        el.style.pointerEvents = "none";
+        el.style.opacity = "0.7";
+        if(el.tagName === 'SELECT') el.disabled = true;
+    });
 
     // Desabilita botão de salvar e altera texto
     if (btnSalvar) {
@@ -1440,12 +1446,13 @@ function habilitarModoSomenteLeituraAdminTokenFinalizado() {
 async function carregarEdicao(codigoProcesso) {
     if (!codigoProcesso) return;
     try {
-        const res = await fetch(`/api/processos/${codigoProcesso}`);
+        const res = await fetch(`/termo/dados/${codigoProcesso}?t=${new Date().getTime()}`);
         if (!res.ok) return;
-        const data = await res.json();
+        const json = await res.json();
+        const data = json.dados || json; // Garante acesso aos dados corretos
         processoCarregado = data;
         adminTokenFinalizado = isAdmin && processoTokenFinalizado(data);
-        userEditLocked = !isAdmin && processoEdicaoBloqueada(data);
+        userEditLocked = processoEdicaoBloqueada(data);
 
         if (data.nome_cliente) nomeCliente.value = data.nome_cliente;
         if (data.cpf) cpfComprador.value = maskCPF(data.cpf);
@@ -1848,18 +1855,14 @@ window.renderFotoGrid = function() {
                 if (imgSrc) {
                     fotosPreenchidas += 1;
                 }
-                if (imgSrc && imgSrc.startsWith("data:")) {
+                if (imgSrc) {
                     imagens.push({
                         item: index + 1,
                         regiao_foto: regiao,
-                        imagem_base64: imgSrc
+                        imagem_base64: imgSrc // Pode ser Base64 ou URL
                     });
                 }
             });
-
-            if (fotosPreenchidas !== 6) {
-                throw new Error("Tire as 6 fotos antes de salvar o termo");
-            }
             /* === CAPTURA COM BACKGROUND DETERMINÍSTICO === */
             const area = document.getElementById("capture-area");
             area.classList.add("capture-mode");
@@ -2074,4 +2077,3 @@ async function carregarDadosIniciais() {
 </div>
 </body>
 </html>
-
