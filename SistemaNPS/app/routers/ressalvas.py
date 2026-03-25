@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, date
@@ -18,14 +18,6 @@ from app.services.pdf_layout import draw_header_footer, content_top, content_bot
 from app.services.final_pdf import regenerate_final_pdf_by_codigo
 
 router = APIRouter(prefix="/ressalvas", tags=["Ressalvas"])
-
-
-def _is_admin_request(request: Request) -> bool:
-    role_cookie = (request.cookies.get("nps_role") or "").strip().lower()
-    if role_cookie == "admin":
-        return True
-    referer = (request.headers.get("referer") or "").lower()
-    return ("return=/admin" in referer) or ("return=%2fadmin" in referer)
 
 
 def _processo_token_finalizado(proc: dict | None) -> bool:
@@ -256,30 +248,10 @@ def gerar_pdf_ressalvas(
 @router.post("/salvar", response_model=RessalvasResponse)
 def salvar_ressalvas(data: RessalvasRequest, request: Request):
     try:
-        is_admin = _is_admin_request(request)
-
-        # ----------------------------------------------------
-        # 1. BUSCA PROCESSO PELO CÓDIGO (RETORNA UUID REAL)
-        # ----------------------------------------------------
         proc = obter_processo_por_identificador(
             data.processo_id,
             "id,codigo,project_token,project_token_ativo,project_token_expira_em,nps_dados,ressalvas_dados",
         )
-        if _processo_token_finalizado(proc):
-            raise HTTPException(
-                status_code=403,
-                detail="Token expirado: processo apenas para visualizacao do admin",
-            )
-        if not is_admin and _is_user_edit_locked(proc):
-            raise HTTPException(
-                status_code=403,
-                detail="Edicao bloqueada para este processo. Solicite liberacao ao admin",
-            )
-        if not is_admin:
-            dados_existentes = _parse_json_object(proc.get("ressalvas_dados"))
-            data.responsavel = str(dados_existentes.get("responsavel") or "")
-            data.cpf = dados_existentes.get("cpf")
-            data.observacoes = dados_existentes.get("observacoes")
         processo_uuid = proc["id"]
         processo_codigo = proc.get("codigo") or data.processo_id
 
@@ -371,12 +343,6 @@ def salvar_ressalvas(data: RessalvasRequest, request: Request):
             "ressalvas_dados": ressalvas_dados,
             "atualizado_em": datetime.utcnow().isoformat()
         }
-        if not is_admin:
-            nps_dados = _parse_json_object(proc.get("nps_dados"))
-            nps_dados["_lock_ressalvas"] = True
-            nps_dados["_lock_ressalvas_em"] = datetime.utcnow().isoformat()
-            nps_dados["_lock_ressalvas_por"] = _extract_user_flow(request)
-            payload_update["nps_dados"] = nps_dados
         supabase.table("processos").update(payload_update).eq("id", processo_uuid).execute()
 
         regenerate_final_pdf_by_codigo(processo_codigo, set_status_finalizado=False)
@@ -390,21 +356,10 @@ def salvar_ressalvas(data: RessalvasRequest, request: Request):
 @router.post("/atualizar", response_model=RessalvasResponse)
 def atualizar_ressalvas(data: RessalvasUpdateRequest, request: Request):
     try:
-        is_admin = _is_admin_request(request)
         proc = obter_processo_por_identificador(
             data.processo_id,
             "id,codigo,project_token,ressalvas_dados,project_token_ativo,project_token_expira_em,nps_dados",
         )
-        if is_admin and _processo_token_finalizado(proc):
-            raise HTTPException(
-                status_code=403,
-                detail="Token expirado: processo apenas para visualizacao do admin",
-            )
-        if not is_admin and _is_user_edit_locked(proc):
-            raise HTTPException(
-                status_code=403,
-                detail="Edicao bloqueada para este processo. Solicite liberacao ao admin",
-            )
         processo_uuid = proc["id"]
         processo_codigo = proc.get("codigo") or data.processo_id
 
@@ -416,28 +371,7 @@ def atualizar_ressalvas(data: RessalvasUpdateRequest, request: Request):
                 dados_existentes = {}
         if not isinstance(dados_existentes, dict):
             dados_existentes = {}
-        if not is_admin:
-            data.responsavel = str(dados_existentes.get("responsavel") or "")
-            data.cpf = dados_existentes.get("cpf")
-            data.observacoes = dados_existentes.get("observacoes")
 
-        itens_existentes = dados_existentes.get("itens") or []
-        if is_admin:
-            # Admin apenas visualiza os checks; nao pode alterá-los.
-            aprovacao_existente_por_item = {}
-            if isinstance(itens_existentes, list):
-                for idx, item in enumerate(itens_existentes):
-                    if not isinstance(item, dict):
-                        continue
-                    item_key = str(item.get("item") or (idx + 1))
-                    aprovacao_existente_por_item[item_key] = bool(item.get("aprovacao"))
-
-            imagens_com_aprovacao_preservada: list[ImagemRessalva] = []
-            for img in (data.imagens or []):
-                item_key = str(img.item)
-                img.aprovacao = aprovacao_existente_por_item.get(item_key, False)
-                imagens_com_aprovacao_preservada.append(img)
-            data.imagens = imagens_com_aprovacao_preservada
 
         pdf_buffer = gerar_pdf_ressalvas(
             processo_codigo=processo_codigo,
@@ -510,14 +444,8 @@ def atualizar_ressalvas(data: RessalvasUpdateRequest, request: Request):
             "ressalvas_dados": ressalvas_dados,
             "atualizado_em": datetime.utcnow().isoformat()
         }
-        if is_admin:
-            payload_update["status"] = "RESSALVAS_REGISTRADAS"
-        else:
-            nps_dados = _parse_json_object(proc.get("nps_dados"))
-            nps_dados["_lock_ressalvas"] = True
-            nps_dados["_lock_ressalvas_em"] = datetime.utcnow().isoformat()
-            nps_dados["_lock_ressalvas_por"] = _extract_user_flow(request)
-            payload_update["nps_dados"] = nps_dados
+        # Sempre atualiza status pois admin esta editando
+        payload_update["status"] = "RESSALVAS_REGISTRADAS"
 
         supabase.table("processos").update(payload_update).eq("id", processo_uuid).execute()
 
@@ -533,3 +461,66 @@ def atualizar_ressalvas(data: RessalvasUpdateRequest, request: Request):
             status_code=500,
             detail=f"Erro interno ao salvar ressalvas: {str(e)}"
         )
+
+@router.get("/dados/{identificador}")
+def obter_dados_ressalvas(identificador: str, response: Response):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "Thu, 01 Jan 1970 00:00:00 GMT"
+    try:
+        proc = obter_processo_por_identificador(
+            identificador,
+            "id,codigo,project_token,project_token_ativo,project_token_expira_em,ressalvas_dados,nps_dados"
+        )
+        
+        ressalvas_dados = _parse_json_object(proc.get("ressalvas_dados"))
+        nps_dados = _parse_json_object(proc.get("nps_dados"))
+        
+        # Se nao houver dados salvos no JSON, tenta buscar itens da tabela ressalvas_itens
+        itens = ressalvas_dados.get("itens")
+        if not itens:
+            res_itens = (
+                supabase.table("ressalvas_itens")
+                .select("*")
+                .eq("processo_id", proc["id"])
+                .execute()
+            )
+            itens_db = res_itens.data or []
+            # Mapeia estrutura DB -> Frontend
+            itens = []
+            for row in itens_db:
+                itens.append({
+                    "item": row.get("item"),
+                    "descricao": row.get("descricao"),
+                    "prazo": row.get("prazo"),
+                    "aprovacao": row.get("aprovacao"),
+                    "imagem_hash": row.get("imagem_hash")
+                })
+
+        dados = {
+            "codigo": proc.get("codigo"),
+            "project_token": proc.get("project_token"),
+            "project_token_ativo": proc.get("project_token_ativo"),
+            "project_token_expira_em": proc.get("project_token_expira_em"),
+            "ressalvas_dados": ressalvas_dados,
+            "nps_dados": nps_dados,
+            "bloqueado": bool(nps_dados.get("_lock_ressalvas"))
+        }
+
+        # Espalha campos adicionais do JSON na raiz (Flattening)
+        if isinstance(ressalvas_dados, dict):
+            for k, v in ressalvas_dados.items():
+                if k not in dados and k not in ("itens",):
+                    dados[k] = v
+            
+            # Se houver campos extras dentro de uma chave 'campos' (padrão similar ao termo), extrai também
+            campos_internos = ressalvas_dados.get("campos")
+            if isinstance(campos_internos, dict):
+                for k, v in campos_internos.items():
+                    if k not in dados:
+                        dados[k] = v
+
+        return {"success": True, "dados": dados}
+
+    except Exception:
+        raise HTTPException(status_code=404, detail="Processo nao encontrado")
