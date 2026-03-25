@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -590,6 +590,28 @@
     <h1 class="title">Dashboard de NPS</h1>
     <p class="subtitle">Edite Termo, Ressalvas e NPS por projeto (project token).</p>
 
+    <!-- NOVA DIV DE FOTOS -->
+    <div class="card">
+        <div style="margin-bottom: 16px;">
+            <h3 style="margin: 0; color: #1e3a8a; font-size: 18px;">Fotos de Projeto</h3>
+            <p style="margin: 4px 0 0; font-size: 13px; color: #475569;">Adicione fotos vinculadas a um projeto específico.</p>
+        </div>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+            <div style="flex: 1; min-width: 200px;">
+                <label style="display: block; font-size: 13px; font-weight: 700; color: #1e3a8a; margin-bottom: 6px;">Projeto</label>
+                <input type="text" id="fotoProjetoNome" placeholder="Nome do projeto" style="width: 100%; border: 1px solid #cbd5e1;">
+            </div>
+            <div style="flex: 2; min-width: 200px;">
+                <label style="display: block; font-size: 13px; font-weight: 700; color: #1e3a8a; margin-bottom: 6px;">Observação</label>
+                <input type="text" id="fotoObservacao" placeholder="Observações sobre as fotos" style="width: 100%; border: 1px solid #cbd5e1;">
+            </div>
+        </div>
+        <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
+            <input type="file" id="fotosInput" multiple accept="image/*" style="border: 1px solid #cbd5e1; background: #fff; max-width: 300px;">
+            <button class="btn secondary" type="button" onclick="salvarFotosProjeto()">Salvar Fotos</button>
+        </div>
+    </div>
+
     <div class="card">
         <form class="search-bar" method="get" action="/admin">
             <input type="text" name="q" placeholder="Buscar por token, código, cliente ou empresa" value="{{ q }}">
@@ -643,6 +665,7 @@
         <table class="admin-table">
             <thead>
                 <tr>
+                    <th>Projeto</th>
                     <th>Token</th>
                     <th>Código</th>
                     <th>Cliente</th>
@@ -655,8 +678,11 @@
             </thead>
             <tbody>
             {% for p in processos %}
-                {% set token_finalizado = (p.project_token_ativo is sameas false) or (p.project_token_expira_em) %}
+                {% set token_finalizado = (p.project_token_ativo == False) or (p.project_token_expira_em) %}
                 <tr>
+                    <td data-label="Projeto">
+                        <input type="text" value="{{ p.projeto or '' }}" placeholder="Nome do projeto" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                    </td>
                     <td data-label="Token">{{ p.project_token or "-" }}</td>
                     <td data-label="Código">{{ p.codigo }}</td>
                     <td data-label="Cliente">{{ p.nome_cliente or "-" }}</td>
@@ -673,14 +699,18 @@
                     <td data-label="Ações">
                         <div class="actions">
                             <a class="btn" href="/termo?processo={{ p.project_token or p.codigo }}&return=/admin">Editar</a>
-                            {% if p.project_token %}<button class="btn copy-link" type="button" onclick="copiarLink(this, '{{ base_url }}/login?project_token={{ p.project_token }}')">Copiar link</button>{% endif %}
+                            {% if p.project_token %}<button class="btn copy-link" type="button" onclick="copiarLink(this, '{{ base_url }}/index?project_token={{ p.project_token }}')">Copiar link</button>{% endif %}
                             {% if p.project_token %}
                                 {% if token_finalizado %}
                                     <button class="btn light" type="button" disabled>Token expirado</button>
                                 {% else %}
                                     <button class="btn danger" type="button" onclick="expirarToken(this, '{{ p.project_token }}')">Expirar token</button>
                                 {% endif %}
-                                <button class="btn secondary" type="button" onclick="liberarEdicao(this, '{{ p.project_token }}')">{{ 'edicao permitida' if p.edicao_permitida else 'permitir edicao' }}</button>
+                                {% if p.is_editable_by_admin %}
+                                    <button class="btn secondary" type="button" onclick="toggleLock(this, '{{ p.project_token }}')">Bloquear edição</button>
+                                {% else %}
+                                    <button class="btn light" type="button" disabled>Edição bloqueada</button>
+                                {% endif %}
                             {% endif %}
                             {% if p.termo_pdf %}<a class="btn secondary" href="/pdf/termo/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Termo</a>{% endif %}
                             {% if p.pdf_ressalvas %}<a class="btn secondary" href="/pdf/ressalvas/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Ressalvas</a>{% endif %}
@@ -906,33 +936,36 @@
         }
     }
 
-    async function liberarEdicao(btn, token) {
+    async function toggleLock(btn, token) {
         if (!token) return;
+        const confirmacao = confirm("Deseja bloquear a edição do Termo e Ressalvas? Isso permitirá que o cliente preencha o NPS, mas impedirá alterações no Termo/Ressalvas.");
+        if (!confirmacao) return;
+
         if (btn) btn.disabled = true;
         try {
             const body = new URLSearchParams();
             body.set('project_token', token);
-            const res = await fetch('/admin/liberar-edicao', {
+            const res = await fetch('/admin/toggle-lock', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: body.toString(),
             });
             const data = await res.json();
             if (!res.ok || !data.success) {
-                throw new Error(data.detail || 'Falha ao liberar edicao');
+                throw new Error(data.detail || 'Falha ao alterar bloqueio');
             }
-            const permitida = Boolean(data.edicao_permitida);
+            
+            // Como a operação é de bloqueio único, atualizamos para o estado bloqueado
             if (btn) {
-                btn.textContent = permitida ? 'edicao permitida' : 'permitir edicao';
-                btn.classList.remove('flash');
-                void btn.offsetWidth;
-                btn.classList.add('flash');
-                btn.disabled = false;
+                btn.textContent = 'Edição bloqueada';
+                btn.classList.remove('secondary');
+                btn.classList.add('light');
+                btn.disabled = true;
             }
-            alert(permitida ? 'edicao permitida' : 'edicao fechada');
+            alert('Edição bloqueada com sucesso.');
         } catch (err) {
             if (btn) btn.disabled = false;
-            alert(err.message || 'Falha ao liberar edicao');
+            alert(err.message || 'Falha ao bloquear edição');
         }
     }
 
@@ -1011,8 +1044,73 @@
     }
 
     document.querySelectorAll('.reveal-btn[data-reveal-target]').forEach(bindPressToRevealPassword);
+
+    async function salvarFotosProjeto() {
+        const projetoInput = document.getElementById('fotoProjetoNome');
+        const obsInput = document.getElementById('fotoObservacao');
+        const fileInput = document.getElementById('fotosInput');
+        const btn = document.querySelector('button[onclick="salvarFotosProjeto()"]');
+
+        const projeto = projetoInput.value.trim();
+        if (!projeto) return alert("Digite o nome do projeto.");
+        if (fileInput.files.length === 0) return alert("Selecione pelo menos uma foto.");
+
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Enviando...";
+
+        try {
+            // Envia uma foto por vez para simplificar
+            for (let i = 0; i < fileInput.files.length; i++) {
+                const file = fileInput.files[i];
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+
+                const body = new URLSearchParams();
+                body.set('projeto', projeto);
+                body.set('observacao', obsInput.value);
+                body.set('imagem', base64);
+
+                const res = await fetch('/admin/upload-foto-projeto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: body.toString()
+                });
+                if (!res.ok) throw new Error("Erro ao enviar imagem " + (i+1));
+            }
+
+            alert("Fotos salvas com sucesso!");
+            fileInput.value = ""; // Limpa seleção
+            obsInput.value = "";
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    }
+
+    async function salvarNomeProjeto(input, token) {
+        const valor = input.value;
+        try {
+            const body = new URLSearchParams();
+            body.set('project_token', token);
+            body.set('projeto', valor);
+
+            await fetch('/admin/update-project', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString()
+            });
+        } catch (e) {
+            console.error("Erro ao salvar projeto", e);
+        }
+    }
 </script>
 
 </body>
 </html>
-
