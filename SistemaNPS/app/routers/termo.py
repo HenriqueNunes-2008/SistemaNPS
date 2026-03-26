@@ -1,3 +1,5 @@
+import hmac
+import time
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 from typing import List, Optional
@@ -302,6 +304,26 @@ def _is_user_edit_locked(proc: dict | None) -> bool:
     nps_dados = _parse_json_object((proc or {}).get("nps_dados"))
     return bool(nps_dados.get("_lock_termo"))
 
+def _is_admin_mode_request(request: Request) -> bool:
+    raw = (request.cookies.get("admin_activation_ok") or "").strip()
+    if "." not in raw:
+        return False
+    exp, signature = raw.split(".", 1)
+    if not exp.isdigit():
+        return False
+    
+    secret = (
+        os.getenv("ADMIN_ACTIVATION_COOKIE_SECRET")
+        or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        or ""
+    )
+    if not secret:
+        return False
+    expected = hmac.new(secret.encode("utf-8"), exp.encode("utf-8"), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(signature, expected):
+        return False
+    return int(exp) >= int(time.time())
+
 
 def _extract_user_flow(request: Request) -> str:
     flow = (request.cookies.get("nps_tipo_acesso") or "").strip().lower()
@@ -515,6 +537,11 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
             "id,codigo,project_token,imagens_termo,status_entrega,termo_dados,"
             "project_token_ativo,project_token_expira_em,nps_dados",
         )
+
+        # Validação de bloqueio ignorada para Admin
+        is_admin = _is_admin_mode_request(request)
+        if _is_user_edit_locked(proc) and not is_admin:
+            raise HTTPException(status_code=403, detail="Edição bloqueada para este processo.")
 
         cpf_limpo = re.sub(r"\D", "", data.cpf)
         if not re.fullmatch(r"\d{11}", cpf_limpo):
