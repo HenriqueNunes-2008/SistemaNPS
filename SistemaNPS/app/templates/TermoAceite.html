@@ -1077,7 +1077,7 @@ input.cpf-valido {
 </div>
     <div class="row" style="margin-top:40px;">
         <div class="signature-box" style="flex:1;">
-            <label>COMPRADOR</label>
+            <label>Entregue a:</label>
             <input type="text" placeholder="Nome completo">
             <input type="text" id="rg-comprador" placeholder="CPF/CNPJ">
         </div>
@@ -1090,7 +1090,7 @@ input.cpf-valido {
     </div>
 
 </section>
-<section class="approval admin-only">
+<section class="approval">
     <strong>APROVAÇÃO FINAL DO TERMO:</strong>
     <div class="approval-fields">
         <label>REPRESENTANTE</label>
@@ -1593,7 +1593,21 @@ async function carregarEdicao(codigoProcesso) {
         }
         if (userEditLocked && !isAdmin) {
             desabilitarFormulario();
-            if (btnSalvar) btnSalvar.textContent = "TERMO SALVO";
+            
+            // Verifica se a aprovação final já foi preenchida
+            const repVal = document.querySelector('section.approval input[placeholder="REPRESENTANTE"]')?.value.trim();
+            const cpfVal = document.querySelector('section.approval input[placeholder="CPF"]')?.value.trim();
+
+            if (!repVal || !cpfVal) {
+                // Se não foi aprovado, libera apenas os campos de aprovação e o botão
+                document.querySelectorAll("section.approval input").forEach(el => el.disabled = false);
+                if (btnSalvar) {
+                    btnSalvar.disabled = true; // Começa desabilitado até preencher
+                    btnSalvar.textContent = "APROVAR TERMO";
+                }
+            } else {
+                if (btnSalvar) btnSalvar.textContent = "TERMO SALVO E APROVADO";
+            }
             return;
         }
 
