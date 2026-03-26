@@ -1079,7 +1079,7 @@ input.cpf-valido {
         <div class="signature-box" style="flex:1;">
             <label>COMPRADOR</label>
             <input type="text" placeholder="Nome completo">
-            <input type="text" id="rg-comprador" placeholder="CPF">
+            <input type="text" id="rg-comprador" placeholder="CPF/CNPJ">
         </div>
 
         <div class="signature-box admin-only" style="flex:1;">
@@ -1144,9 +1144,10 @@ input.cpf-valido {
 </div>
 
 <script>
-/* ================= CPF ================= */
+/* ================= CPF / CNPJ ================= */
 function validarCPF(cpf) {
     cpf = cpf.replace(/\D/g, '');
+    if (cpf.length === 14) return validarCNPJ(cpf);
     if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
 
     let s = 0;
@@ -1163,11 +1164,46 @@ function validarCPF(cpf) {
     return d2 == cpf[10];
 }
 
+function validarCNPJ(cnpj) {
+    cnpj = cnpj.replace(/[^\d]+/g, '');
+    if (cnpj.length !== 14 || /^(\d)\1+$/.test(cnpj)) return false;
+    let tamanho = cnpj.length - 2;
+    let numeros = cnpj.substring(0, tamanho);
+    let digitos = cnpj.substring(tamanho);
+    let soma = 0;
+    let pos = tamanho - 7;
+    for (let i = tamanho; i >= 1; i--) {
+        soma += numeros.charAt(tamanho - i) * pos--;
+        if (pos < 2) pos = 9;
+    }
+    let resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+    if (resultado != digitos.charAt(0)) return false;
+    tamanho = tamanho + 1;
+    numeros = cnpj.substring(0, tamanho);
+    soma = 0;
+    pos = tamanho - 7;
+    for (let i = tamanho; i >= 1; i--) {
+        soma += numeros.charAt(tamanho - i) * pos--;
+        if (pos < 2) pos = 9;
+    }
+    resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+    return resultado == digitos.charAt(1);
+}
+
 function maskCPF(value) {
-    value = value.replace(/\D/g, '').slice(0, 11);
-    value = value.replace(/(\d{3})(\d)/, '$1.$2');
-    value = value.replace(/(\d{3})(\d)/, '$1.$2');
-    value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    value = value.replace(/\D/g, '');
+    if (value.length <= 11) {
+        value = value.slice(0, 11);
+        value = value.replace(/(\d{3})(\d)/, '$1.$2');
+        value = value.replace(/(\d{3})(\d)/, '$1.$2');
+        value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    } else {
+        value = value.slice(0, 14);
+        value = value.replace(/^(\d{2})(\d)/, "$1.$2");
+        value = value.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3");
+        value = value.replace(/^(\d{2})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3/$4");
+        value = value.replace(/(\d{4})(\d)/, "$1-$2");
+    }
     return value;
 }
 
@@ -1550,12 +1586,12 @@ async function carregarEdicao(codigoProcesso) {
             }
         }
 
-        atualizarEstadoBotao();
+        if (!isAdmin) atualizarEstadoBotao();
         if (adminTokenFinalizado) {
             habilitarModoSomenteLeituraAdminTokenFinalizado();
             return;
         }
-        if (userEditLocked) {
+        if (userEditLocked && !isAdmin) {
             desabilitarFormulario();
             if (btnSalvar) btnSalvar.textContent = "TERMO SALVO";
             return;
