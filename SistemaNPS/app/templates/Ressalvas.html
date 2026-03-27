@@ -727,7 +727,7 @@ input.item-duplicado { border: 2px solid #dc2626; }
             <div>
                 <div style="font-weight:800;margin-bottom:6px;">FOTOS</div>
             </div>
-            <div>REGIÃO DA FOTO</div>
+            <div>OBSERVAÇÃO</div>
         </div>
             <div id="tableBody"></div>
             <button class="add-item" onclick="addRow()">ADICIONAR ITEM +</button>
@@ -853,7 +853,7 @@ async function executarSalvarRessalvas() {
            const descricao = inputs[0]?.value || "";
            const prazo = inputs[1]?.value || "";
            const responsavel = inputs[2]?.value || "";
-           const regiao = row.querySelector(".regiao-foto")?.value || null;
+           const obs = row.querySelector(".observacao")?.value || null;
 
             const box = row.querySelector(".image-box");
 
@@ -862,7 +862,7 @@ async function executarSalvarRessalvas() {
                 descricao,
                 prazo,
                 responsavel,
-                regiao_foto: regiao,
+                observacao: obs,
                 imagem: box.dataset.image
             });
         });
@@ -898,7 +898,7 @@ async function executarSalvarRessalvas() {
         descricao: img.descricao,
         prazo: img.prazo || null,
         responsavel: img.responsavel,
-        regiao_foto: img.regiao_foto,
+        observacao: img.observacao,
         aprovacao: false,
         imagem_base64: img.imagem
     }))
@@ -1091,16 +1091,8 @@ function addRow(item = null) {
         </div>
     </div>
     <div class="field-wrap">
-        <span class="field-label-mobile">REGIÃO DA FOTO</span>
-        <select class="regiao-foto">
-            <option value="">Selecione</option>
-            <option value="frontal">Frontal</option>
-            <option value="traseira">Traseira</option>
-            <option value="lateral-esquerda">Lateral esquerda</option>
-            <option value="lateral-direita">Lateral direita</option>
-            <option value="superior">Superior</option>
-            <option value="inferior">Inferior</option>
-        </select>
+        <span class="field-label-mobile">OBSERVAÇÃO</span>
+        <input class="observacao" placeholder="Observação">
     </div>
 		`;
 
@@ -1160,8 +1152,8 @@ enableDragAndDrop(imageBox);
         rowInputs[0].value = item.descricao || "";
         rowInputs[1].value = item.prazo || "";
         rowInputs[2].value = item.responsavel || "";
-        const regiao = row.querySelector(".regiao-foto");
-        if (regiao) regiao.value = item.regiao_foto || "";
+        const obsInput = row.querySelector(".observacao");
+        if (obsInput) obsInput.value = item.observacao || "";
         if (item.imagem_base64) {
             imageBox.dataset.image = item.imagem_base64;
             imageBox.textContent = "VER IMAGEM";
@@ -1208,9 +1200,9 @@ function openCamera() {
     }
 
     const row = currentBox.closest(".table-row");
-    const regiao = row?.querySelector(".regiao-foto")?.value;
-    if (!regiao) {
-        alert("Selecione a região da foto antes de tirar a foto.");
+    const obs = row?.querySelector(".observacao")?.value;
+    if (!obs) {
+        alert("Preencha a observação antes de tirar a foto.");
         return;
     }
 
@@ -1310,9 +1302,9 @@ function validarFormulario() {
         const prazo = inputs[1]?.value.trim();
         const responsavel = inputs[2]?.value.trim();
         const img = row.querySelector(".image-box")?.dataset.image;
-        const regiao = row.querySelector(".regiao-foto")?.value;
+        const obs = row.querySelector(".observacao")?.value;
 
-        if (descricao && prazo && responsavel && img && regiao) {
+        if (descricao && prazo && responsavel && img && obs) {
             temItemValido = true;
         }
     });
