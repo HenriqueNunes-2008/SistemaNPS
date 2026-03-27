@@ -35,19 +35,9 @@ def root(request: Request):
 
 @app.post("/admin-password")
 def admin_password_post(request: Request, password: str = Form(...)):
-    from app.routers.public import _verify_admin_activation_password, _build_admin_activation_cookie
-    if not _verify_admin_activation_password(password):
-        erro = quote_plus("Senha inválida.")
-        return RedirectResponse(url=f"/?erro={erro}", status_code=303)
-
-    response = RedirectResponse(url="/admin", status_code=303)
-    response.set_cookie(
-        key="admin_activation_ok",
-        value=_build_admin_activation_cookie(3600),
-        max_age=3600,
-        httponly=True,
-        samesite="lax"
-    )
-    return response
+    # Como a rota já existe no public_router que foi incluído acima, 
+    # vamos deixar que o public.py gerencie o POST para evitar conflitos.
+    from app.routers.public import admin_password_post as public_post
+    return public_post(password=password)
 
 print("Sistema NPS pronto! Acesse http://localhost:8000")
