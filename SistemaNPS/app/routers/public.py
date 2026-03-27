@@ -205,7 +205,7 @@ def _is_admin_mode_request(request: Request) -> bool:
 @router.get("/admin-password", response_class=HTMLResponse)
 def admin_password_page(request: Request):
     erro = request.query_params.get("erro")
-    return templates.TemplateResponse("admin-password.html", {"request": request, "erro": erro})
+    return templates.TemplateResponse("admin-password.html", {"erro": erro}, request=request)
 
 @router.post("/admin-password")
 def admin_password_post(email: str = Form(...), password: str = Form(...)):
@@ -246,7 +246,7 @@ def index(request: Request):
     project_token = _extract_project_token(request)
     return templates.TemplateResponse(
         "Index.html",
-        {"request": request, "project_token": project_token}
+        {"project_token": project_token}, request=request
     )
 
 # REMOVIDO: cadastro routes - não mais necessário
@@ -257,10 +257,10 @@ def termo(request: Request):
     return templates.TemplateResponse(
         "TermoAceite.html",
         {
-            "request": request, 
             "project_token": _extract_project_token(request),
             "is_admin": _is_admin_mode_request(request)
-        }
+        },
+        request=request
     )
 
 
@@ -269,10 +269,10 @@ def ressalvas(request: Request):
     return templates.TemplateResponse(
         "Ressalvas.html",
         {
-            "request": request, 
             "project_token": _extract_project_token(request),
             "is_admin": _is_admin_mode_request(request)
-        }
+        },
+        request=request
     )
 
 
@@ -280,8 +280,9 @@ def ressalvas(request: Request):
 def nps(request: Request):
     return templates.TemplateResponse(
         "NPS2System.html",
-        {"request": request, "project_token": _extract_project_token(request),
-         "is_admin": _is_admin_mode_request(request)}
+        {"project_token": _extract_project_token(request),
+         "is_admin": _is_admin_mode_request(request)},
+        request=request
     )
 
 
@@ -399,12 +400,12 @@ def admin(request: Request):
     response = templates.TemplateResponse(
         "admin.html",
         {
-            "request": request,
             "processos": processos,
             "stats": stats,
             "q": q,
             "base_url": str(request.base_url).rstrip("/")
-        }
+        },
+        request=request
     )
     # FORÇA O NAVEGADOR A NÃO FAZER CACHE DA PÁGINA ADMIN
     # Isso resolve o problema de reabrir a pagina e ver dados antigos (token ativo quando ja foi expirado)
@@ -642,7 +643,8 @@ def api_obter_processo(identificador: str):
 def nps_motor(request: Request):
     return templates.TemplateResponse(
         "NPSMotor.html",
-        {"request": request, "project_token": _extract_project_token(request)}
+        {"project_token": _extract_project_token(request)},
+        request=request
     )
 
 
