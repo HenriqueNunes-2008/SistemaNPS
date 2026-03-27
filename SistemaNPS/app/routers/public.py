@@ -208,7 +208,7 @@ def admin_password_page(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="admin-password.html",
-        context={"erro": erro}
+        context={"request": request, "erro": erro}
     )
 
 @router.post("/admin-password")
@@ -239,7 +239,7 @@ def index(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="Index.html",
-        context={"project_token": project_token}
+        context={"request": request, "project_token": project_token}
     )
 
 # REMOVIDO: cadastro routes - não mais necessário
@@ -251,6 +251,7 @@ def termo(request: Request):
         request=request,
         name="TermoAceite.html",
         context={
+            "request": request,
             "project_token": _extract_project_token(request),
             "is_admin": _is_admin_mode_request(request)
         }
@@ -263,6 +264,7 @@ def ressalvas(request: Request):
         request=request,
         name="Ressalvas.html",
         context={
+            "request": request,
             "project_token": _extract_project_token(request),
             "is_admin": _is_admin_mode_request(request)
         }
@@ -275,6 +277,7 @@ def nps(request: Request):
         request=request,
         name="NPS2System.html",
         context={
+            "request": request,
             "project_token": _extract_project_token(request),
             "is_admin": _is_admin_mode_request(request)
         }
@@ -393,14 +396,15 @@ def admin(request: Request):
     }
 
     response = templates.TemplateResponse(
-        "admin.html",
-        {
+        request=request,
+        name="admin.html",
+        context={
+            "request": request,
             "processos": processos,
             "stats": stats,
             "q": q,
             "base_url": str(request.base_url).rstrip("/")
-        },
-        request=request
+        }
     )
     # FORÇA O NAVEGADOR A NÃO FAZER CACHE DA PÁGINA ADMIN
     # Isso resolve o problema de reabrir a pagina e ver dados antigos (token ativo quando ja foi expirado)
@@ -639,7 +643,7 @@ def nps_motor(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="NPSMotor.html",
-        context={"project_token": _extract_project_token(request)}
+        context={"request": request, "project_token": _extract_project_token(request)}
     )
 
 
