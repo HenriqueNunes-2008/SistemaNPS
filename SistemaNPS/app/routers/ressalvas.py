@@ -80,7 +80,7 @@ class ImagemRessalva(BaseModel):
     descricao: str
     prazo: Optional[date] = None
     responsavel: Optional[str] = None
-    regiao_foto: Optional[str] = None
+    observacao: Optional[str] = None
     aprovacao: bool = False
     imagem_base64: Optional[str] = None
 
@@ -216,7 +216,7 @@ def gerar_pdf_ressalvas(
             c.drawString(tx, ty, f"Item {item.item}: {str(item.descricao)[:55]}")
             ty -= 12
             c.setFont("Helvetica", 8)
-            c.drawString(tx, ty, f"Regiao: {str(item.regiao_foto)[:40]}")
+            c.drawString(tx, ty, f"Observacao: {str(item.observacao)[:40]}")
             ty -= 11
             
             prazo_str = item.prazo.strftime('%d/%m/%Y') if item.prazo else ""
@@ -351,7 +351,7 @@ def salvar_ressalvas(data: RessalvasRequest, request: Request):
                     "descricao": img.descricao,
                     "prazo": img.prazo.isoformat() if img.prazo else None,
                     "responsavel": img.responsavel,
-                    "regiao_foto": img.regiao_foto,
+                    "observacao": img.observacao,
                     "aprovacao": img.aprovacao,
                     "imagem_base64": img.imagem_base64
                 }
@@ -459,7 +459,7 @@ def atualizar_ressalvas(data: RessalvasUpdateRequest, request: Request):
                     "descricao": img.descricao,
                     "prazo": img.prazo.isoformat() if img.prazo else None,
                     "responsavel": img.responsavel,
-                    "regiao_foto": img.regiao_foto,
+                    "observacao": img.observacao,
                     "aprovacao": img.aprovacao,
                     "imagem_base64": img.imagem_base64
                 }
