@@ -1,10 +1,9 @@
 fastapi
 uvicorn
+supabase
+reportlab
+httpx
 jinja2
 python-multipart
-reportlab
-supabase
 pydantic
-httpx
-PyPDF2
 python-dotenv
