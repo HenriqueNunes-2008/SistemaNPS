@@ -30,7 +30,7 @@ def root(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="admin-password.html",
-        context={"erro": erro}
+        context={"request": request, "erro": erro}
     )
 
 @app.post("/admin-password")
