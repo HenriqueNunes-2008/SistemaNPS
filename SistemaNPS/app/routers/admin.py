@@ -15,7 +15,7 @@ def admin_password_get(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="admin-password.html",
-        context={"erro": erro}
+        context={"request": request, "erro": erro}
     )
 
 @router.post("/password")
