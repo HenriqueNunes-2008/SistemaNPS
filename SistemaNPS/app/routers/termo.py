@@ -541,7 +541,17 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
         # Validação de bloqueio ignorada para Admin
         is_admin = _is_admin_mode_request(request)
         if _is_user_edit_locked(proc) and not is_admin:
-            raise HTTPException(status_code=403, detail="Edição bloqueada para este processo.")
+            # Permitimos a atualização pelo cliente se ele estiver preenchendo a aprovação pela primeira vez
+            dados_atuais = _parse_json_object(proc.get("termo_dados"))
+            aprov_atual = dados_atuais.get("aprovacao") or {}
+            
+            # Se já existir representante e cpf preenchidos na aprovação, bloqueamos de fato para evitar re-edição
+            if aprov_atual.get("representante") and aprov_atual.get("cpf"):
+                raise HTTPException(status_code=403, detail="Edição bloqueada: Termo já aprovado.")
+            
+            # Se o campo de aprovação no payload enviado está vazio, bloqueamos (tentativa de editar outros campos)
+            if not data.termo_dados or not data.termo_dados.get("aprovacao", {}).get("representante"):
+                raise HTTPException(status_code=403, detail="Edição bloqueada para este processo.")
 
         cpf_limpo = re.sub(r"\D", "", data.cpf)
         if not re.fullmatch(r"\d{11}", cpf_limpo):
