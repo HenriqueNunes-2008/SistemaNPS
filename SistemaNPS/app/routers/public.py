@@ -205,7 +205,11 @@ def _is_admin_mode_request(request: Request) -> bool:
 @router.get("/admin-password", response_class=HTMLResponse)
 def admin_password_page(request: Request):
     erro = request.query_params.get("erro")
-    return templates.TemplateResponse("admin-password.html", {"erro": erro}, request=request)
+    return templates.TemplateResponse(
+        request=request,
+        name="admin-password.html",
+        context={"erro": erro}
+    )
 
 @router.post("/admin-password")
 def admin_password_post(email: str = Form(...), password: str = Form(...)):
@@ -245,8 +249,9 @@ def admin_password_post(email: str = Form(...), password: str = Form(...)):
 def index(request: Request):
     project_token = _extract_project_token(request)
     return templates.TemplateResponse(
-        "Index.html",
-        {"project_token": project_token}, request=request
+        request=request,
+        name="Index.html",
+        context={"project_token": project_token}
     )
 
 # REMOVIDO: cadastro routes - não mais necessário
@@ -255,34 +260,36 @@ def index(request: Request):
 @router.get("/termo", response_class=HTMLResponse)
 def termo(request: Request):
     return templates.TemplateResponse(
-        "TermoAceite.html",
-        {
+        request=request,
+        name="TermoAceite.html",
+        context={
             "project_token": _extract_project_token(request),
             "is_admin": _is_admin_mode_request(request)
-        },
-        request=request
+        }
     )
 
 
 @router.get("/ressalvas", response_class=HTMLResponse)
 def ressalvas(request: Request):
     return templates.TemplateResponse(
-        "Ressalvas.html",
-        {
+        request=request,
+        name="Ressalvas.html",
+        context={
             "project_token": _extract_project_token(request),
             "is_admin": _is_admin_mode_request(request)
-        },
-        request=request
+        }
     )
 
 
 @router.get("/nps", response_class=HTMLResponse)
 def nps(request: Request):
     return templates.TemplateResponse(
-        "NPS2System.html",
-        {"project_token": _extract_project_token(request),
-         "is_admin": _is_admin_mode_request(request)},
-        request=request
+        request=request,
+        name="NPS2System.html",
+        context={
+            "project_token": _extract_project_token(request),
+            "is_admin": _is_admin_mode_request(request)
+        }
     )
 
 
@@ -642,9 +649,9 @@ def api_obter_processo(identificador: str):
 @router.get("/nps-motor", response_class=HTMLResponse)
 def nps_motor(request: Request):
     return templates.TemplateResponse(
-        "NPSMotor.html",
-        {"project_token": _extract_project_token(request)},
-        request=request
+        request=request,
+        name="NPSMotor.html",
+        context={"project_token": _extract_project_token(request)}
     )
 
 
