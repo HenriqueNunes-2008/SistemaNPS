@@ -19,7 +19,7 @@ from supabase import create_client
 import os
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates", auto_reload=True)
+templates = Jinja2Templates(directory="app/templates")
 
 
 def _extract_storage_path(public_url: str) -> str | None:
