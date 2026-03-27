@@ -1077,7 +1077,7 @@ input.cpf-valido {
 </div>
     <div class="row" style="margin-top:40px;">
         <div class="signature-box" style="flex:1;">
-            <label>Entregue a:</label>
+            <label>ENTREGUE A:</label>
             <input type="text" placeholder="Nome completo">
             <input type="text" id="rg-comprador" placeholder="CPF/CNPJ">
         </div>
@@ -1090,13 +1090,13 @@ input.cpf-valido {
     </div>
 
 </section>
-<section class="approval">
+<section class="approval" id="approvalSection">
     <strong>APROVAÇÃO FINAL DO TERMO:</strong>
     <div class="approval-fields">
         <label>REPRESENTANTE</label>
-        <input type="text" placeholder="REPRESENTANTE">
-        <label>CPF</label>
-        <input type="text" placeholder="CPF">
+        <input type="text" id="aprovacao-representante" placeholder="REPRESENTANTE">
+        <label>CPF/CNPJ</label>
+        <input type="text" id="aprovacao-cpf" placeholder="CPF/CNPJ">
     </div>
 </section>
 </main>
@@ -1354,6 +1354,22 @@ function atualizarEstadoBotao() {
 
     const statusSelecionado = document.querySelector(".status-card.active") !== null;
 
+    // Lógica para quando o admin bloqueou a edição (User Flow do Cliente para Aprovação Final)
+    if (userEditLocked && !isAdmin) {
+        const repVal = document.getElementById("aprovacao-representante")?.value.trim();
+        const cpfVal = document.getElementById("aprovacao-cpf")?.value.trim() || "";
+        const aprovCpfValido = validarCPF(cpfVal);
+        
+        btnSalvar.disabled = !(repVal && aprovCpfValido);
+        
+        const aprovCpfInput = document.getElementById("aprovacao-cpf");
+        if (aprovCpfInput) {
+            aprovCpfInput.classList.toggle("cpf-valido", aprovCpfValido);
+            aprovCpfInput.classList.toggle("cpf-invalido", !aprovCpfValido && cpfVal !== "");
+        }
+        return;
+    }
+
     const tudoValido = nomeValido && cpfCompradorValido && cpfRepresentanteValido && dataValida && statusSelecionado;
 
     cpfComprador.classList.toggle("cpf-valido", cpfCompradorValido);
@@ -1421,8 +1437,8 @@ function coletarCamposTermo() {
     };
 
     const aprovacao = {
-        representante: document.querySelector('section.approval input[placeholder="REPRESENTANTE"]')?.value || "",
-        cpf: document.querySelector('section.approval input[placeholder="CPF"]')?.value || ""
+        representante: document.getElementById("aprovacao-representante")?.value.trim() || "",
+        cpf: document.getElementById("aprovacao-cpf")?.value.trim() || ""
     };
 
     return {
@@ -1533,8 +1549,8 @@ async function carregarEdicao(codigoProcesso) {
         }
 
         if (data.termo_dados?.aprovacao) {
-            const rep = document.querySelector('section.approval input[placeholder="REPRESENTANTE"]');
-            const cpf = document.querySelector('section.approval input[placeholder="CPF"]');
+            const rep = document.getElementById("aprovacao-representante");
+            const cpf = document.getElementById("aprovacao-cpf");
             if (rep) rep.value = data.termo_dados.aprovacao.representante || "";
             if (cpf) cpf.value = data.termo_dados.aprovacao.cpf || "";
         }
@@ -1586,6 +1602,16 @@ async function carregarEdicao(codigoProcesso) {
             }
         }
 
+        const approvalSection = document.getElementById("approvalSection");
+        if (approvalSection) {
+            approvalSection.style.display = (isAdmin || userEditLocked) ? "" : "none";
+        }
+
+        // Mostrar REPRESENTANTE COMERCIAL se for admin ou se estiver bloqueado para o cliente
+        document.querySelectorAll(".admin-only").forEach(el => {
+            el.style.display = (isAdmin || userEditLocked) ? "" : "none";
+        });
+
         if (!isAdmin) atualizarEstadoBotao();
         if (adminTokenFinalizado) {
             habilitarModoSomenteLeituraAdminTokenFinalizado();
@@ -1595,8 +1621,8 @@ async function carregarEdicao(codigoProcesso) {
             desabilitarFormulario();
             
             // Verifica se a aprovação final já foi preenchida
-            const repVal = document.querySelector('section.approval input[placeholder="REPRESENTANTE"]')?.value.trim();
-            const cpfVal = document.querySelector('section.approval input[placeholder="CPF"]')?.value.trim();
+            const repVal = document.getElementById("aprovacao-representante")?.value.trim();
+            const cpfVal = document.getElementById("aprovacao-cpf")?.value.trim();
 
             if (!repVal || !cpfVal) {
                 // Se não foi aprovado, libera apenas os campos de aprovação e o botão
@@ -1826,6 +1852,7 @@ window.renderFotoGrid = function() {
     mesInput.addEventListener("input", atualizarEstadoBotao);
     anoInput.addEventListener("input", atualizarEstadoBotao);
     if (!isAdmin) {
+        // Inicialmente esconde para clientes, será mostrado no carregarEdicao se o processo estiver bloqueado
         document.querySelectorAll(".admin-only").forEach((el) => {
             el.style.display = "none";
         });
@@ -1848,6 +1875,16 @@ window.renderFotoGrid = function() {
             atualizarEstadoBotao();
         });
     }
+
+    const aprovCpf = document.getElementById("aprovacao-cpf");
+    if (aprovCpf) {
+        aprovCpf.addEventListener("input", function() {
+            this.value = maskCPF(this.value);
+            atualizarEstadoBotao();
+        });
+    }
+    const aprovRep = document.getElementById("aprovacao-representante");
+    if (aprovRep) aprovRep.addEventListener("input", atualizarEstadoBotao);
 
     processoEmAndamento = isEditMode
         ? null
