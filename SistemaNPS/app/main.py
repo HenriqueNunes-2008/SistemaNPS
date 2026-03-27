@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
 from urllib.parse import quote_plus
 
+# Imports diretos dos routers
 from app.routers.public import router as public_router
 from app.routers.nps import router as nps_router
 from app.routers.termo import router as termo_router
@@ -26,10 +27,7 @@ app.include_router(ressalvas_router)
 @app.get("/", response_class=HTMLResponse)
 def root(request: Request):
     erro = request.query_params.get("erro")
-    return templates.TemplateResponse("admin-password.html", {
-        "request": request, 
-        "erro": erro
-    })
+    return templates.TemplateResponse("admin-password.html", {"erro": erro}, request=request)
 
 @app.post("/admin-password")
 def admin_password_post(request: Request, password: str = Form(...)):
@@ -49,4 +47,3 @@ def admin_password_post(request: Request, password: str = Form(...)):
     return response
 
 print("Sistema NPS pronto! Acesse http://localhost:8000")
-
