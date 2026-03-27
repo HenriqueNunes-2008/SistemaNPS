@@ -27,7 +27,11 @@ app.include_router(ressalvas_router)
 @app.get("/", response_class=HTMLResponse)
 def root(request: Request):
     erro = request.query_params.get("erro")
-    return templates.TemplateResponse("admin-password.html", {"erro": erro}, request=request)
+    return templates.TemplateResponse(
+        request=request,
+        name="admin-password.html",
+        context={"erro": erro}
+    )
 
 @app.post("/admin-password")
 def admin_password_post(request: Request, password: str = Form(...)):
