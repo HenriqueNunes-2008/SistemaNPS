@@ -222,6 +222,35 @@
                 max-width: 100%;
                 padding: 0 14px;
             }
+
+            .search-bar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+
+            /* Ajustes de responsividade para a tabela de fotos do projeto */
+            .foto-table-header {
+                display: none;
+            }
+            .foto-table-row {
+                grid-template-columns: 1fr;
+                gap: 10px;
+                border: 1px solid #cbd5e1;
+                padding: 15px;
+                border-radius: 12px;
+                background: #fff;
+                position: relative;
+                height: auto;
+            }
+            .foto-table-row .remove-btn {
+                position: absolute;
+                top: 5px;
+                right: 5px;
+            }
+            .foto-table-row input, .foto-table-row .image-box-foto {
+                width: 100% !important;
+            }
         }
 
         /* ================= BREADCRUMB ================= */
@@ -1295,6 +1324,7 @@
             console.error("Erro ao salvar projeto", e);
         }
     }
+
 </script>
 
 </body>
