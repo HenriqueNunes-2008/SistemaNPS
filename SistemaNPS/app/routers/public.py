@@ -212,12 +212,29 @@ def admin_password_page(request: Request):
     )
 
 @router.post("/admin-password")
-def admin_password_post(password: str = Form(...)):
-    # Validar apenas a senha administrativa configurada
+def admin_password_post(email: str = Form(...), password: str = Form(...)):
+    # 1. Verificar se o e-mail existe e tem role=admin no Supabase
+    try:
+        res = (
+            supabase
+            .table("usuarios")
+            .select("role")
+            .eq("email", email)
+            .single()
+            .execute()
+        )
+        if not res.data or res.data.get("role") != "admin":
+            erro = quote_plus("Acesso negado: Perfil não administrativo.")
+            return RedirectResponse(url=f"/admin-password?erro={erro}", status_code=303)
+    except Exception:
+        # Se a tabela não existir ou erro de conexão, falha por segurança
+        erro = quote_plus("Erro na validação de perfil.")
+        return RedirectResponse(url=f"/admin-password?erro={erro}", status_code=303)
+
+    # 2. Validar a senha administrativa
     if not _verify_admin_activation_password(password):
-        from urllib.parse import quote_plus
         erro = quote_plus("Senha inválida.")
-        return RedirectResponse(url=f"/?erro={erro}", status_code=303)
+        return RedirectResponse(url=f"/admin-password?erro={erro}", status_code=303)
 
     response = RedirectResponse(url="/admin", status_code=303)
     response.set_cookie(
