@@ -228,6 +228,9 @@
                 align-items: stretch;
                 gap: 8px;
             }
+            .search-bar button {
+                width: 100%;
+            }
 
             /* Ajustes de responsividade para a tabela de fotos do projeto */
             .foto-table-header {
@@ -248,8 +251,21 @@
                 top: 5px;
                 right: 5px;
             }
-            .foto-table-row input, .foto-table-row .image-box-foto {
+            .foto-table-row input, 
+            .foto-table-row .image-box-foto {
                 width: 100% !important;
+            }
+            .mobile-label {
+                display: block;
+                font-size: 11px;
+                font-weight: 800;
+                color: #1e3a8a;
+                margin-bottom: 4px;
+                text-transform: uppercase;
+            }
+            .field-wrap {
+                width: 100%;
+                margin-bottom: 8px;
             }
         }
 
@@ -511,6 +527,7 @@
             font-size: 13px;
             text-transform: uppercase;
         }
+        .mobile-label { display: none; }
         .foto-table-row input {
             padding: 10px;
             border-radius: 8px;
@@ -1194,9 +1211,18 @@
         const row = document.createElement('div');
         row.className = 'foto-table-row';
         row.innerHTML = `
-            <input type="text" placeholder="Nome do projeto" class="row-projeto">
-            <div class="image-box-foto" onclick="imageClick(this)">+ FOTO</div>
-            <input type="text" placeholder="Observação" class="row-obs">
+            <div class="field-wrap">
+                <span class="mobile-label">PROJETO</span>
+                <input type="text" placeholder="Nome do projeto" class="row-projeto">
+            </div>
+            <div class="field-wrap">
+                <span class="mobile-label">FOTO</span>
+                <div class="image-box-foto" onclick="imageClick(this)">+ FOTO</div>
+            </div>
+            <div class="field-wrap">
+                <span class="mobile-label">OBSERVAÇÃO</span>
+                <input type="text" placeholder="Observação" class="row-obs">
+            </div>
             <button class="remove-btn" onclick="this.parentElement.remove()" style="background:none; border:none; color:#dc2626; cursor:pointer; font-weight:800; font-size:18px;">&times;</button>
         `;
         body.appendChild(row);
