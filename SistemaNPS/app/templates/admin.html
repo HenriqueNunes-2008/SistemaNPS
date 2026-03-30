@@ -153,26 +153,26 @@
             }
 
             .topbar {
-                height: auto;
-                min-height: 140px;
+                height: 106px;
+                min-height: 106px;
                 border-radius: 0 0 28px 28px;
                 padding: 12px 14px;
             }
 
             .logo-fixed {
                 position: absolute;
-                top: 14px;
-                left: 14px;
-                transform: none;
-                height: 70px;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                height: 72px;
             }
 
             .logo-link {
-                top: 14px;
-                left: 14px;
-                transform: none;
-                width: 150px;
-                height: 70px;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 240px;
+                height: 72px;
             }
 
             .topbar-content {
@@ -181,15 +181,7 @@
             }
 
             .header-info {
-                width: 100%;
-                margin: 0;
-                padding-left: 160px;
-                gap: 8px;
-                display: flex;
-                flex-direction: column;
-                align-items: flex-start;
-                font-size: 12px;
-                line-height: 1.25;
+                display: none;
             }
 
             .header-info > div {
@@ -266,6 +258,16 @@
             .field-wrap {
                 width: 100%;
                 margin-bottom: 8px;
+            }
+
+            .mobile-contact-info {
+                display: block;
+                width: 100%;
+                text-align: center;
+                color: #ffffff;
+                font-size: 14px;
+                margin-top: 30px;
+                line-height: 1.5;
             }
         }
 
@@ -866,6 +868,12 @@
             </div>
             <button class="btn secondary" type="button" onclick="openSecurityModal()">Alterar senha</button>
         </div>
+    </div>
+
+    <div class="mobile-contact-info">
+        <div>R. José Antônio Valadares, 285 – Vila Liviero, São Paulo – SP.</div>
+        <div>comercial@soukure.com.br</div>
+        <div>(11) 2372-7444</div>
     </div>
 </main>
 
