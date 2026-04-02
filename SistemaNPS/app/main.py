@@ -1,46 +1,45 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
-import os
+from urllib.parse import quote_plus
 
-from app.routers import public, nps
+# Imports diretos dos routers
+from app.routers.public import router as public_router
+from app.routers.nps import router as nps_router
 from app.routers.termo import router as termo_router
 from app.routers.ressalvas import router as ressalvas_router
-from app.services import upload
+from app.routers.processos import router as processos_router
 
 app = FastAPI(title="Sistema NPS Simplificado")
 
-# Static files
+# Static
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 templates = Jinja2Templates(directory="app/templates")
 
-# Health Check para o Render
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
+# Routers essenciais
+app.include_router(public_router)
+app.include_router(nps_router)
+app.include_router(termo_router)
+app.include_router(ressalvas_router)
+app.include_router(processos_router)
 
-# Mount routers (reuse existing, simplificados depois)
-app.include_router(public.router)
-app.include_router(nps.router)
-
-app.include_router(termo_router, prefix="/termo")
-app.include_router(ressalvas_router, prefix="/ressalvas")
-
-# Root redirect to admin-password
+# Admin password page
 @app.get("/", response_class=HTMLResponse)
-async def root():
-    return RedirectResponse(url="/admin-password", status_code=303)
-
-# Simple admin-password page
-@app.get("/admin-password", response_class=HTMLResponse)
-async def admin_password():
-    return templates.TemplateResponse("admin-password.html", {"request": {}})
+def root(request: Request):
+    erro = request.query_params.get("erro")
+    return templates.TemplateResponse(
+        request=request,
+        name="admin-password.html",
+        context={"request": request, "erro": erro}
+    )
 
 @app.post("/admin-password")
-async def post_admin_password():
-    # Will be handled in public.py simplificado
-    return RedirectResponse(url="/admin", status_code=303)
+def admin_password_post(request: Request, password: str = Form(...)):
+    # Como a rota já existe no public_router que foi incluído acima, 
+    # vamos deixar que o public.py gerencie o POST para evitar conflitos.
+    from app.routers.public import admin_password_post as public_post
+    return public_post(password=password)
 
-print("Sistema NPS Simplificado iniciado - /admin-password para acessar admin")
+print("Sistema NPS pronto! Acesse http://localhost:8000")
