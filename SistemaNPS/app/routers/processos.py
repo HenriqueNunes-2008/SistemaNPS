@@ -1,8 +1,8 @@
 import json
 
 from fastapi import APIRouter, HTTPException
-
-from app.services.processo_resolver import obter_processo_por_identificador
+from app.services.processo_repository import ProcessoRepository
+from app.services.processo_service import ProcessoService
 from app.services.supabase_client import supabase
 
 router = APIRouter(prefix="/api/processos", tags=["Processos"])
@@ -35,10 +35,10 @@ def obter_ultimo_processo_em_andamento():
 
 @router.get("/{identificador}")
 def obter_processo(identificador: str):
-    processo = obter_processo_por_identificador(
+    processo = ProcessoRepository.get_by_identifier(
         identificador,
         "codigo,project_token,nome_cliente,empresa,cpf,status,status_entrega,"
-        "termo_dados,ressalvas_dados,nps_dados,imagens_termo,"
+        "termo_dados,ressalvas_dados,nps_dados,imagens_termo,id,"
         "project_token_ativo,project_token_expira_em",
     )
 
@@ -80,4 +80,3 @@ def obter_processo(identificador: str):
             processo["imagens_termo"] = itens
 
     return processo
-
