@@ -1,0 +1,1 @@
+# Este arquivo torna o diretorio 'app' um pacote Python.
