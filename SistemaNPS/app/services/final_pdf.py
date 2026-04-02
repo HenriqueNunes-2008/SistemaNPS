@@ -12,6 +12,7 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 from app.services.pdf_layout import content_bottom, content_top, draw_header_footer
+from app.services.processo_repository import ProcessoRepository
 from app.services.supabase_client import supabase
 from app.services.upload import upload_pdf
 
@@ -531,18 +532,7 @@ def _build_final_pdf_bytes(proc_data: dict) -> bytes:
 
 
 def regenerate_final_pdf_by_codigo(codigo: str, set_status_finalizado: bool = False) -> str | None:
-    proc = (
-        supabase
-        .table("processos")
-        .select(
-            "id,codigo,nome_cliente,empresa,cpf,status_entrega,"
-            "termo_dados,ressalvas_dados,imagens_termo,nps_dados"
-        )
-        .eq("codigo", codigo)
-        .single()
-        .execute()
-    )
-
+    proc = ProcessoRepository.get_by_identifier(codigo, "id,codigo,nome_cliente,empresa,cpf,status_entrega,termo_dados,ressalvas_dados,imagens_termo,nps_dados")
     if not proc.data:
         return None
 
