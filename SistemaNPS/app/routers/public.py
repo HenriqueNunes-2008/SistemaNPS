@@ -13,8 +13,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.services.supabase_client import supabase
 # Adicionamos o servico de upload (assumindo que existe em app.services.upload)
-from app.services.upload import upload_pdf 
-from app.services.processo_resolver import obter_processo_por_identificador
+from app.services.upload import upload_pdf
+from app.services.processo_repository import ProcessoRepository
 from supabase import create_client
 import os
 
@@ -629,10 +629,12 @@ def admin_toggle_edit_lock(
 @router.get("/api/processos/{identificador}")
 def api_obter_processo(identificador: str):
     try:
-        proc = obter_processo_por_identificador(
+        proc = ProcessoRepository.get_by_identifier(
             identificador,
             "id,codigo,project_token,nome_cliente,cpf,status,status_entrega,nps_nota,nps_dados,project_token_ativo,project_token_expira_em"
         )
+        if not proc:
+            raise HTTPException(status_code=404, detail="Processo não encontrado")
         return proc
     except Exception:
         raise HTTPException(status_code=404, detail="Processo não encontrado")
