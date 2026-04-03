@@ -15,7 +15,6 @@ from app.services.supabase_client import supabase
 # Adicionamos o servico de upload (assumindo que existe em app.services.upload)
 from app.services.upload import upload_pdf
 from app.services.processo_repository import ProcessoRepository
-from supabase import create_client
 import os
 
 router = APIRouter()
@@ -152,6 +151,47 @@ def _verify_admin_activation_password(password: str) -> bool:
         dklen=len(expected),
     )
     return hmac.compare_digest(derived, expected)
+
+@router.get("/admin/alterar-senha", response_class=HTMLResponse)
+def alterar_senha_page(request: Request):
+    if not _is_admin_activation_granted(request):
+        return RedirectResponse(url="/admin-password", status_code=303)
+    return templates.TemplateResponse(
+        request=request,
+        name="admin-alterar-senha.html",
+        context={"request": request}
+    )
+
+@router.post("/admin/alterar-senha")
+def admin_alterar_senha(
+    request: Request,
+    email: str = Form(...),
+    nova_senha: str = Form(...)
+):
+    if not _is_admin_activation_granted(request):
+        raise HTTPException(status_code=403, detail="Acesso restrito")
+
+    # 1. Validação de perfil administrativo no Supabase
+    res_perfil = supabase.table("perfis").select("role").eq("email", email).eq("role", "admin").execute()
+    if not res_perfil.data:
+        raise HTTPException(status_code=403, detail="E-mail não autorizado ou sem permissão de administrador.")
+
+    # 2. Gerar novo hash baseado na lógica existente
+    novo_hash = _encode_admin_activation_password(nova_senha)
+
+    # 3. Atualizar a tabela de configurações seguras
+    res_upd = (
+        supabase
+        .table("configuracoes_seguras")
+        .update({"valor_hash": novo_hash})
+        .eq("chave", "admin_activation_hash")
+        .execute()
+    )
+
+    if hasattr(res_upd, "error") and res_upd.error:
+        raise HTTPException(status_code=500, detail="Falha ao salvar nova senha no banco.")
+
+    return JSONResponse({"success": True, "message": "Senha atualizada com sucesso!"})
 
 
 def _encode_admin_activation_password(password: str, iterations: int = 390000) -> str:
