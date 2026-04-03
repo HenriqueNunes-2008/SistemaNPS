@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from io import BytesIO
 from typing import Any
 
@@ -533,26 +533,26 @@ def _build_final_pdf_bytes(proc_data: dict) -> bytes:
 
 def regenerate_final_pdf_by_codigo(codigo: str, set_status_finalizado: bool = False) -> str | None:
     proc = ProcessoRepository.get_by_identifier(codigo, "id,codigo,nome_cliente,empresa,cpf,status_entrega,termo_dados,ressalvas_dados,imagens_termo,nps_dados")
-    if not proc.data:
+    if not proc:
         return None
 
-    nps_dados = _as_dict(proc.data.get("nps_dados"))
+    nps_dados = _as_dict(proc.get("nps_dados"))
     if not isinstance(nps_dados, dict) or "nps" not in nps_dados:
         return None
 
-    pdf_bytes = _build_final_pdf_bytes(proc.data)
+    pdf_bytes = _build_final_pdf_bytes(proc)
     final_base64 = "data:application/pdf;base64," + base64.b64encode(pdf_bytes).decode()
-    final_url = upload_pdf(final_base64, f"{proc.data['id']}/final")
+    final_url = upload_pdf(final_base64, f"{proc['id']}/final")
     if not final_url:
         raise RuntimeError("Falha no upload do PDF final")
 
     update_data = {
         "pdf_final": final_url,
-        "atualizado_em": datetime.utcnow().isoformat(),
+        "atualizado_em": datetime.now(timezone.utc).isoformat(),
     }
     if set_status_finalizado:
         update_data["status"] = "finalizado"
         update_data["finalizado_em"] = date.today().isoformat()
 
-    supabase.table("processos").update(update_data).eq("id", proc.data["id"]).execute()
+    supabase.table("processos").update(update_data).eq("id", proc["id"]).execute()
     return final_url
