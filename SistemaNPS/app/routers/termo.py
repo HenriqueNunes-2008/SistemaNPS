@@ -106,7 +106,10 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
             if not data.termo_dados or not data.termo_dados.get("aprovacao", {}).get("representante"):
                 raise HTTPException(status_code=403, detail="Edição bloqueada para este processo.")
 
-        result = ProcessoService.salvar_termo_fluxo(data, is_update=True, existing_proc=proc)
+        try:
+            result = ProcessoService.salvar_termo_fluxo(data, is_update=True, existing_proc=proc)
+        except Exception as service_err:
+            raise HTTPException(status_code=500, detail=f"Erro interno no serviço de Termo: {str(service_err)}")
 
         return {
             "success": True,
