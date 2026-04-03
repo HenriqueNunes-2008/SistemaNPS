@@ -27,6 +27,8 @@ class ProcessoRepository:
         res = supabase.table("processos").update(data).eq("id", processo_id).execute()
         if hasattr(res, "error") and res.error:
             raise Exception(f"Erro ao atualizar processo: {res.error.message}")
+        if not res.data:
+            raise Exception(f"Nenhum registro encontrado para atualizar (ID: {processo_id})")
         return res.data[0]
 
     @staticmethod
