@@ -1,3 +1,4 @@
+import uuid
 from typing import Optional, Dict, Any, List
 from app.services.supabase_client import supabase
 
@@ -6,8 +7,20 @@ class ProcessoRepository:
     
     @staticmethod
     def get_by_identifier(identifier: str, select: str = "*") -> Optional[Dict[str, Any]]:
-        """Busca um processo por project_token ou codigo."""
-        for field in ("project_token", "codigo"):
+        """Busca um processo por id, project_token ou codigo."""
+        # Ignora identificadores vazios ou a string literal "None" vinda de links mal formados
+        if not identifier or str(identifier).lower() == "none":
+            return None
+            
+        search_fields = ["project_token", "codigo"]
+        try:
+            # Só tenta buscar por 'id' se o identificador tiver formato de UUID
+            uuid.UUID(str(identifier))
+            search_fields.insert(0, "id")
+        except (ValueError, TypeError):
+            pass
+
+        for field in search_fields:
             res = supabase.table("processos").select(select).eq(field, identifier).limit(1).execute()
             if res.data:
                 return res.data[0]
