@@ -106,10 +106,13 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
             if not data.termo_dados or not data.termo_dados.get("aprovacao", {}).get("representante"):
                 raise HTTPException(status_code=403, detail="Edição bloqueada para este processo.")
 
-        try:
-            result = ProcessoService.salvar_termo_fluxo(data, is_update=True, existing_proc=proc)
-        except Exception as service_err:
-            raise HTTPException(status_code=500, detail=f"Erro interno no serviço de Termo: {str(service_err)}")
+        # Se for admin, forçamos o modo visualização para a Aprovação Final:
+        # Mantemos os dados de aprovação originais do banco, ignorando o que veio no payload.
+        if is_admin and data.termo_dados:
+            dados_originais = parse_json_object(proc.get("termo_dados"))
+            data.termo_dados["aprovacao"] = dados_originais.get("aprovacao")
+
+        result = ProcessoService.salvar_termo_fluxo(data, is_update=True, existing_proc=proc)
 
         return {
             "success": True,
@@ -122,7 +125,7 @@ def atualizar_termo(data: TermoUpdateRequest, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
     
 @router.get("/dados/{identificador}")
-def obter_dados_termo(identificador: str, response: Response):
+def obter_dados_termo(identificador: str, response: Response, request: Request):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
@@ -145,7 +148,8 @@ def obter_dados_termo(identificador: str, response: Response):
             "termo_dados": termo_dados,
             "nps_dados": nps_dados,
             "imagens": proc.get("imagens_termo") or [],
-            "bloqueado": bool(nps_dados.get("_lock_termo"))
+            "bloqueado": bool(nps_dados.get("_lock_termo")),
+            "is_admin": is_admin_mode_request(request)
         }
 
         # Expõe campos internos do termo_dados na raiz para facilitar o preenchimento no frontend
