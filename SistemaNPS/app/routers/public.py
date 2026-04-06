@@ -309,7 +309,7 @@ def admin(request: Request):
             supabase
             .table("processos")
             .select(
-                "codigo,project_token,projeto,project_token_ativo,project_token_expira_em,"
+                "project_token,projeto,project_token_ativo,project_token_expira_em,"
                 "nome_cliente,empresa,cpf,status,status_entrega,"
                 "criado_em,atualizado_em,termo_pdf,pdf_ressalvas,pdf_final,nps_nota,nps_dados"
             )
@@ -327,7 +327,7 @@ def admin(request: Request):
             supabase
             .table("processos")
             .select(
-                "codigo,project_token,nome_cliente,cpf,status,status_entrega,criado_em,"
+                "project_token,nome_cliente,cpf,status,status_entrega,criado_em,"
                 "termo_pdf,pdf_ressalvas,pdf_final,nps_dados"
             )
             .order("criado_em", desc=True)
@@ -383,8 +383,7 @@ def admin(request: Request):
     if q:
         processos = [
             p for p in processos
-            if q in (p.get("codigo") or "").lower()
-            or q in (p.get("project_token") or "").lower()
+            if q in (p.get("project_token") or "").lower()
             or q in (p.get("projeto") or "").lower()
             or q in (p.get("nome_cliente") or "").lower()
             or q in (p.get("empresa") or "").lower()
