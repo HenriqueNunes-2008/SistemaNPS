@@ -789,38 +789,36 @@
         <table class="admin-table">
             <thead>
                 <tr>
-                    <th>Projeto</th>
-                    <th>Token</th>
-                    <th>Código</th>
-                    <th>Cliente</th>
-                    <th>Empresa</th>
-                    <th>Status</th>
-                    <th>NPS</th>
-                    <th>Criado</th>
-                    <th>Ações</th>
+                    <th class="col-projeto">Projeto</th>
+                    <th class="col-token">Token</th>
+                    <th class="col-cliente">Cliente</th>
+                    <th class="col-empresa">Empresa</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-nps">NPS</th>
+                    <th class="col-criado">Criado</th>
+                    <th class="col-acoes">Ações</th>
                 </tr>
             </thead>
             <tbody>
             {% for p in processos %}
                 {% set token_finalizado = (p.project_token_ativo == False) or (p.project_token_expira_em) %}
                 <tr>
-                    <td data-label="Projeto">
+                    <td data-label="Projeto" class="col-projeto">
                         <input type="text" value="{{ p.projeto or '' }}" placeholder="Nome do projeto" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px;">
                     </td>
-                    <td data-label="Token">{{ p.project_token or "-" }}</td>
-                    <td data-label="Código">{{ p.codigo }}</td>
-                    <td data-label="Cliente">{{ p.nome_cliente or "-" }}</td>
-                    <td data-label="Empresa">{{ p.empresa or "-" }}</td>
-                    <td data-label="Status">
+                    <td data-label="Token" class="col-token">{{ p.project_token or "-" }}</td>
+                    <td data-label="Cliente" class="col-cliente">{{ p.nome_cliente or "-" }}</td>
+                    <td data-label="Empresa" class="col-empresa">{{ p.empresa or "-" }}</td>
+                    <td data-label="Status" class="col-status">
                         {{ p.status_entrega or p.status or "-" }}
                         <div class="project-state">
                             <span class="project-state-dot {{ 'is-finished' if token_finalizado else 'is-active' }}"></span>
                             <span class="project-state-text">{{ "Projeto finalizado" if token_finalizado else "Projeto ativo" }}</span>
                         </div>
                     </td>
-                    <td data-label="NPS">{{ p.nps_nota if p.nps_nota is not none else "-" }}</td>
-                    <td data-label="Criado">{{ p.criado_em_fmt or p.criado_em or "-" }}</td>
-                    <td data-label="Ações">
+                    <td data-label="NPS" class="col-nps">{{ p.nps_nota if p.nps_nota is not none else "-" }}</td>
+                    <td data-label="Criado" class="col-criado">{{ p.criado_em_fmt or p.criado_em or "-" }}</td>
+                    <td data-label="Ações" class="col-acoes">
                         <div class="actions">
                             <a class="btn" href="/termo?processo={{ p.project_token or p.codigo }}&return=/admin">Editar</a>
                             {% if p.project_token %}<button class="btn copy-link" type="button" onclick="copiarLink(this, '{{ base_url }}/index?project_token={{ p.project_token }}')">Copiar link</button>{% endif %}
