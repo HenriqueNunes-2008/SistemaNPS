@@ -15,18 +15,29 @@ from app.services.supabase_client import supabase
 # Adicionamos o servico de upload (assumindo que existe em app.services.upload)
 from app.services.upload import upload_pdf
 from app.services.processo_repository import ProcessoRepository
+from supabase import create_client
 import os
+from urllib.parse import urlparse # Importar urlparse
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 
 def _extract_storage_path(public_url: str) -> str | None:
+    """Extrai o caminho relativo do objeto dentro do bucket, limpando query strings como '?'."""
+    if not public_url:
+        return None
+    parsed_url = urlparse(public_url)
+    # parsed_url.path remove o que vem depois do '?' (query string)
+    path_without_query = parsed_url.path 
+
     marker = "/storage/v1/object/public/processos/"
-    if marker in public_url:
-        return public_url.split(marker, 1)[1]
-    if public_url.startswith("processos/"):
-        return public_url.split("processos/", 1)[1]
+    if marker in path_without_query:
+        return path_without_query.split(marker, 1)[1]
+    if path_without_query.startswith("/processos/"): # Handles leading slash from urlparse
+        return path_without_query.split("/processos/", 1)[1]
+    if path_without_query.startswith("processos/"): # Handles case where it's already just the path
+        return path_without_query.split("processos/", 1)[1]
     return None
 
 
@@ -35,12 +46,16 @@ def _download_pdf(url: str) -> bytes:
     if not path:
         raise HTTPException(status_code=400, detail="URL de storage inválida")
 
-    res = supabase.storage.from_("processos").download(path)
-    if hasattr(res, "error") and res.error:
-        raise HTTPException(status_code=502, detail=res.error.message)
-    if isinstance(res, dict) and res.get("error"):
-        raise HTTPException(status_code=502, detail=res.get("error"))
-    return res
+    try:
+        res = supabase.storage.from_("processos").download(path)
+        if hasattr(res, "error") and res.error:
+            raise HTTPException(status_code=502, detail=res.error.message)
+        if isinstance(res, dict) and res.get("error"):
+            raise HTTPException(status_code=502, detail=res.get("error"))
+        return res
+    except Exception as e:
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=502, detail=f"Falha ao baixar arquivo do storage: {str(e)}")
 
 
 def _extract_project_token(request: Request) -> str:
@@ -151,47 +166,6 @@ def _verify_admin_activation_password(password: str) -> bool:
         dklen=len(expected),
     )
     return hmac.compare_digest(derived, expected)
-
-@router.get("/admin/alterar-senha", response_class=HTMLResponse)
-def alterar_senha_page(request: Request):
-    if not _is_admin_activation_granted(request):
-        return RedirectResponse(url="/admin-password", status_code=303)
-    return templates.TemplateResponse(
-        request=request,
-        name="admin-alterar-senha.html",
-        context={"request": request}
-    )
-
-@router.post("/admin/alterar-senha")
-def admin_alterar_senha(
-    request: Request,
-    email: str = Form(...),
-    nova_senha: str = Form(...)
-):
-    if not _is_admin_activation_granted(request):
-        raise HTTPException(status_code=403, detail="Acesso restrito")
-
-    # 1. Validação de perfil administrativo no Supabase
-    res_perfil = supabase.table("perfis").select("role").eq("email", email).eq("role", "admin").execute()
-    if not res_perfil.data:
-        raise HTTPException(status_code=403, detail="E-mail não autorizado ou sem permissão de administrador.")
-
-    # 2. Gerar novo hash baseado na lógica existente
-    novo_hash = _encode_admin_activation_password(nova_senha)
-
-    # 3. Atualizar a tabela de configurações seguras
-    res_upd = (
-        supabase
-        .table("configuracoes_seguras")
-        .update({"valor_hash": novo_hash})
-        .eq("chave", "admin_activation_hash")
-        .execute()
-    )
-
-    if hasattr(res_upd, "error") and res_upd.error:
-        raise HTTPException(status_code=500, detail="Falha ao salvar nova senha no banco.")
-
-    return JSONResponse({"success": True, "message": "Senha atualizada com sucesso!"})
 
 
 def _encode_admin_activation_password(password: str, iterations: int = 390000) -> str:
@@ -385,6 +359,12 @@ def admin(request: Request):
             or nps_dados.get("_lock_ressalvas")
             or nps_dados.get("_lock_nps")
         )
+        
+        # AJUSTE: Garante que p["codigo"] nunca seja None para os links de PDF no admin.html
+        # Se o código humano estiver nulo, usamos o project_token ou o ID como fallback no link
+        if not p.get("codigo"):
+            p["codigo"] = p.get("project_token") or p.get("id")
+
         criado_em_raw = p.get("criado_em")
         created_text = str(criado_em_raw or "").strip()
         match_dt = re.match(r"^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})", created_text)
@@ -690,18 +670,11 @@ def nps_motor(request: Request):
 
 @router.get("/pdf/termo/{codigo}")
 def pdf_termo(codigo: str):
-    proc = (
-        supabase
-        .table("processos")
-        .select("termo_pdf")
-        .eq("codigo", codigo)
-        .single()
-        .execute()
-    )
-    if not proc.data or not proc.data.get("termo_pdf"):
+    proc = ProcessoRepository.get_by_identifier(codigo, "termo_pdf")
+    if not proc or not proc.get("termo_pdf"):
         raise HTTPException(status_code=404, detail="PDF do termo não encontrado")
 
-    pdf_bytes = _download_pdf(proc.data["termo_pdf"])
+    pdf_bytes = _download_pdf(proc["termo_pdf"])
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -716,18 +689,11 @@ def pdf_termo(codigo: str):
 
 @router.get("/pdf/ressalvas/{codigo}")
 def pdf_ressalvas(codigo: str):
-    proc = (
-        supabase
-        .table("processos")
-        .select("pdf_ressalvas")
-        .eq("codigo", codigo)
-        .single()
-        .execute()
-    )
-    if not proc.data or not proc.data.get("pdf_ressalvas"):
+    proc = ProcessoRepository.get_by_identifier(codigo, "pdf_ressalvas")
+    if not proc or not proc.get("pdf_ressalvas"):
         raise HTTPException(status_code=404, detail="PDF de ressalvas não encontrado")
 
-    pdf_bytes = _download_pdf(proc.data["pdf_ressalvas"])
+    pdf_bytes = _download_pdf(proc["pdf_ressalvas"])
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -742,18 +708,11 @@ def pdf_ressalvas(codigo: str):
 
 @router.get("/pdf/final/{codigo}")
 def pdf_final(codigo: str):
-    proc = (
-        supabase
-        .table("processos")
-        .select("pdf_final")
-        .eq("codigo", codigo)
-        .single()
-        .execute()
-    )
-    if not proc.data or not proc.data.get("pdf_final"):
+    proc = ProcessoRepository.get_by_identifier(codigo, "pdf_final")
+    if not proc or not proc.get("pdf_final"):
         raise HTTPException(status_code=404, detail="PDF final não encontrado")
 
-    pdf_bytes = _download_pdf(proc.data["pdf_final"])
+    pdf_bytes = _download_pdf(proc["pdf_final"])
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
