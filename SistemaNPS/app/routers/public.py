@@ -168,6 +168,17 @@ def _verify_admin_activation_password(password: str) -> bool:
     return hmac.compare_digest(derived, expected)
 
 
+def _verify_admin_email_role(email: str) -> bool:
+    """Verifica se o e-mail existe na tabela perfis e possui role='admin'."""
+    try:
+        res = supabase.table("perfis").select("role").eq("email", email).limit(1).execute()
+        if res.data:
+            return res.data[0].get("role") == "admin"
+    except Exception:
+        pass
+    return False
+
+
 def _encode_admin_activation_password(password: str, iterations: int = 390000) -> str:
     salt = os.urandom(16)
     derived = hashlib.pbkdf2_hmac(
@@ -226,8 +237,13 @@ def admin_password_page(request: Request):
     )
 
 @router.post("/admin-password")
-def admin_password_post(password: str = Form(...)):
-    # Validar a senha administrativa
+def admin_password_post(email: str = Form(...), password: str = Form(...)):
+    # 1. Validar se o e-mail tem perfil admin
+    if not _verify_admin_email_role(email):
+        erro = quote_plus("Acesso negado: e-mail não autorizado ou sem permissão administrativa.")
+        return RedirectResponse(url=f"/admin-password?erro={erro}", status_code=303)
+
+    # 2. Validar a senha administrativa (shared secret)
     if not _verify_admin_activation_password(password):
         erro = quote_plus("Senha inválida.")
         return RedirectResponse(url=f"/admin-password?erro={erro}", status_code=303)
@@ -571,7 +587,42 @@ def admin_expirar_token(
     )
 
 
-# REMOVED: alterar-senha-acesso (não mais necessário)
+@router.post("/admin/alterar-senha-acesso")
+def alterar_senha_acesso(
+    request: Request,
+    senha_atual: str = Form(...),
+    nova_senha: str = Form(...),
+    confirmar_senha: str = Form(...)
+):
+    """Altera a senha global de ativação administrativa em configuracoes_seguras."""
+    if not _is_admin_activation_granted(request):
+        raise HTTPException(status_code=403, detail="Sessão administrativa expirada ou inválida.")
+
+    if nova_senha != confirmar_senha:
+        raise HTTPException(status_code=400, detail="A confirmação de senha não confere.")
+
+    # Valida senha atual antes de permitir a troca
+    if not _verify_admin_activation_password(senha_atual):
+        raise HTTPException(status_code=400, detail="Senha atual incorreta.")
+
+    novo_hash = _encode_admin_activation_password(nova_senha)
+    
+    res = (
+        supabase
+        .table("configuracoes_seguras")
+        .update({
+            "valor_hash": novo_hash,
+            "atualizado_em": datetime.now(timezone.utc).isoformat(),
+            "atualizado_por": "Painel Admin"
+        })
+        .eq("chave", "admin_activation_hash")
+        .execute()
+    )
+
+    if hasattr(res, "error") and res.error:
+        raise HTTPException(status_code=500, detail=res.error.message)
+
+    return {"success": True}
 
 
 # REMOVIDO: alterar senha admin - não mais necessário
