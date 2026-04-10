@@ -38,7 +38,8 @@ class ProcessoService:
             termo_dados["data"] = data.data
 
         # Normalizacao de Imagens
-        itens_input = data.imagens or termo_dados.get("itens") or []
+        # Se não vierem novas imagens, tenta manter as existentes para não perder no PDF
+        itens_input = data.imagens or termo_dados.get("itens") or existing_imgs or []
         mapa_existente = {str(img.get("item")): img for img in (existing_imgs or []) if isinstance(img, dict)}
         
         itens_finais = []
@@ -81,7 +82,10 @@ class ProcessoService:
         # Upload de imagens de itens (opcional/background)
         for img in termo_dados["itens"]:
             if img.get("imagem_base64") and "," in img["imagem_base64"]:
-                try: upload_pdf(img["imagem_base64"], folder)
+                try: 
+                    # Persiste a URL pública de volta no campo da imagem para salvar no banco
+                    img_url = upload_pdf(img["imagem_base64"], folder)
+                    img["imagem_base64"] = img_url
                 except: pass
 
         # 3. Preparar Payload
