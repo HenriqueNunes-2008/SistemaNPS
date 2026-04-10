@@ -1241,7 +1241,7 @@ function getCookieValue(name) {
     return "";
 }
 
-const isAdmin = returnTo === "/admin" && "{{ is_admin }}" === "True";
+const isAdmin = "{{ is_admin }}" === "True";
 const userFlow = (getCookieValue("nps_tipo_acesso") || "cliente").toLowerCase();
 
 function buildFlowUrl(path) {
@@ -1454,29 +1454,46 @@ function coletarCamposTermo() {
 }
 
 function desabilitarFormulario() {
-    // Desabilita inputs, selects e textareas dentro da área principal
-    document.querySelectorAll("#capture-area input, #capture-area select, #capture-area textarea, .status-card").forEach(el => {
+    // Desabilita inputs, selects e textareas
+    document.querySelectorAll("#capture-area input, #capture-area select, #capture-area textarea").forEach(el => {
         el.disabled = true;
+        el.readOnly = true;
     });
 
-    // Desabilita a área de upload de fotos
+      // Desabilita totalmente a interação com a área de fotos
     const imageBox = document.getElementById("imageBox");
     if (imageBox) {
         imageBox.style.pointerEvents = "none";
-        imageBox.style.opacity = "0.7";
+           imageBox.style.opacity = "0.9";
+        const placeholder = imageBox.querySelector("#placeholder");
+        if (placeholder) {
+            placeholder.querySelectorAll("button").forEach(btn => btn.style.display = "none");
+            const dropText = placeholder.querySelector(".Textoimagem");
+            if (dropText) dropText.textContent = "Galeria de Fotos do Termo";
+        }
     }
 
-    // Desabilita cards de status e seleção de região
-    document.querySelectorAll(".status-card, #regiao-foto").forEach(el => {
+    // Esconde botões de ação de imagem e área de drop
+    const placeholder = document.getElementById("placeholder");
+    if (placeholder) {
+        placeholder.querySelectorAll("button").forEach(btn => btn.style.display = "none");
+        const dropText = placeholder.querySelector(".Textoimagem");
+        if (dropText) dropText.textContent = "Visualização de Fotos";
+    }
+
+    // Esconde botões de remover imagem no preview e no grid
+    document.querySelectorAll(".remove").forEach(btn => btn.style.display = "none");
+
+    // Desabilita interação com os cards de status
+    document.querySelectorAll(".status-card").forEach(el => {
         el.style.pointerEvents = "none";
-        el.style.opacity = "0.7";
-        if(el.tagName === 'SELECT') el.disabled = true;
+        el.style.opacity = "0.8";
     });
 
-    // Desabilita botão de salvar e altera texto
+    // Oculta o botão de salvar por padrão no modo leitura
     if (btnSalvar) {
         btnSalvar.disabled = true;
-        btnSalvar.textContent = "TERMO JÁ SALVO";
+        btnSalvar.style.display = "none";
     }
 }
 
@@ -1564,7 +1581,7 @@ async function carregarEdicao(codigoProcesso) {
             }
         }
 
-        let imagensTermo = data.imagens_termo;
+        let imagensTermo = data.imagens || data.imagens_termo;
         if (typeof imagensTermo === "string") {
             try {
                 imagensTermo = JSON.parse(imagensTermo);
@@ -1590,7 +1607,16 @@ async function carregarEdicao(codigoProcesso) {
                 }
             });
             renderFotoGrid();
-            const regiaoSelecionada = document.getElementById("regiao-foto")?.value;
+            
+            let regiaoSelecionada = document.getElementById("regiao-foto")?.value;
+            
+            // Se for visualização e não houver região selecionada, pega a primeira com foto
+            if (userEditLocked && !regiaoSelecionada) {
+                regiaoSelecionada = ordemRegioes.find(r => fotoPorRegiao[r]);
+                const select = document.getElementById("regiao-foto");
+                if (select && regiaoSelecionada) select.value = regiaoSelecionada;
+            }
+
             if (regiaoSelecionada && fotoPorRegiao[regiaoSelecionada]) {
                 previewImg.src = fotoPorRegiao[regiaoSelecionada];
                 preview.classList.remove('hidden');
@@ -1620,19 +1646,25 @@ async function carregarEdicao(codigoProcesso) {
         if (userEditLocked && !isAdmin) {
             desabilitarFormulario();
             
-            // Verifica se a aprovação final já foi preenchida
             const repVal = document.getElementById("aprovacao-representante")?.value.trim();
             const cpfVal = document.getElementById("aprovacao-cpf")?.value.trim();
 
             if (!repVal || !cpfVal) {
-                // Se não foi aprovado, libera apenas os campos de aprovação e o botão
-                document.querySelectorAll("section.approval input").forEach(el => el.disabled = false);
+                // Se ainda não foi aprovado, libera os campos de aprovação final para o cliente
+                document.querySelectorAll("section.approval input").forEach(el => {
+                    el.disabled = false;
+                    el.readOnly = false;
+                });
                 if (btnSalvar) {
-                    btnSalvar.disabled = true; // Começa desabilitado até preencher
+                    btnSalvar.disabled = true;
+                    btnSalvar.style.display = "block";
                     btnSalvar.textContent = "APROVAR TERMO";
                 }
             } else {
-                if (btnSalvar) btnSalvar.textContent = "TERMO SALVO E APROVADO";
+                if (btnSalvar) {
+                    btnSalvar.style.display = "block";
+                    btnSalvar.textContent = "TERMO SALVO E APROVADO";
+                }
             }
             return;
         }
@@ -2102,6 +2134,59 @@ window.renderFotoGrid = function() {
     window.closeMotoristaDoneModal = closeMotoristaDoneModal;
     window.copySupervisorLink = copySupervisorLink;
 });
+const campoStatus = document.getElementById('status_entrega'); // Ajuste o ID conforme seu HTML
+const areaRessalvas = document.getElementById('termo_dados_ressalvas'); // Onde ficam os inputs de ressalva
+
+function gerenciarBloqueioRessalvas() {
+    const status = campoStatus.value;
+    
+    // Se o Admin permitiu edição, mas o status é 'concluido', bloqueamos as ressalvas.
+    // Se for 'concluido_com_ressalva', liberamos.
+    if (status === 'concluido') {
+        areaRessalvas.style.pointerEvents = 'none';
+        areaRessalvas.style.opacity = '0.6';
+        // Opcional: desabilitar todos os inputs dentro da área
+        areaRessalvas.querySelectorAll('input, textarea').forEach(el => el.disabled = true);
+    } else {
+        areaRessalvas.style.pointerEvents = 'auto';
+        areaRessalvas.style.opacity = '1';
+        areaRessalvas.querySelectorAll('input, textarea').forEach(el => el.disabled = false);
+    }
+}
+
+campoStatus.addEventListener('change', gerenciarBloqueioRessalvas);
+
+async function carregarDadosIniciais() {
+    const overlay = document.getElementById('loadingOverlay');
+    overlay.style.display = 'flex';
+    
+    try {
+        const response = await fetch(`/termo/dados/${processoId}`); 
+        const result = await response.json();
+        
+        if (result.success) {
+            const d = result.dados;
+            // Preenchimento dos campos básicos
+            document.getElementById('nome_cliente').value = d.nome_cliente || '';
+            document.getElementById('status_entrega').value = d.status_entrega || 'concluido';
+            
+            // ... Preencher outros campos de termo_dados ...
+
+            // SE estiver bloqueado pelo Admin, desabilita o formulário INTEIRO
+            if (d.bloqueado) {
+                document.getElementById('meuFormulario').style.pointerEvents = 'none';
+                document.getElementById('btnSalvar').display = 'none';
+            } else {
+                // SE NÃO estiver bloqueado, roda a lógica das ressalvas baseada no status
+                gerenciarBloqueioRessalvas(); 
+            }
+        }
+    } catch (err) {
+        console.error("Erro ao carregar dados", err);
+    } finally {
+        setTimeout(() => { overlay.style.display = 'none'; }, 500);
+    }
+}
 </script>
 <div id="loadingOverlay" class="loading-overlay" style="display:none;">
     <div class="loader-content">
