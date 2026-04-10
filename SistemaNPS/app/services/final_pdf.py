@@ -140,13 +140,14 @@ def _collect_termo_images(proc_data: dict) -> list[dict]:
         
         # Tenta pegar a imagem do campo imagem_base64 (que agora pode ser URL ou Base64)
         img_src = img.get("imagem_base64") or img.get("imagem")
-        if img_src:
-            if str(img_src).startswith("data:"):
+        if img_src: # Garante que img_src não é None ou vazio
+            img_src_str = str(img_src) # Converte explicitamente para string
+            if img_src_str.startswith("data:"):
                 raw_bytes = _decode_base64_image(img_src)
-            elif str(img_src).startswith("http"):
+            elif img_src_str.startswith("http"):
                 raw_bytes = _download_image(img_src)
-        elif img.get("url"):
-            raw_bytes = _download_image(img.get("url"))
+        elif img.get("url"): # Fallback para estruturas mais antigas ou se imagem_base64 não foi definido
+            raw_bytes = _download_image(str(img.get("url"))) # Garante que a URL é uma string
 
         if not raw_bytes:
             continue
@@ -195,9 +196,10 @@ def _collect_ressalvas_items(proc_data: dict) -> list[dict]:
         
         img_src = item.get("imagem_base64")
         raw_bytes = None
-        if img_src:
-            if str(img_src).startswith("data:"): raw_bytes = _decode_base64_image(img_src)
-            elif str(img_src).startswith("http"): raw_bytes = _download_image(img_src)
+        if img_src: # Garante que img_src não é None ou vazio
+            img_src_str = str(img_src) # Converte explicitamente para string
+            if img_src_str.startswith("data:"): raw_bytes = _decode_base64_image(img_src)
+            elif img_src_str.startswith("http"): raw_bytes = _download_image(img_src)
 
         resultado.append(
             {
