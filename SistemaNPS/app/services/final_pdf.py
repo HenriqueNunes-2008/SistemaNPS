@@ -137,12 +137,16 @@ def _collect_termo_images(proc_data: dict) -> list[dict]:
 
         regiao = _safe_text(img.get("regiao_foto")).strip().lower()
         raw_bytes = None
-        if img.get("imagem_base64"):
-            raw_bytes = _decode_base64_image(img.get("imagem_base64"))
+        
+        # Tenta pegar a imagem do campo imagem_base64 (que agora pode ser URL ou Base64)
+        img_src = img.get("imagem_base64") or img.get("imagem")
+        if img_src:
+            if str(img_src).startswith("data:"):
+                raw_bytes = _decode_base64_image(img_src)
+            elif str(img_src).startswith("http"):
+                raw_bytes = _download_image(img_src)
         elif img.get("url"):
             raw_bytes = _download_image(img.get("url"))
-        elif img.get("imagem"):
-            raw_bytes = _decode_base64_image(img.get("imagem"))
 
         if not raw_bytes:
             continue
@@ -188,7 +192,13 @@ def _collect_ressalvas_items(proc_data: dict) -> list[dict]:
     for idx, item in enumerate(itens):
         if not isinstance(item, dict):
             continue
-        raw_bytes = _decode_base64_image(item.get("imagem_base64", "")) if item.get("imagem_base64") else None
+        
+        img_src = item.get("imagem_base64")
+        raw_bytes = None
+        if img_src:
+            if str(img_src).startswith("data:"): raw_bytes = _decode_base64_image(img_src)
+            elif str(img_src).startswith("http"): raw_bytes = _download_image(img_src)
+
         resultado.append(
             {
                 "idx": idx + 1,
