@@ -1,17 +1,17 @@
-* Sistema NPS - Fleximedical / Kure
+# Sistema NPS - Fleximedical / Kure
 
 O Sistema NPS é uma aplicação Full Stack desenvolvida com FastAPI, focada na gestão de feedback e conformidade para a Fleximedical/Kure. O sistema centraliza processos críticos de interação com o cliente, garantindo a coleta de métricas de satisfação e validações legais.
 
-** Tecnologias e Hospedagem
+## Tecnologias e Hospedagem
 -Framework: FastAPI (Python).
 
 - Banco de Dados: Supabase (PostgreSQL).
 
 - Hospedagem: Render.
 
-***Frontend: HTML5 com Jinja2 Templates.
+- Frontend: HTML5 com Jinja2 Templates.
 
-** Pilares do Sistema
+## Pilares do Sistema
 O projeto está estruturado em três funcionalidades principais para atender às necessidades da empresa:
 
 - NPS (Net Promoter Score): Coleta e análise do nível de satisfação dos clientes através de formulários dinâmicos.
@@ -20,7 +20,7 @@ O projeto está estruturado em três funcionalidades principais para atender às
 
 - Ressalvas: Sistema de registro de observações e exceções durante o atendimento ou processo de feedback.
 
-** Organização do Código
+## Organização do Código
 - app/routers/: Gerencia as rotas de cada módulo (nps.py, termo.py, ressalvas.py).
 
 - app/services/: Contém a lógica de geração de documentos, incluindo relatórios em PDF.
@@ -29,7 +29,7 @@ O projeto está estruturado em três funcionalidades principais para atender às
 
 - schemas.py: Definições de modelos de dados para integração com o Supabase.
 
-** Instalação e Execução Local
+## Instalação e Execução Local
 Clone o repositório:
 
 Bash
