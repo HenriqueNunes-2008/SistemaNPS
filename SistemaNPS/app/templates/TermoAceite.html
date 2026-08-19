@@ -1077,9 +1077,9 @@ input.cpf-valido {
 </div>
     <div class="row" style="margin-top:40px;">
         <div class="signature-box" style="flex:1;">
-            <label>COMPRADOR</label>
+            <label>ENTREGUE A:</label>
             <input type="text" placeholder="Nome completo">
-            <input type="text" id="rg-comprador" placeholder="CPF">
+            <input type="text" id="rg-comprador" placeholder="CPF/CNPJ">
         </div>
 
         <div class="signature-box admin-only" style="flex:1;">
@@ -1090,13 +1090,13 @@ input.cpf-valido {
     </div>
 
 </section>
-<section class="approval admin-only">
+<section class="approval" id="approvalSection">
     <strong>APROVAÇÃO FINAL DO TERMO:</strong>
     <div class="approval-fields">
         <label>REPRESENTANTE</label>
-        <input type="text" placeholder="REPRESENTANTE">
-        <label>CPF</label>
-        <input type="text" placeholder="CPF">
+        <input type="text" id="aprovacao-representante" placeholder="REPRESENTANTE">
+        <label>CPF/CNPJ</label>
+        <input type="text" id="aprovacao-cpf" placeholder="CPF/CNPJ">
     </div>
 </section>
 </main>
@@ -1144,9 +1144,10 @@ input.cpf-valido {
 </div>
 
 <script>
-/* ================= CPF ================= */
+/* ================= CPF / CNPJ ================= */
 function validarCPF(cpf) {
     cpf = cpf.replace(/\D/g, '');
+    if (cpf.length === 14) return validarCNPJ(cpf);
     if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
 
     let s = 0;
@@ -1163,11 +1164,46 @@ function validarCPF(cpf) {
     return d2 == cpf[10];
 }
 
+function validarCNPJ(cnpj) {
+    cnpj = cnpj.replace(/[^\d]+/g, '');
+    if (cnpj.length !== 14 || /^(\d)\1+$/.test(cnpj)) return false;
+    let tamanho = cnpj.length - 2;
+    let numeros = cnpj.substring(0, tamanho);
+    let digitos = cnpj.substring(tamanho);
+    let soma = 0;
+    let pos = tamanho - 7;
+    for (let i = tamanho; i >= 1; i--) {
+        soma += numeros.charAt(tamanho - i) * pos--;
+        if (pos < 2) pos = 9;
+    }
+    let resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+    if (resultado != digitos.charAt(0)) return false;
+    tamanho = tamanho + 1;
+    numeros = cnpj.substring(0, tamanho);
+    soma = 0;
+    pos = tamanho - 7;
+    for (let i = tamanho; i >= 1; i--) {
+        soma += numeros.charAt(tamanho - i) * pos--;
+        if (pos < 2) pos = 9;
+    }
+    resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+    return resultado == digitos.charAt(1);
+}
+
 function maskCPF(value) {
-    value = value.replace(/\D/g, '').slice(0, 11);
-    value = value.replace(/(\d{3})(\d)/, '$1.$2');
-    value = value.replace(/(\d{3})(\d)/, '$1.$2');
-    value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    value = value.replace(/\D/g, '');
+    if (value.length <= 11) {
+        value = value.slice(0, 11);
+        value = value.replace(/(\d{3})(\d)/, '$1.$2');
+        value = value.replace(/(\d{3})(\d)/, '$1.$2');
+        value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    } else {
+        value = value.slice(0, 14);
+        value = value.replace(/^(\d{2})(\d)/, "$1.$2");
+        value = value.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3");
+        value = value.replace(/^(\d{2})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3/$4");
+        value = value.replace(/(\d{4})(\d)/, "$1-$2");
+    }
     return value;
 }
 
@@ -1205,7 +1241,7 @@ function getCookieValue(name) {
     return "";
 }
 
-const isAdmin = returnTo === "/admin";
+const isAdmin = "{{ is_admin }}" === "True";
 const userFlow = (getCookieValue("nps_tipo_acesso") || "cliente").toLowerCase();
 
 function buildFlowUrl(path) {
@@ -1317,9 +1353,24 @@ function atualizarEstadoBotao() {
     );
 
     const statusSelecionado = document.querySelector(".status-card.active") !== null;
-    const fotosCompletas = todasFotosPreenchidas();
 
-    const tudoValido = nomeValido && cpfCompradorValido && cpfRepresentanteValido && dataValida && statusSelecionado && fotosCompletas;
+    // Lógica para quando o admin bloqueou a edição (User Flow do Cliente para Aprovação Final)
+    if (userEditLocked && !isAdmin) {
+        const repVal = document.getElementById("aprovacao-representante")?.value.trim();
+        const cpfVal = document.getElementById("aprovacao-cpf")?.value.trim() || "";
+        const aprovCpfValido = validarCPF(cpfVal);
+        
+        btnSalvar.disabled = !(repVal && aprovCpfValido);
+        
+        const aprovCpfInput = document.getElementById("aprovacao-cpf");
+        if (aprovCpfInput) {
+            aprovCpfInput.classList.toggle("cpf-valido", aprovCpfValido);
+            aprovCpfInput.classList.toggle("cpf-invalido", !aprovCpfValido && cpfVal !== "");
+        }
+        return;
+    }
+
+    const tudoValido = nomeValido && cpfCompradorValido && cpfRepresentanteValido && dataValida && statusSelecionado;
 
     cpfComprador.classList.toggle("cpf-valido", cpfCompradorValido);
     cpfComprador.classList.toggle("cpf-invalido", !cpfCompradorValido && cpfComprador.value !== "");
@@ -1386,8 +1437,8 @@ function coletarCamposTermo() {
     };
 
     const aprovacao = {
-        representante: document.querySelector('section.approval input[placeholder="REPRESENTANTE"]')?.value || "",
-        cpf: document.querySelector('section.approval input[placeholder="CPF"]')?.value || ""
+        representante: document.getElementById("aprovacao-representante")?.value.trim() || "",
+        cpf: document.getElementById("aprovacao-cpf")?.value.trim() || ""
     };
 
     return {
@@ -1403,22 +1454,46 @@ function coletarCamposTermo() {
 }
 
 function desabilitarFormulario() {
-    // Desabilita inputs, selects e textareas dentro da área principal
+    // Desabilita inputs, selects e textareas
     document.querySelectorAll("#capture-area input, #capture-area select, #capture-area textarea").forEach(el => {
         el.disabled = true;
+        el.readOnly = true;
     });
 
-    // Desabilita a área de upload de fotos
+      // Desabilita totalmente a interação com a área de fotos
     const imageBox = document.getElementById("imageBox");
     if (imageBox) {
         imageBox.style.pointerEvents = "none";
-        imageBox.style.opacity = "0.7";
+           imageBox.style.opacity = "0.9";
+        const placeholder = imageBox.querySelector("#placeholder");
+        if (placeholder) {
+            placeholder.querySelectorAll("button").forEach(btn => btn.style.display = "none");
+            const dropText = placeholder.querySelector(".Textoimagem");
+            if (dropText) dropText.textContent = "Galeria de Fotos do Termo";
+        }
     }
 
-    // Desabilita botão de salvar e altera texto
+    // Esconde botões de ação de imagem e área de drop
+    const placeholder = document.getElementById("placeholder");
+    if (placeholder) {
+        placeholder.querySelectorAll("button").forEach(btn => btn.style.display = "none");
+        const dropText = placeholder.querySelector(".Textoimagem");
+        if (dropText) dropText.textContent = "Visualização de Fotos";
+    }
+
+    // Esconde botões de remover imagem no preview e no grid
+    document.querySelectorAll(".remove").forEach(btn => btn.style.display = "none");
+
+    // Desabilita interação com os cards de status
+    document.querySelectorAll(".status-card").forEach(el => {
+        el.style.pointerEvents = "none";
+        el.style.opacity = "0.8";
+    });
+
+    // Oculta o botão de salvar por padrão no modo leitura
     if (btnSalvar) {
         btnSalvar.disabled = true;
-        btnSalvar.textContent = "TERMO JÁ SALVO";
+        btnSalvar.style.display = "none";
     }
 }
 
@@ -1440,12 +1515,13 @@ function habilitarModoSomenteLeituraAdminTokenFinalizado() {
 async function carregarEdicao(codigoProcesso) {
     if (!codigoProcesso) return;
     try {
-        const res = await fetch(`/api/processos/${codigoProcesso}`);
+        const res = await fetch(`/termo/dados/${codigoProcesso}?t=${new Date().getTime()}`);
         if (!res.ok) return;
-        const data = await res.json();
+        const json = await res.json();
+        const data = json.dados || json; // Garante acesso aos dados corretos
         processoCarregado = data;
         adminTokenFinalizado = isAdmin && processoTokenFinalizado(data);
-        userEditLocked = !isAdmin && processoEdicaoBloqueada(data);
+        userEditLocked = processoEdicaoBloqueada(data);
 
         if (data.nome_cliente) nomeCliente.value = data.nome_cliente;
         if (data.cpf) cpfComprador.value = maskCPF(data.cpf);
@@ -1490,8 +1566,8 @@ async function carregarEdicao(codigoProcesso) {
         }
 
         if (data.termo_dados?.aprovacao) {
-            const rep = document.querySelector('section.approval input[placeholder="REPRESENTANTE"]');
-            const cpf = document.querySelector('section.approval input[placeholder="CPF"]');
+            const rep = document.getElementById("aprovacao-representante");
+            const cpf = document.getElementById("aprovacao-cpf");
             if (rep) rep.value = data.termo_dados.aprovacao.representante || "";
             if (cpf) cpf.value = data.termo_dados.aprovacao.cpf || "";
         }
@@ -1505,7 +1581,7 @@ async function carregarEdicao(codigoProcesso) {
             }
         }
 
-        let imagensTermo = data.imagens_termo;
+        let imagensTermo = data.imagens || data.imagens_termo;
         if (typeof imagensTermo === "string") {
             try {
                 imagensTermo = JSON.parse(imagensTermo);
@@ -1531,7 +1607,16 @@ async function carregarEdicao(codigoProcesso) {
                 }
             });
             renderFotoGrid();
-            const regiaoSelecionada = document.getElementById("regiao-foto")?.value;
+            
+            let regiaoSelecionada = document.getElementById("regiao-foto")?.value;
+            
+            // Se for visualização e não houver região selecionada, pega a primeira com foto
+            if (userEditLocked && !regiaoSelecionada) {
+                regiaoSelecionada = ordemRegioes.find(r => fotoPorRegiao[r]);
+                const select = document.getElementById("regiao-foto");
+                if (select && regiaoSelecionada) select.value = regiaoSelecionada;
+            }
+
             if (regiaoSelecionada && fotoPorRegiao[regiaoSelecionada]) {
                 previewImg.src = fotoPorRegiao[regiaoSelecionada];
                 preview.classList.remove('hidden');
@@ -1543,14 +1628,61 @@ async function carregarEdicao(codigoProcesso) {
             }
         }
 
-        atualizarEstadoBotao();
+        const approvalSection = document.getElementById("approvalSection");
+        if (approvalSection) {
+            approvalSection.style.display = (!isAdmin && userEditLocked) ? "" : "none";
+        }
+
+        // Representante comercial é um campo interno do administrador.
+        document.querySelectorAll(".admin-only").forEach(el => {
+            el.style.display = isAdmin ? "" : "none";
+        });
+
+        if (!isAdmin) atualizarEstadoBotao();
         if (adminTokenFinalizado) {
             habilitarModoSomenteLeituraAdminTokenFinalizado();
             return;
         }
-        if (userEditLocked) {
+        if (isAdmin && isEditMode) {
+            // Ao editar um termo já salvo, somente o representante comercial
+            // pode ser complementado; o restante é apenas visualização.
             desabilitarFormulario();
-            if (btnSalvar) btnSalvar.textContent = "TERMO SALVO";
+            document.querySelectorAll(".admin-only input").forEach(el => {
+                el.disabled = false;
+                el.readOnly = false;
+            });
+            if (btnSalvar) {
+                btnSalvar.style.display = "block";
+                btnSalvar.disabled = false;
+                btnSalvar.textContent = "SALVAR REPRESENTANTE COMERCIAL";
+            }
+            return;
+        }
+        if (userEditLocked && !isAdmin) {
+            desabilitarFormulario();
+            
+            const repVal = document.getElementById("aprovacao-representante")?.value.trim();
+            const cpfVal = document.getElementById("aprovacao-cpf")?.value.trim();
+
+            if (!repVal || !cpfVal) {
+                // Se ainda não foi aprovado, libera os campos de aprovação final para o cliente
+                document.querySelectorAll("section.approval input").forEach(el => {
+                    el.disabled = false;
+                    el.readOnly = false;
+                });
+                if (btnSalvar) {
+
+                    
+                    btnSalvar.disabled = true;
+                    btnSalvar.style.display = "block";
+                    btnSalvar.textContent = "APROVAR TERMO";
+                }
+            } else {
+                if (btnSalvar) {
+                    btnSalvar.style.display = "block";
+                    btnSalvar.textContent = "TERMO SALVO E APROVADO";
+                }
+            }
             return;
         }
 
@@ -1769,6 +1901,7 @@ window.renderFotoGrid = function() {
     mesInput.addEventListener("input", atualizarEstadoBotao);
     anoInput.addEventListener("input", atualizarEstadoBotao);
     if (!isAdmin) {
+        // Inicialmente esconde para clientes, será mostrado no carregarEdicao se o processo estiver bloqueado
         document.querySelectorAll(".admin-only").forEach((el) => {
             el.style.display = "none";
         });
@@ -1776,6 +1909,8 @@ window.renderFotoGrid = function() {
             el.disabled = true;
         });
     }
+    const approvalSection = document.getElementById("approvalSection");
+    if (approvalSection) approvalSection.style.display = "none";
     if (regiaoSelect) {
         regiaoSelect.addEventListener("change", () => {
             const regiao = regiaoSelect.value;
@@ -1791,6 +1926,16 @@ window.renderFotoGrid = function() {
             atualizarEstadoBotao();
         });
     }
+
+    const aprovCpf = document.getElementById("aprovacao-cpf");
+    if (aprovCpf) {
+        aprovCpf.addEventListener("input", function() {
+            this.value = maskCPF(this.value);
+            atualizarEstadoBotao();
+        });
+    }
+    const aprovRep = document.getElementById("aprovacao-representante");
+    if (aprovRep) aprovRep.addEventListener("input", atualizarEstadoBotao);
 
     processoEmAndamento = isEditMode
         ? null
@@ -1848,18 +1993,14 @@ window.renderFotoGrid = function() {
                 if (imgSrc) {
                     fotosPreenchidas += 1;
                 }
-                if (imgSrc && imgSrc.startsWith("data:")) {
+                if (imgSrc) {
                     imagens.push({
                         item: index + 1,
                         regiao_foto: regiao,
-                        imagem_base64: imgSrc
+                        imagem_base64: imgSrc // Pode ser Base64 ou URL
                     });
                 }
             });
-
-            if (fotosPreenchidas !== 6) {
-                throw new Error("Tire as 6 fotos antes de salvar o termo");
-            }
             /* === CAPTURA COM BACKGROUND DETERMINÍSTICO === */
             const area = document.getElementById("capture-area");
             area.classList.add("capture-mode");
@@ -1885,9 +2026,10 @@ window.renderFotoGrid = function() {
 
                                 /* === ENVIA PARA O BACKEND === */
                                 const codigoParaSalvar = isEditMode ? processoParam : (processoEmAndamento || await resolveDraftProcessId());
-                                const endpoint = !isAdmin
+                                const endpointBase = !isAdmin
                                     ? "/termo/atualizar"
                                     : (codigoParaSalvar ? "/termo/atualizar" : "/termo/salvar");
+                                const endpoint = isAdmin ? `${endpointBase}?return=/admin` : endpointBase;
                                 if (!isAdmin && !codigoParaSalvar) {
                                     throw new Error("Processo invalido para atualizacao do termo");
                                 }
@@ -2074,4 +2216,3 @@ async function carregarDadosIniciais() {
 </div>
 </body>
 </html>
-

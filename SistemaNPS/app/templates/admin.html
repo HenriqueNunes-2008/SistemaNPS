@@ -11,6 +11,62 @@
     <style>
         * { box-sizing: border-box; }
 
+        /* ================= ACTION SHEET & MODAL (FOTOS PROJETO) ================= */
+        .sheet {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1100;
+        }
+        .sheet.active { display: flex; }
+        .sheet-box {
+            background: #fff;
+            border-radius: 18px;
+            padding: 20px;
+            width: 280px;
+            text-align: center;
+        }
+        .sheet-box button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .btn-select { background:#4b49c8; color:#fff; }
+        .btn-camera { background:#0a287a; color:#fff; }
+        .btn-cancel { background:#e5e7eb; }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.75);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal.active { display: flex; }
+        .modal img { max-width: 85vw; max-height: 85vh; border-radius: 12px; }
+        .close-modal {
+            position: absolute;
+            top: 24px;
+            right: 32px;
+            font-size: 38px;
+            color: #fff;
+            cursor: pointer;
+        }
+        #cameraModal video {
+            width: min(92vw, 720px);
+            border-radius: 12px;
+            background: #000;
+        }
+
         body {
             margin: 0;
             font-family: 'Inter', Arial, sans-serif;
@@ -97,26 +153,26 @@
             }
 
             .topbar {
-                height: auto;
-                min-height: 140px;
+                height: 106px;
+                min-height: 106px;
                 border-radius: 0 0 28px 28px;
                 padding: 12px 14px;
             }
 
             .logo-fixed {
                 position: absolute;
-                top: 14px;
-                left: 14px;
-                transform: none;
-                height: 70px;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                height: 72px;
             }
 
             .logo-link {
-                top: 14px;
-                left: 14px;
-                transform: none;
-                width: 150px;
-                height: 70px;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 240px;
+                height: 72px;
             }
 
             .topbar-content {
@@ -125,15 +181,7 @@
             }
 
             .header-info {
-                width: 100%;
-                margin: 0;
-                padding-left: 160px;
-                gap: 8px;
-                display: flex;
-                flex-direction: column;
-                align-items: flex-start;
-                font-size: 12px;
-                line-height: 1.25;
+                display: none;
             }
 
             .header-info > div {
@@ -165,6 +213,51 @@
             main {
                 max-width: 100%;
                 padding: 0 14px;
+            }
+
+            .search-bar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+            .search-bar button {
+                width: 100%;
+            }
+
+            /* Ajustes de responsividade para a tabela de fotos do projeto */
+            .foto-table-header {
+                display: none;
+            }
+            .foto-table-row {
+                grid-template-columns: 1fr;
+                gap: 10px;
+                border: 1px solid #cbd5e1;
+                padding: 15px;
+                border-radius: 12px;
+                background: #fff;
+                position: relative;
+                height: auto;
+            }
+            .foto-table-row .remove-btn {
+                position: absolute;
+                top: 5px;
+                right: 5px;
+            }
+            .foto-table-row input, 
+            .foto-table-row .image-box-foto {
+                width: 100% !important;
+            }
+            .mobile-label {
+                display: block;
+                font-size: 11px;
+                font-weight: 800;
+                color: #1e3a8a;
+                margin-bottom: 4px;
+                text-transform: uppercase;
+            }
+            .field-wrap {
+                width: 100%;
+                margin-bottom: 8px;
             }
         }
 
@@ -412,6 +505,39 @@
             }
         }
 
+        /* Estilos para as linhas de fotos */
+        .foto-table-header, .foto-table-row {
+            display: grid;
+            grid-template-columns: 1fr 140px 1.5fr 40px;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .foto-table-header {
+            font-weight: 800;
+            color: #1e3a8a;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+        .mobile-label { display: none; }
+        .foto-table-row input {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-size: 13px;
+        }
+        .image-box-foto {
+            background: #e2e8f0;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
         /* Modal de Logout */
         .modal-logout {
             position: fixed;
@@ -591,6 +717,26 @@
     <p class="subtitle">Edite Termo, Ressalvas e NPS por projeto (project token).</p>
 
     <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+                <h3 style="margin: 0; color: #1e3a8a; font-size: 18px;">Fotos de Projeto</h3>
+                <p style="margin: 4px 0 0; font-size: 13px; color: #475569;">Vincule até 15 fotos a projetos específicos.</p>
+            </div>
+            <button class="btn" type="button" onclick="addRowFoto()">Adicionar Foto +</button>
+        </div>
+        <div class="foto-table-header">
+            <div>Projeto</div>
+            <div>Foto</div>
+            <div>Observação</div>
+            <div></div>
+        </div>
+        <div id="fotoTableBody"></div>
+        <div style="margin-top: 16px; text-align: right;">
+            <button class="btn secondary" type="button" onclick="salvarTodasFotosProjeto()">Salvar Todas as Fotos</button>
+        </div>
+    </div>
+
+    <div class="card">
         <form class="search-bar" method="get" action="/admin">
             <input type="text" name="q" placeholder="Buscar por token, código, cliente ou empresa" value="{{ q }}">
             <button type="submit">Buscar</button>
@@ -643,44 +789,50 @@
         <table class="admin-table">
             <thead>
                 <tr>
-                    <th>Token</th>
-                    <th>Código</th>
-                    <th>Cliente</th>
-                    <th>Empresa</th>
-                    <th>Status</th>
-                    <th>NPS</th>
-                    <th>Criado</th>
-                    <th>Ações</th>
+                    <th class="col-projeto">Projeto</th>
+                    <th class="col-token">Token</th>
+                    <th class="col-cliente">Cliente</th>
+                    <th class="col-empresa">Empresa</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-nps">NPS</th>
+                    <th class="col-criado">Criado</th>
+                    <th class="col-acoes">Ações</th>
                 </tr>
             </thead>
             <tbody>
             {% for p in processos %}
-                {% set token_finalizado = (p.project_token_ativo is sameas false) or (p.project_token_expira_em) %}
+                {% set token_finalizado = (p.project_token_ativo == False) or (p.project_token_expira_em) %}
                 <tr>
-                    <td data-label="Token">{{ p.project_token or "-" }}</td>
-                    <td data-label="Código">{{ p.codigo }}</td>
-                    <td data-label="Cliente">{{ p.nome_cliente or "-" }}</td>
-                    <td data-label="Empresa">{{ p.empresa or "-" }}</td>
-                    <td data-label="Status">
+                    <td data-label="Projeto" class="col-projeto">
+                        <input type="text" value="{{ p.projeto or '' }}" placeholder="Nome do projeto" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                    </td>
+                    <td data-label="Token" class="col-token">{{ p.project_token or "-" }}</td>
+                    <td data-label="Cliente" class="col-cliente">{{ p.nome_cliente or "-" }}</td>
+                    <td data-label="Empresa" class="col-empresa">{{ p.empresa or "-" }}</td>
+                    <td data-label="Status" class="col-status">
                         {{ p.status_entrega or p.status or "-" }}
                         <div class="project-state">
                             <span class="project-state-dot {{ 'is-finished' if token_finalizado else 'is-active' }}"></span>
                             <span class="project-state-text">{{ "Projeto finalizado" if token_finalizado else "Projeto ativo" }}</span>
                         </div>
                     </td>
-                    <td data-label="NPS">{{ p.nps_nota if p.nps_nota is not none else "-" }}</td>
-                    <td data-label="Criado">{{ p.criado_em_fmt or p.criado_em or "-" }}</td>
-                    <td data-label="Ações">
+                    <td data-label="NPS" class="col-nps">{{ p.nps_nota if p.nps_nota is not none else "-" }}</td>
+                    <td data-label="Criado" class="col-criado">{{ p.criado_em_fmt or p.criado_em or "-" }}</td>
+                    <td data-label="Ações" class="col-acoes">
                         <div class="actions">
                             <a class="btn" href="/termo?processo={{ p.project_token or p.codigo }}&return=/admin">Editar</a>
-                            {% if p.project_token %}<button class="btn copy-link" type="button" onclick="copiarLink(this, '{{ base_url }}/login?project_token={{ p.project_token }}')">Copiar link</button>{% endif %}
+                            {% if p.project_token %}<button class="btn copy-link" type="button" onclick="copiarLink(this, '{{ base_url }}/index?project_token={{ p.project_token }}')">Copiar link</button>{% endif %}
                             {% if p.project_token %}
                                 {% if token_finalizado %}
                                     <button class="btn light" type="button" disabled>Token expirado</button>
                                 {% else %}
                                     <button class="btn danger" type="button" onclick="expirarToken(this, '{{ p.project_token }}')">Expirar token</button>
                                 {% endif %}
-                                <button class="btn secondary" type="button" onclick="liberarEdicao(this, '{{ p.project_token }}')">{{ 'edicao permitida' if p.edicao_permitida else 'permitir edicao' }}</button>
+                                {% if p.is_editable_by_admin %}
+                                    <button class="btn secondary" type="button" onclick="toggleLock(this, '{{ p.project_token }}')">Bloquear edição</button>
+                                {% else %}
+                                    <button class="btn light" type="button" disabled>Edição bloqueada</button>
+                                {% endif %}
                             {% endif %}
                             {% if p.termo_pdf %}<a class="btn secondary" href="/pdf/termo/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Termo</a>{% endif %}
                             {% if p.pdf_ressalvas %}<a class="btn secondary" href="/pdf/ressalvas/{{ p.codigo }}?v={{ p.atualizado_em or p.criado_em or '' }}" target="_blank">PDF Ressalvas</a>{% endif %}
@@ -705,7 +857,31 @@
             <button class="btn secondary" type="button" onclick="openSecurityModal()">Alterar senha</button>
         </div>
     </div>
+
 </main>
+
+<!-- MODAL CAMERA (FOTOS PROJETO) -->
+<div class="modal" id="cameraModal">
+    <span class="close-modal" onclick="closeCamera()">&times;</span>
+    <video id="video" autoplay playsinline></video>
+    <button class="btn" id="captureBtn" onclick="takePhoto()" style="margin-top: 15px; width: 200px; height: 50px; font-size: 16px;">Capturar Foto</button>
+</div>
+
+<!-- MODAL PREVIEW IMAGEM -->
+<div class="modal" id="imageModal" onclick="closeModal()">
+    <span class="close-modal">&times;</span>
+    <img id="modalImg">
+</div>
+
+<!-- ACTION SHEET (FOTOS PROJETO) -->
+<div class="sheet" id="actionSheet">
+    <div class="sheet-box">
+        <h4 style="margin: 0 0 15px; color: #1e3a8a;">Escolha a origem</h4>
+        <button class="btn-select" onclick="selectFile()">Galeria de Imagens</button>
+        <button class="btn-camera" onclick="openCamera()">Tirar Foto (Câmera)</button>
+        <button class="btn-cancel" onclick="closeSheet()">Cancelar</button>
+    </div>
+</div>
 
 <!-- MODAL LOGOUT -->
 <div id="logoutModal" class="modal-logout" style="display: none;">
@@ -906,33 +1082,36 @@
         }
     }
 
-    async function liberarEdicao(btn, token) {
+    async function toggleLock(btn, token) {
         if (!token) return;
+        const confirmacao = confirm("Deseja bloquear a edição do Termo e Ressalvas? Isso permitirá que o cliente preencha o NPS, mas impedirá alterações no Termo/Ressalvas.");
+        if (!confirmacao) return;
+
         if (btn) btn.disabled = true;
         try {
             const body = new URLSearchParams();
             body.set('project_token', token);
-            const res = await fetch('/admin/liberar-edicao', {
+            const res = await fetch('/admin/toggle-lock', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: body.toString(),
             });
             const data = await res.json();
             if (!res.ok || !data.success) {
-                throw new Error(data.detail || 'Falha ao liberar edicao');
+                throw new Error(data.detail || 'Falha ao alterar bloqueio');
             }
-            const permitida = Boolean(data.edicao_permitida);
+            
+            // Como a operação é de bloqueio único, atualizamos para o estado bloqueado
             if (btn) {
-                btn.textContent = permitida ? 'edicao permitida' : 'permitir edicao';
-                btn.classList.remove('flash');
-                void btn.offsetWidth;
-                btn.classList.add('flash');
-                btn.disabled = false;
+                btn.textContent = 'Edição bloqueada';
+                btn.classList.remove('secondary');
+                btn.classList.add('light');
+                btn.disabled = true;
             }
-            alert(permitida ? 'edicao permitida' : 'edicao fechada');
+            alert('Edição bloqueada com sucesso.');
         } catch (err) {
             if (btn) btn.disabled = false;
-            alert(err.message || 'Falha ao liberar edicao');
+            alert(err.message || 'Falha ao bloquear edição');
         }
     }
 
@@ -1011,8 +1190,159 @@
     }
 
     document.querySelectorAll('.reveal-btn[data-reveal-target]').forEach(bindPressToRevealPassword);
+
+    /* ================= LOGICA DE FOTOS POR ITEM (ESTILO RESSALVAS) ================= */
+    let currentBox = null;
+    let cameraStream = null;
+
+    function addRowFoto() {
+        const body = document.getElementById('fotoTableBody');
+        if (body.children.length >= 15) return alert("Limite de 15 fotos atingido.");
+
+        const row = document.createElement('div');
+        row.className = 'foto-table-row';
+        row.innerHTML = `
+            <div class="field-wrap">
+                <span class="mobile-label">PROJETO</span>
+                <input type="text" placeholder="Nome do projeto" class="row-projeto">
+            </div>
+            <div class="field-wrap">
+                <span class="mobile-label">FOTO</span>
+                <div class="image-box-foto" onclick="imageClick(this)">+ FOTO</div>
+            </div>
+            <div class="field-wrap">
+                <span class="mobile-label">OBSERVAÇÃO</span>
+                <input type="text" placeholder="Observação" class="row-obs">
+            </div>
+            <button class="remove-btn" onclick="this.parentElement.remove()" style="background:none; border:none; color:#dc2626; cursor:pointer; font-weight:800; font-size:18px;">&times;</button>
+        `;
+        body.appendChild(row);
+    }
+
+    function imageClick(box) {
+        currentBox = box;
+        if (!box.dataset.image) {
+            document.getElementById('actionSheet').classList.add('active');
+        } else {
+            document.getElementById('modalImg').src = box.dataset.image;
+            document.getElementById('imageModal').classList.add('active');
+        }
+    }
+
+    function closeSheet() { document.getElementById('actionSheet').classList.remove('active'); }
+    function closeModal() { document.getElementById('imageModal').classList.remove('active'); }
+
+    function selectFile() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = () => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                currentBox.dataset.image = e.target.result;
+                currentBox.textContent = 'VER FOTO';
+                currentBox.style.background = '#dcfce7';
+            };
+            reader.readAsDataURL(input.files[0]);
+        };
+        input.click();
+        closeSheet();
+    }
+
+    function openCamera() {
+        closeSheet();
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+            .then(stream => {
+                cameraStream = stream;
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                document.getElementById('cameraModal').classList.add('active');
+            }).catch(() => alert("Câmera não disponível"));
+    }
+
+    function takePhoto() {
+        const video = document.getElementById('video');
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        currentBox.dataset.image = canvas.toDataURL('image/jpeg');
+        currentBox.textContent = 'VER FOTO';
+        currentBox.style.background = '#dcfce7';
+        closeCamera();
+    }
+
+    function closeCamera() {
+        if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
+        document.getElementById('cameraModal').classList.remove('active');
+    }
+
+    async function salvarTodasFotosProjeto() {
+        const rows = document.querySelectorAll('.foto-table-row');
+        const btn = document.querySelector('button[onclick="salvarTodasFotosProjeto()"]');
+        
+        let enviadas = 0;
+        const total = Array.from(rows).filter(r => r.querySelector('.row-projeto').value && r.querySelector('.image-box-foto').dataset.image).length;
+
+        if (total === 0) return alert("Preencha pelo menos uma linha com Projeto e Foto.");
+
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Salvando...";
+
+        try {
+            for (const row of rows) {
+                const projeto = row.querySelector('.row-projeto').value.trim();
+                const obs = row.querySelector('.row-obs').value.trim();
+                const imagem = row.querySelector('.image-box-foto').dataset.image;
+
+                if (!projeto || !imagem) continue;
+
+                const body = new URLSearchParams();
+                body.set('projeto', projeto);
+                body.set('observacao', obs);
+                body.set('imagem', imagem);
+
+                const res = await fetch('/admin/upload-foto-projeto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: body.toString()
+                });
+
+                if (res.ok) enviadas++;
+            }
+
+            alert(`${enviadas} fotos salvas com sucesso!`);
+            document.getElementById('fotoTableBody').innerHTML = ''; // Limpa a lista
+        } catch (err) {
+            alert("Ocorreu um erro ao salvar algumas fotos.");
+        } finally {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    }
+
+    // Inicia com uma linha vazia
+    document.addEventListener('DOMContentLoaded', () => { addRowFoto(); });
+
+    async function salvarNomeProjeto(input, token) {
+        const valor = input.value;
+        try {
+            const body = new URLSearchParams();
+            body.set('project_token', token);
+            body.set('projeto', valor);
+
+            await fetch('/admin/update-project', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString()
+            });
+        } catch (e) {
+            console.error("Erro ao salvar projeto", e);
+        }
+    }
+
 </script>
 
 </body>
 </html>
-

@@ -353,3 +353,35 @@ img, svg, video, canvas {
         margin-right: 12px;
     }
 }
+
+/* --- AJUSTES DO PAINEL ADMIN (LISTA DE PROCESSOS) --- */
+
+/* Estilos para a tabela de processos */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    color: #333;
+}
+
+/* Prioridade de espaço para a coluna Projeto */
+.col-projeto {
+    width: 40% !important; /* Espaço ampliado para o nome do projeto */
+    font-weight: bold;
+    color: #202677;
+    text-align: left;
+}
+
+/* Distribuição das outras colunas conforme solicitado */
+.col-token   { width: 10%; font-family: monospace; font-size: 0.85rem; }
+.col-cliente { width: 15%; }
+.col-empresa { width: 10%; }
+.col-status  { width: 10%; }
+.col-nps     { width: 5%; text-align: center; }
+.col-criado  { width: 5%; }
+.col-acoes   { width: 5%; text-align: right; }
+
+.admin-table th, .admin-table td {
+    padding: 12px 8px;
+    border-bottom: 1px solid #eee;
+}

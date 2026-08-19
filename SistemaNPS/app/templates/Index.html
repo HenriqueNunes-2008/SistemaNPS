@@ -32,7 +32,7 @@
     <span>Ressalva</span>
 </a>
 
-<a id="npsOption" href="/nps{% if project_token %}?project_token={{ project_token }}{% endif %}" class="option orange-box">
+<a href="/nps{% if project_token %}?project_token={{ project_token }}{% endif %}" class="option orange-box">
     <img src="/static/check-orange.png" class="icone">
     <span>NPS</span>
 </a>
@@ -45,22 +45,6 @@
     <img id="Logo" src="/static/LogoFlex2.png" class="logo2">
 
     <img id="Logo3" src="/static/LogoFlex3.png" class="logo3">
-    <script>
-        (function () {
-            const cookies = document.cookie ? document.cookie.split(";") : [];
-            let flow = "cliente";
-            for (const rawCookie of cookies) {
-                const cookie = rawCookie.trim();
-                if (cookie.startsWith("nps_tipo_acesso=")) {
-                    flow = decodeURIComponent(cookie.split("=", 2)[1] || "").toLowerCase();
-                    break;
-                }
-            }
-            if (flow === "motorista") {
-                const npsOpt = document.getElementById("npsOption");
-                if (npsOpt) npsOpt.style.display = "none";
-            }
-        })();
-    </script>
+
 </body>
 </html>

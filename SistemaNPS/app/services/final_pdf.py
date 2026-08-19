@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from io import BytesIO
 from typing import Any
 
@@ -12,6 +12,7 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 from app.services.pdf_layout import content_bottom, content_top, draw_header_footer
+from app.services.processo_repository import ProcessoRepository
 from app.services.supabase_client import supabase
 from app.services.upload import upload_pdf
 
@@ -136,12 +137,16 @@ def _collect_termo_images(proc_data: dict) -> list[dict]:
 
         regiao = _safe_text(img.get("regiao_foto")).strip().lower()
         raw_bytes = None
-        if img.get("imagem_base64"):
-            raw_bytes = _decode_base64_image(img.get("imagem_base64"))
+        
+        # Tenta pegar a imagem do campo imagem_base64 (que agora pode ser URL ou Base64)
+        img_src = img.get("imagem_base64") or img.get("imagem")
+        if img_src:
+            if str(img_src).startswith("data:"):
+                raw_bytes = _decode_base64_image(img_src)
+            elif str(img_src).startswith("http"):
+                raw_bytes = _download_image(img_src)
         elif img.get("url"):
             raw_bytes = _download_image(img.get("url"))
-        elif img.get("imagem"):
-            raw_bytes = _decode_base64_image(img.get("imagem"))
 
         if not raw_bytes:
             continue
@@ -187,7 +192,13 @@ def _collect_ressalvas_items(proc_data: dict) -> list[dict]:
     for idx, item in enumerate(itens):
         if not isinstance(item, dict):
             continue
-        raw_bytes = _decode_base64_image(item.get("imagem_base64", "")) if item.get("imagem_base64") else None
+        
+        img_src = item.get("imagem_base64")
+        raw_bytes = None
+        if img_src:
+            if str(img_src).startswith("data:"): raw_bytes = _decode_base64_image(img_src)
+            elif str(img_src).startswith("http"): raw_bytes = _download_image(img_src)
+
         resultado.append(
             {
                 "idx": idx + 1,
@@ -204,6 +215,12 @@ def _collect_ressalvas_items(proc_data: dict) -> list[dict]:
 
 def _collect_ressalvas_aprovacao(proc_data: dict) -> dict:
     ressalvas_dados = _as_dict(proc_data.get("ressalvas_dados"))
+    aprovacao_final = _as_dict(ressalvas_dados.get("aprovacao_final"))
+    if aprovacao_final:
+        return {
+            "representante": _safe_text(aprovacao_final.get("representante", "")),
+            "cpf": _safe_text(aprovacao_final.get("cpf", "")),
+        }
     return {
         "representante": _safe_text(ressalvas_dados.get("responsavel", "")),
         "cpf": _safe_text(ressalvas_dados.get("cpf", "")),
@@ -531,38 +548,27 @@ def _build_final_pdf_bytes(proc_data: dict) -> bytes:
 
 
 def regenerate_final_pdf_by_codigo(codigo: str, set_status_finalizado: bool = False) -> str | None:
-    proc = (
-        supabase
-        .table("processos")
-        .select(
-            "id,codigo,nome_cliente,empresa,cpf,status_entrega,"
-            "termo_dados,ressalvas_dados,imagens_termo,nps_dados"
-        )
-        .eq("codigo", codigo)
-        .single()
-        .execute()
-    )
-
-    if not proc.data:
+    proc = ProcessoRepository.get_by_identifier(codigo, "id,codigo,nome_cliente,empresa,cpf,status_entrega,termo_dados,ressalvas_dados,imagens_termo,nps_dados")
+    if not proc:
         return None
 
-    nps_dados = _as_dict(proc.data.get("nps_dados"))
+    nps_dados = _as_dict(proc.get("nps_dados"))
     if not isinstance(nps_dados, dict) or "nps" not in nps_dados:
         return None
 
-    pdf_bytes = _build_final_pdf_bytes(proc.data)
+    pdf_bytes = _build_final_pdf_bytes(proc)
     final_base64 = "data:application/pdf;base64," + base64.b64encode(pdf_bytes).decode()
-    final_url = upload_pdf(final_base64, f"{proc.data['id']}/final")
+    final_url = upload_pdf(final_base64, f"{proc['id']}/final")
     if not final_url:
         raise RuntimeError("Falha no upload do PDF final")
 
     update_data = {
         "pdf_final": final_url,
-        "atualizado_em": datetime.utcnow().isoformat(),
+        "atualizado_em": datetime.now(timezone.utc).isoformat(),
     }
     if set_status_finalizado:
         update_data["status"] = "finalizado"
         update_data["finalizado_em"] = date.today().isoformat()
 
-    supabase.table("processos").update(update_data).eq("id", proc.data["id"]).execute()
+    supabase.table("processos").update(update_data).eq("id", proc["id"]).execute()
     return final_url

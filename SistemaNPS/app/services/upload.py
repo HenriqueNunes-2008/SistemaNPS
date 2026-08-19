@@ -60,7 +60,7 @@ def upload_pdf(data_or_path: str, folder_or_path: str) -> str:
             file_bytes,
             file_options={
                 "content-type": content_type,
-                "upsert": False
+                "upsert": "false"
             }
         )
 

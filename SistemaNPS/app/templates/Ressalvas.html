@@ -1,5 +1,4 @@
-﻿<!DOCTYPE html>
-<html lang="pt-BR">
+﻿﻿<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <title>Ressalvas</title>
@@ -728,19 +727,19 @@ input.item-duplicado { border: 2px solid #dc2626; }
             <div>
                 <div style="font-weight:800;margin-bottom:6px;">FOTOS</div>
             </div>
-            <div>REGIÃO DA FOTO</div>
+            <div>OBSERVAÇÃO</div>
         </div>
             <div id="tableBody"></div>
             <button class="add-item" onclick="addRow()">ADICIONAR ITEM +</button>
         </section>
 
-        <section class="approval admin-only" id="approvalSection" style="display:none;">
+        <section class="approval" id="approvalSection" style="display:none;">
             <strong>APROVAÇÃO FINAL DAS RESSALVAS:</strong>
             <div class="approval-fields">
                 <label>REPRESENTANTE</label>
-                <input type="text" placeholder="REPRESENTANTE">
+                <input type="text" id="aprovacao-ressalvas-representante" placeholder="REPRESENTANTE">
                 <label>CPF</label>
-                <input type="text" placeholder="CPF">
+                <input type="text" id="aprovacao-ressalvas-cpf" placeholder="CPF">
             </div>
         </section>
     </div>
@@ -807,10 +806,6 @@ document.getElementById("btnSalvar").addEventListener("click", function () {
 
 async function executarSalvarRessalvas() {
     closeConfirmSaveModal();
-    if (!isAdmin && userEditLocked) {
-        alert("Edicao bloqueada para este processo. Solicite liberacao ao admin.");
-        return;
-    }
     if (isAdmin && adminTokenFinalizado) {
         alert("Token expirado: o admin pode apenas visualizar este processo.");
         return;
@@ -854,7 +849,7 @@ async function executarSalvarRessalvas() {
            const descricao = inputs[0]?.value || "";
            const prazo = inputs[1]?.value || "";
            const responsavel = inputs[2]?.value || "";
-           const regiao = row.querySelector(".regiao-foto")?.value || null;
+           const obs = row.querySelector(".observacao")?.value || null;
 
             const box = row.querySelector(".image-box");
 
@@ -863,7 +858,7 @@ async function executarSalvarRessalvas() {
                 descricao,
                 prazo,
                 responsavel,
-                regiao_foto: regiao,
+                observacao: obs,
                 imagem: box.dataset.image
             });
         });
@@ -883,9 +878,10 @@ async function executarSalvarRessalvas() {
         }
 
         /* 5. Envia para backend */
-    const endpoint = isAdmin
+    const endpointBase = isAdmin
         ? (isEditMode ? "/ressalvas/atualizar" : "/ressalvas/salvar")
         : "/ressalvas/atualizar";
+    const endpoint = isAdmin ? `${endpointBase}?return=/admin` : endpointBase;
     const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -899,7 +895,7 @@ async function executarSalvarRessalvas() {
         descricao: img.descricao,
         prazo: img.prazo || null,
         responsavel: img.responsavel,
-        regiao_foto: img.regiao_foto,
+        observacao: img.observacao,
         aprovacao: false,
         imagem_base64: img.imagem
     }))
@@ -977,7 +973,7 @@ const processoParam = urlParams.get("processo");
 const projectTokenParam = urlParams.get("project_token") || "{{ project_token or '' }}";
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
-let isAdmin = returnTo === "/admin";
+let isAdmin = returnTo === "/admin" && "{{ is_admin }}" === "True";
 let adminTokenFinalizado = false;
 let userEditLocked = false;
 const userFlowCookie = (getCookieValue("nps_tipo_acesso") || "").toLowerCase();
@@ -1092,16 +1088,8 @@ function addRow(item = null) {
         </div>
     </div>
     <div class="field-wrap">
-        <span class="field-label-mobile">REGIÃO DA FOTO</span>
-        <select class="regiao-foto">
-            <option value="">Selecione</option>
-            <option value="frontal">Frontal</option>
-            <option value="traseira">Traseira</option>
-            <option value="lateral-esquerda">Lateral esquerda</option>
-            <option value="lateral-direita">Lateral direita</option>
-            <option value="superior">Superior</option>
-            <option value="inferior">Inferior</option>
-        </select>
+        <span class="field-label-mobile">OBSERVAÇÃO</span>
+        <input class="observacao" placeholder="Observação">
     </div>
 		`;
 
@@ -1161,8 +1149,8 @@ enableDragAndDrop(imageBox);
         rowInputs[0].value = item.descricao || "";
         rowInputs[1].value = item.prazo || "";
         rowInputs[2].value = item.responsavel || "";
-        const regiao = row.querySelector(".regiao-foto");
-        if (regiao) regiao.value = item.regiao_foto || "";
+        const obsInput = row.querySelector(".observacao");
+        if (obsInput) obsInput.value = item.observacao || "";
         if (item.imagem_base64) {
             imageBox.dataset.image = item.imagem_base64;
             imageBox.textContent = "VER IMAGEM";
@@ -1209,9 +1197,9 @@ function openCamera() {
     }
 
     const row = currentBox.closest(".table-row");
-    const regiao = row?.querySelector(".regiao-foto")?.value;
-    if (!regiao) {
-        alert("Selecione a região da foto antes de tirar a foto.");
+    const obs = row?.querySelector(".observacao")?.value;
+    if (!obs) {
+        alert("Preencha a observação antes de tirar a foto.");
         return;
     }
 
@@ -1311,12 +1299,18 @@ function validarFormulario() {
         const prazo = inputs[1]?.value.trim();
         const responsavel = inputs[2]?.value.trim();
         const img = row.querySelector(".image-box")?.dataset.image;
-        const regiao = row.querySelector(".regiao-foto")?.value;
+        const obs = row.querySelector(".observacao")?.value;
 
-        if (descricao && prazo && responsavel && img && regiao) {
+        if (descricao && prazo && responsavel && img && obs) {
             temItemValido = true;
         }
     });
+
+    if (!isAdmin && userEditLocked) {
+        const representante = document.getElementById("aprovacao-ressalvas-representante")?.value.trim();
+        const cpf = document.getElementById("aprovacao-ressalvas-cpf")?.value.replace(/\D/g, "");
+        return Boolean(representante && cpf?.length === 11);
+    }
 
     return temItemValido;
 }
@@ -1384,11 +1378,12 @@ function habilitarModoRessalvasJaSalvasUsuario() {
 async function carregarEdicaoRessalvas(codigoProcesso) {
     if (!codigoProcesso) return;
     try {
-        const res = await fetch(`/api/processos/${codigoProcesso}`);
+        const res = await fetch(`/ressalvas/dados/${codigoProcesso}?t=${new Date().getTime()}`);
         if (!res.ok) return;
-        const data = await res.json();
+        const json = await res.json();
+        const data = json.dados || json; // Garante acesso aos dados corretos
         adminTokenFinalizado = isAdmin && processoTokenFinalizado(data);
-        userEditLocked = !isAdmin && processoEdicaoBloqueada(data);
+        userEditLocked = processoEdicaoBloqueada(data);
         const statusEntrega = String(data?.status_entrega || "").toLowerCase();
         const lockFlow = String(
             data?.nps_dados?._lock_termo_por ||
@@ -1400,7 +1395,7 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         const concluidoSemRessalva = motoristaContext && statusEntrega === "concluido";
         const approvalSection = document.getElementById("approvalSection");
         if (approvalSection) {
-            approvalSection.style.display = isAdmin ? "" : "none";
+            approvalSection.style.display = (!isAdmin && userEditLocked) ? "" : "none";
         }
         if (motoristaContext) {
             ocultarBreadcrumbNps();
@@ -1408,13 +1403,14 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
             exibirBreadcrumbNps();
         }
 
-        const dados = data.ressalvas_dados;
+        // Se o router retornar flat, usamos data. Se retornar aninhado (padrão Termo), usamos ressalvas_dados
+        const dados = data.ressalvas_dados || data;
 
-        if (isAdmin && (dados?.responsavel || dados?.cpf)) {
-            const rep = document.querySelector('section.approval input[placeholder="REPRESENTANTE"]');
-            const cpf = document.querySelector('section.approval input[placeholder="CPF"]');
-            if (rep) rep.value = dados.responsavel || "";
-            if (cpf) cpf.value = dados.cpf || "";
+        if (dados?.aprovacao_final) {
+            const rep = document.getElementById("aprovacao-ressalvas-representante");
+            const cpf = document.getElementById("aprovacao-ressalvas-cpf");
+            if (rep) rep.value = dados.aprovacao_final.representante || "";
+            if (cpf) cpf.value = dados.aprovacao_final.cpf || "";
         }
 
         tableBody.innerHTML = "";
@@ -1424,7 +1420,6 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
             addRow();
         }
 
-        btnSalvar.disabled = !validarFormulario() || userEditLocked;
         if (adminTokenFinalizado) {
             habilitarModoSomenteLeituraAdminTokenFinalizado();
             return;
@@ -1433,9 +1428,18 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
             habilitarModoRessalvasNaoEncontradas();
             return;
         }
-        if (userEditLocked) {
+        if (userEditLocked && !isAdmin) {
             habilitarModoSomenteLeituraUsuario();
-            if (btnSalvar) btnSalvar.textContent = "RESSALVAS SALVAS";
+            const jaAprovadas = Boolean(dados?.aprovacao_final?.representante && dados?.aprovacao_final?.cpf);
+            document.querySelectorAll("#approvalSection input").forEach(el => {
+                el.disabled = jaAprovadas;
+                el.readOnly = jaAprovadas;
+            });
+            if (btnSalvar) {
+                btnSalvar.style.display = "block";
+                btnSalvar.textContent = jaAprovadas ? "RESSALVAS APROVADAS" : "APROVAR RESSALVAS";
+                btnSalvar.disabled = jaAprovadas || !validarFormulario();
+            }
             return;
         }
     } catch (e) {
@@ -1566,7 +1570,7 @@ async function inicializarPagina() {
     if (bcTermo) bcTermo.href = buildFlowUrl("/termo");
     if (bcNps) bcNps.href = buildFlowUrl("/nps");
     if (approvalSection) {
-        approvalSection.style.display = isAdmin ? "" : "none";
+        approvalSection.style.display = "none";
     }
     if (userFlow === "motorista" && bcNps) {
         ocultarBreadcrumbNps();
@@ -1646,5 +1650,3 @@ inicializarPagina();
 
 </body>
 </html>
-
-
