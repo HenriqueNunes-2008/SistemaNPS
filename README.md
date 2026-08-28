@@ -3,7 +3,7 @@
 O Sistema NPS é uma aplicação Full Stack desenvolvida com FastAPI, focada na gestão de feedback e conformidade para a Fleximedical/Kure. O sistema centraliza processos críticos de interação com o cliente, garantindo a coleta de métricas de satisfação e validações legais.
 
 ## Tecnologias e Hospedagem
--Framework: FastAPI (Python).
+- Framework: FastAPI (Python).
 
 - Banco de Dados: Supabase (PostgreSQL).
 

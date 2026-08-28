@@ -15,6 +15,11 @@ def _is_user_edit_locked(proc: dict | None) -> bool:
     return bool(nps_dados.get("_lock_nps"))
 
 
+def _assinatura_realizada(proc: dict) -> bool:
+    termo = parse_json_object(proc.get("termo_dados"))
+    return bool(proc.get("assinatura_cliente_url") or termo.get("assinatura_cliente_path"))
+
+
 def _extract_user_flow(request: Request) -> str:
     flow = (request.cookies.get("nps_tipo_acesso") or "").strip().lower()
     return flow if flow in ("cliente", "motorista") else "cliente"
@@ -50,6 +55,10 @@ def finalizar_nps(data: NPSRequest, request: Request):
 
         if ProcessoService.is_token_expired(proc):
             raise HTTPException(status_code=403, detail="Token expirado: processo bloqueado para edicao")
+        if not _assinatura_realizada(proc):
+            raise HTTPException(status_code=403, detail="Conclua a assinatura digital antes de preencher o NPS.")
+        if ProcessoService.etapa_atual_cliente(proc) != "nps":
+            raise HTTPException(status_code=403, detail="Conclua as etapas anteriores antes de preencher o NPS.")
         if _is_user_edit_locked(proc):
             raise HTTPException(status_code=403, detail="Edicao bloqueada para este processo. Solicite liberacao ao admin")
         processo_uuid = proc["id"]
@@ -82,6 +91,10 @@ def atualizar_nps(data: NPSUpdateRequest, request: Request):
 
         if ProcessoService.is_token_expired(proc):
             raise HTTPException(status_code=403, detail="Token expirado: processo bloqueado para edicao")
+        if not _assinatura_realizada(proc):
+            raise HTTPException(status_code=403, detail="Conclua a assinatura digital antes de preencher o NPS.")
+        if ProcessoService.etapa_atual_cliente(proc) != "nps":
+            raise HTTPException(status_code=403, detail="Conclua as etapas anteriores antes de preencher o NPS.")
         if _is_user_edit_locked(proc):
             raise HTTPException(status_code=403, detail="Edicao bloqueada para este processo. Solicite liberacao ao admin")
         processo_uuid = proc["id"]

@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/termos-flow.css">
 
 <style>
 /* ================= RESET ================= */
@@ -562,7 +563,7 @@ textarea {
 </style>
 </head>
 
-<body>
+<body class="termos-flow">
 <div id="savingOverlay" class="saving-overlay">
     <div class="saving-box">
         <div class="saving-spinner"></div>
@@ -591,11 +592,17 @@ textarea {
 
 <div class="breadcrumb-wrapper">
     <nav class="breadcrumb">
-        <a href="/index" class="breadcrumb-item" id="bc-home">Pagina Inicial</a>
+        <a href="/index" class="breadcrumb-item" id="bc-home">Página Inicial</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
         <a href="/termo" class="breadcrumb-item" id="bc-termo">Termo de Aceite</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
         <a href="/ressalvas" class="breadcrumb-item" id="bc-ressalvas">Ressalva</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/recebimento" class="breadcrumb-item" id="bc-recebimento">Recebimento</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/treinamento" class="breadcrumb-item" id="bc-treinamento">Treinamento</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/assinatura" class="breadcrumb-item" id="bc-assinatura">Assinatura</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
         <div class="breadcrumb-item active">NPS</div>
     </nav>
@@ -920,6 +927,9 @@ async function carregarEdicaoNps(codigoProcesso) {
         userEditLocked = !isAdmin && processoEdicaoBloqueada(data);
         const nps = data.nps_dados;
         if (!nps) return;
+        if (nps._lock_termo || nps._lock_ressalvas || nps._edicao_bloqueada) {
+            document.querySelectorAll(".breadcrumb-item.is-locked").forEach((el) => el.classList.remove("is-locked"));
+        }
 
         if (nps.nps) setNpsSelecionado(nps.nps);
 
@@ -1046,6 +1056,12 @@ async function inicializarPagina() {
     if (bcHome) bcHome.href = isAdmin ? "/admin" : buildFlowUrl("/index");
     if (bcTermo) bcTermo.href = buildFlowUrl("/termo");
     if (bcRessalvas) bcRessalvas.href = buildFlowUrl("/ressalvas");
+    const bcRecebimento = document.getElementById("bc-recebimento");
+    const bcTreinamento = document.getElementById("bc-treinamento");
+    const bcAssinatura = document.getElementById("bc-assinatura");
+    if (bcRecebimento) bcRecebimento.href = buildFlowUrl("/recebimento");
+    if (bcTreinamento) bcTreinamento.href = buildFlowUrl("/treinamento");
+    if (bcAssinatura) bcAssinatura.href = buildFlowUrl("/assinatura");
 
     processoEmAndamento = isEditMode
         ? null

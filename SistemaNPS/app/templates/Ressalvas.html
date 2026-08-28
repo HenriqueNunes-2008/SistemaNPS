@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/termos-flow.css">
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 // const processoId = sessionStorage.getItem("processo_id");
@@ -670,10 +671,54 @@ input.item-duplicado { border: 2px solid #dc2626; }
         height: 52px;
     }
 }
+.signature-section {
+    margin-top: 32px;
+    padding: 24px;
+    background: #ffffff;
+    border-radius: 18px;
+}
+
+.signature-section h2 {
+    margin-top: 0;
+    color: #392fad;
+}
+
+.signature-container {
+    width: 100%;
+    max-width: 700px;
+    margin-top: 18px;
+    background: #ffffff;
+    border: 2px solid #94a3b8;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+#assinaturaCanvas {
+    display: block;
+    width: 100%;
+    height: 250px;
+    background: #ffffff;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.signature-actions {
+    margin-top: 12px;
+}
+
+#limparAssinatura {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    background: #64748b;
+    color: #ffffff;
+    font-weight: 700;
+    cursor: pointer;
+}
 </style>
 </head>
 
-<body>
+<body class="termos-flow">
 <div id="savingOverlay" class="saving-overlay">
     <div class="saving-box">
         <div class="saving-spinner"></div>
@@ -708,8 +753,14 @@ input.item-duplicado { border: 2px solid #dc2626; }
         <a href="/termo" class="breadcrumb-item" id="bc-termo">Termo de Aceite</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
         <div class="breadcrumb-item active">Ressalva</div>
-        <img src="/static/arrow.png" class="breadcrumb-arrow" id="bc-nps-arrow">
-        <a href="/nps" class="breadcrumb-item" id="bc-nps">NPS</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/recebimento" class="breadcrumb-item is-locked" id="bc-recebimento">Recebimento</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/treinamento" class="breadcrumb-item is-locked" id="bc-treinamento">Treinamento</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/assinatura" class="breadcrumb-item is-locked" id="bc-assinatura">Assinatura</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/nps" class="breadcrumb-item is-locked" id="bc-nps">NPS</a>
     </nav>
 </div>
 
@@ -733,15 +784,6 @@ input.item-duplicado { border: 2px solid #dc2626; }
             <button class="add-item" onclick="addRow()">ADICIONAR ITEM +</button>
         </section>
 
-        <section class="approval" id="approvalSection" style="display:none;">
-            <strong>APROVAÇÃO FINAL DAS RESSALVAS:</strong>
-            <div class="approval-fields">
-                <label>REPRESENTANTE</label>
-                <input type="text" id="aprovacao-ressalvas-representante" placeholder="REPRESENTANTE">
-                <label>CPF</label>
-                <input type="text" id="aprovacao-ressalvas-cpf" placeholder="CPF">
-            </div>
-        </section>
     </div>
 </main>
 <div class="footer">
@@ -885,18 +927,29 @@ async function executarSalvarRessalvas() {
     const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-   body: JSON.stringify({
+    body: JSON.stringify({
     processo_id: processoId.trim(),
-    responsavel: (document.querySelector('section.approval input[placeholder="REPRESENTANTE"]')?.value || ""),
-    cpf: (document.querySelector('section.approval input[placeholder="CPF"]')?.value || ""),
+
+    responsavel: (
+        document.querySelector(
+            'section.approval input[placeholder="REPRESENTANTE"]'
+        )?.value || ""
+    ),
+
+    cpf: (
+        document.querySelector(
+            'section.approval input[placeholder="CPF"]'
+        )?.value || ""
+    ),
+
     observacoes: null,
+
     imagens: imagens.map(img => ({
         item: String(img.item),
         descricao: img.descricao,
         prazo: img.prazo || null,
         responsavel: img.responsavel,
         observacao: img.observacao,
-        aprovacao: false,
         imagem_base64: img.imagem
     }))
 })
@@ -936,7 +989,7 @@ if (!isAdmin && userFlow === "motorista") {
     return;
 }
 if (!isAdmin || (isAdmin && isEditMode)) {
-    window.location.href = buildFlowUrl("/nps");
+    window.location.href = buildFlowUrl("/recebimento");
     return;
 }
 
@@ -1306,12 +1359,6 @@ function validarFormulario() {
         }
     });
 
-    if (!isAdmin && userEditLocked) {
-        const representante = document.getElementById("aprovacao-ressalvas-representante")?.value.trim();
-        const cpf = document.getElementById("aprovacao-ressalvas-cpf")?.value.replace(/\D/g, "");
-        return Boolean(representante && cpf?.length === 11);
-    }
-
     return temItemValido;
 }
 
@@ -1384,6 +1431,9 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         const data = json.dados || json; // Garante acesso aos dados corretos
         adminTokenFinalizado = isAdmin && processoTokenFinalizado(data);
         userEditLocked = processoEdicaoBloqueada(data);
+        if (userEditLocked) {
+            document.querySelectorAll(".breadcrumb-item.is-locked").forEach((el) => el.classList.remove("is-locked"));
+        }
         const statusEntrega = String(data?.status_entrega || "").toLowerCase();
         const lockFlow = String(
             data?.nps_dados?._lock_termo_por ||
@@ -1393,10 +1443,6 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         const flowEfetivo = userFlow || (lockFlow === "motorista" ? "motorista" : "cliente");
         const motoristaContext = !isAdmin && flowEfetivo === "motorista";
         const concluidoSemRessalva = motoristaContext && statusEntrega === "concluido";
-        const approvalSection = document.getElementById("approvalSection");
-        if (approvalSection) {
-            approvalSection.style.display = (!isAdmin && userEditLocked) ? "" : "none";
-        }
         if (motoristaContext) {
             ocultarBreadcrumbNps();
         } else if (!isAdmin) {
@@ -1405,13 +1451,6 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
 
         // Se o router retornar flat, usamos data. Se retornar aninhado (padrão Termo), usamos ressalvas_dados
         const dados = data.ressalvas_dados || data;
-
-        if (dados?.aprovacao_final) {
-            const rep = document.getElementById("aprovacao-ressalvas-representante");
-            const cpf = document.getElementById("aprovacao-ressalvas-cpf");
-            if (rep) rep.value = dados.aprovacao_final.representante || "";
-            if (cpf) cpf.value = dados.aprovacao_final.cpf || "";
-        }
 
         tableBody.innerHTML = "";
         if (Array.isArray(dados?.itens) && dados.itens.length > 0) {
@@ -1430,16 +1469,11 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         }
         if (userEditLocked && !isAdmin) {
             habilitarModoSomenteLeituraUsuario();
-            const jaAprovadas = Boolean(dados?.aprovacao_final?.representante && dados?.aprovacao_final?.cpf);
-            document.querySelectorAll("#approvalSection input").forEach(el => {
-                el.disabled = jaAprovadas;
-                el.readOnly = jaAprovadas;
-            });
             if (btnSalvar) {
-                btnSalvar.style.display = "block";
-                btnSalvar.textContent = jaAprovadas ? "RESSALVAS APROVADAS" : "APROVAR RESSALVAS";
-                btnSalvar.disabled = jaAprovadas || !validarFormulario();
+                btnSalvar.style.display = "none";
+                btnSalvar.disabled = true;
             }
+            if (nextDocument) nextDocument.style.display = "inline-block";
             return;
         }
     } catch (e) {
@@ -1559,15 +1593,20 @@ function buildFlowUrl(path) {
     return qs.toString() ? `${path}?${qs.toString()}` : path;
 }
 
-
 /* linha inicial */
 async function inicializarPagina() {
     const bcHome = document.getElementById("bc-home");
     const bcTermo = document.getElementById("bc-termo");
+    const bcRecebimento = document.getElementById("bc-recebimento");
+    const bcTreinamento = document.getElementById("bc-treinamento");
+    const bcAssinatura = document.getElementById("bc-assinatura");
     const bcNps = document.getElementById("bc-nps");
     const approvalSection = document.getElementById("approvalSection");
     if (bcHome) bcHome.href = isAdmin ? "/admin" : buildFlowUrl("/index");
     if (bcTermo) bcTermo.href = buildFlowUrl("/termo");
+    if (bcRecebimento) bcRecebimento.href = buildFlowUrl("/recebimento");
+    if (bcTreinamento) bcTreinamento.href = buildFlowUrl("/treinamento");
+    if (bcAssinatura) bcAssinatura.href = buildFlowUrl("/assinatura");
     if (bcNps) bcNps.href = buildFlowUrl("/nps");
     if (approvalSection) {
         approvalSection.style.display = "none";
@@ -1576,10 +1615,6 @@ async function inicializarPagina() {
         ocultarBreadcrumbNps();
     } else if (!isAdmin && bcNps) {
         exibirBreadcrumbNps();
-    }
-
-    if (!isAdmin && projectTokenParam && !isEditMode && window.location.search.includes("project_token=")) {
-        window.history.replaceState({}, "", "/ressalvas");
     }
 
     processoEmAndamento = isEditMode
@@ -1647,6 +1682,126 @@ inicializarPagina();
         <button onclick="confirmLogout()" class="btn-logout-confirm">SAIR</button>
     </div>
 </div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
 
+    const canvas = document.getElementById("assinaturaCanvas");
+    const input = document.getElementById("assinaturaInput");
+    const limparBtn = document.getElementById("limparAssinatura");
+
+    if (!canvas || !input || !limparBtn) {
+        return;
+    }
+
+    const ctx = canvas.getContext("2d");
+
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    let desenhando = false;
+    let possuiAssinatura = false;
+
+    function obterPosicao(event) {
+
+        const rect = canvas.getBoundingClientRect();
+
+        let clientX;
+        let clientY;
+
+        if (event.touches && event.touches.length > 0) {
+            clientX = event.touches[0].clientX;
+            clientY = event.touches[0].clientY;
+        } else {
+            clientX = event.clientX;
+            clientY = event.clientY;
+        }
+
+        return {
+            x: (clientX - rect.left) * (canvas.width / rect.width),
+            y: (clientY - rect.top) * (canvas.height / rect.height)
+        };
+    }
+
+    function iniciarDesenho(event) {
+
+        event.preventDefault();
+
+        desenhando = true;
+
+        const pos = obterPosicao(event);
+
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+    }
+
+    function desenhar(event) {
+
+        if (!desenhando) {
+            return;
+        }
+
+        event.preventDefault();
+
+        const pos = obterPosicao(event);
+
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+
+        possuiAssinatura = true;
+    }
+
+    function finalizarDesenho() {
+
+        if (!desenhando) {
+            return;
+        }
+
+        desenhando = false;
+
+        ctx.closePath();
+
+        if (possuiAssinatura) {
+            input.value = canvas.toDataURL("image/png");
+        }
+    }
+
+    canvas.addEventListener("mousedown", iniciarDesenho);
+    canvas.addEventListener("mousemove", desenhar);
+    canvas.addEventListener("mouseup", finalizarDesenho);
+    canvas.addEventListener("mouseleave", finalizarDesenho);
+
+    canvas.addEventListener(
+        "touchstart",
+        iniciarDesenho,
+        { passive: false }
+    );
+
+    canvas.addEventListener(
+        "touchmove",
+        desenhar,
+        { passive: false }
+    );
+
+    canvas.addEventListener(
+        "touchend",
+        finalizarDesenho
+    );
+
+    limparBtn.addEventListener("click", () => {
+
+        ctx.clearRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+        input.value = "";
+        possuiAssinatura = false;
+    });
+
+});
+</script>
 </body>
 </html>

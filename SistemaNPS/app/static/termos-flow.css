@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+
+* { box-sizing: border-box; }
+html, body { max-width: 100%; overflow-x: hidden; }
+body.termos-flow {
+    margin: 0; min-height: 100vh; padding-top: 120px;
+    font-family: 'Inter', Arial, sans-serif;
+    background: linear-gradient(90deg, #0093dd 30%, #5b2fa6); color: #0f172a;
+}
+.termos-flow .topbar { position: fixed; top: 0; left: 0; width: 100%; height: 120px; background: #fff; z-index: 40; box-shadow: 0 2px 8px rgba(0,0,0,.08); border-radius: 0 0 50px 50px; }
+.termos-flow .logo-fixed { position: absolute; top: 50%; left: 1%; transform: translateY(-50%); height: 255%; pointer-events: none; }
+.termos-flow .logo-link { position:absolute; top:50%; left:calc(1% + 85px); transform:translateY(-50%); width:190px; height:50px; z-index:45; }
+.termos-flow .topbar-content { height:100%; display:flex; align-items:center; justify-content:flex-end; padding:0 60px 0 200px; }
+.termos-flow .header-info { display:flex; align-items:center; justify-content:flex-end; gap:32px; margin-right:5%; color:#1e3a8a; font-size:14px; line-height:1.4; }
+.termos-flow .logout-link { color:#1e3a8a; font-weight:800; text-decoration:none; margin-left:20px; font-size:14px; }
+.termos-flow .breadcrumb-wrapper, .termos-flow main { max-width:900px; margin-left:auto; margin-right:auto; }
+.termos-flow .breadcrumb-wrapper { margin-top:24px; margin-bottom:16px; }
+.termos-flow .breadcrumb { display:flex; align-items:center; gap:16px; overflow-x:auto; padding-bottom:4px; white-space:nowrap; scrollbar-width:thin; }
+.termos-flow .breadcrumb-item { font-weight:800; color:#e0e7ff; text-decoration:none; }
+.termos-flow .breadcrumb-item.active { color:#fde047; }
+.termos-flow .breadcrumb-item.is-locked { opacity:.55; pointer-events:none; }
+.termos-flow .breadcrumb-arrow { width:28px; height:auto; flex:0 0 auto; }
+.termos-flow main { margin-bottom:60px; }
+.termos-flow .title h1 { color:#fff; font-size:28px; margin:0 0 6px; }
+.termos-flow .title span { display:inline-block; padding:6px 14px; color:#411f7c; background:#fff; font-weight:800; font-size:26px; font-style:italic; }
+.termos-flow .form-box { background:#fff; border-radius:18px; padding:32px; box-shadow:0 8px 26px rgba(15,23,42,.18); margin-top:22px; }
+.termos-flow .institutional-text { padding:18px; border-radius:12px; background:linear-gradient(90deg,#a6cbe3,#b3b7d1); color:#1e3a8a; line-height:1.55; }
+.termos-flow .institutional-text h2 { margin:0 0 8px; font-size:16px; }
+.termos-flow .dados-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:24px; }
+.termos-flow .dado-card { min-height:72px; padding:13px 15px; border:1px solid #dbe4f0; border-radius:12px; background:#e9f0fb; }
+.termos-flow .dado-card b { display:block; margin-bottom:7px; color:#392fad; font-size:12px; }
+.termos-flow .document-status { display:none; margin:16px 0; padding:12px 14px; border-radius:10px; font-weight:700; }
+.termos-flow .document-status.info { display:block; color:#1e3a8a; background:#e0e7ff; }
+.termos-flow .document-status.error { display:block; color:#991b1b; background:#fee2e2; }
+.termos-flow .document-status.success { display:block; color:#166534; background:#dcfce7; }
+.termos-flow .document-navigation { display:flex; justify-content:flex-end; margin:26px 0 0; }
+.termos-flow .flow-button { border:0; border-radius:10px; background:#5b2fa6; color:#fff; padding:13px 18px; font:800 14px 'Inter',Arial,sans-serif; cursor:pointer; text-decoration:none; }
+.termos-flow .flow-button.secondary { background:#1e3a8a; }
+.termos-flow .flow-button:disabled { opacity:.55; cursor:not-allowed; }
+.termos-flow .signature-canvas { display:block; width:100%; height:250px; background:#fff; border:3px dashed #5b2fa6; border-radius:18px; touch-action:none; cursor:crosshair; }
+.termos-flow .signature-actions { display:flex; justify-content:flex-end; gap:12px; margin-top:16px; }
+.termos-flow .checklist { list-style:none; margin:24px 0; padding:0; border:1px solid #dbe4f0; border-radius:12px; overflow:hidden; }
+.termos-flow .checklist li { padding:14px 16px; border-bottom:1px solid #dbe4f0; font-weight:700; }.termos-flow .checklist li:last-child{border:0}.termos-flow .check{color:#15803d;margin-right:8px}
+@media (max-width:1240px){.termos-flow{padding-top:100px}.termos-flow .topbar{height:100px;border-radius:0 0 32px 32px}.termos-flow .logo-fixed{height:200%;left:16px}.termos-flow .logo-link{left:calc(16px + 75px)}.termos-flow .header-info{font-size:12px;gap:16px}.termos-flow .topbar-content{padding:0 24px 0 140px}}
+@media (max-width:700px){.termos-flow .header-info .address,.termos-flow .header-info .contact{display:none}.termos-flow .topbar-content{padding-right:22px}.termos-flow .breadcrumb-wrapper,.termos-flow main{margin-left:16px;margin-right:16px}.termos-flow .breadcrumb{gap:10px}.termos-flow .breadcrumb-arrow{width:20px}.termos-flow .form-box{padding:22px}.termos-flow .dados-grid{grid-template-columns:1fr}.termos-flow .title h1{font-size:23px}.termos-flow .title span{font-size:21px}.termos-flow .signature-actions,.termos-flow .document-navigation{flex-direction:column}.termos-flow .flow-button{width:100%;text-align:center}.termos-flow .signature-canvas{height:210px}}

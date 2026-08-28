@@ -8,6 +8,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from app.services.pdf_layout import draw_header_footer, content_top, content_bottom, draw_wrapped_text
 from app.routers.utils import normalize_base64
+from app.services.assinatura_service import gerar_url_assinatura
 
 def _decode_to_image_reader(img_src: str) -> Optional[ImageReader]:
     """Converte uma string (Base64 ou URL) em um objeto ImageReader do ReportLab."""
@@ -38,128 +39,167 @@ def gerar_pdf_termo_buffer(data: Any) -> BytesIO:
     termo_dados = data.termo_dados or {}
     campos = dict(termo_dados.get("campos") or {})
     assinaturas = termo_dados.get("assinaturas") or {}
-    aprovacao = termo_dados.get("aprovacao") or {}
     data_info = termo_dados.get("data") or {}
 
-    # Cabecalho do Documento
+    def campo(*nomes):
+        for nome in nomes:
+            for chave, valor in campos.items():
+                if str(chave).strip().casefold() == nome.casefold():
+                    return valor
+        return ""
+
+    produto_codigo = (
+        campo("PRODUTO E CÓDIGO DA ENTREGA", "Produto e Código da Entrega", "produto_codigo_entrega")
+        or termo_dados.get("produto_codigo_entrega")
+        or campo("Produto", "produto")
+        or "-"
+    )
+    data_str = "/".join(str(data_info.get(key) or "") for key in ("dia", "mes", "ano")).strip("/")
+    comprador = assinaturas.get("comprador") or {}
+    representante = assinaturas.get("representante") or {}
+    campos_ordem = (
+        ("Data", data_str),
+        ("Nome do Cliente", data.nome_cliente),
+        ("Empresa", data.empresa),
+        ("Produto e Código da entrega", produto_codigo),
+        ("Responsável pela entrega", campo("Responsável pela entrega")),
+        ("Quem realizou o atendimento", campo("Quem realizou o atendimento")),
+        ("Local da entrega", campo("Local da entrega")),
+        ("Status da Entrega", {
+            "concluido": "Concluído",
+            "concluido_com_ressalva": "Concluído com Ressalva",
+        }.get(data.status_entrega, data.status_entrega)),
+    )
+
     c.setFont("Helvetica-Bold", 16)
     c.drawString(margem_x, y, "TERMO DE ACEITE E ENTREGA DE SERVIÇOS")
     y -= 22
     c.setFont("Helvetica-Oblique", 12)
-    c.drawString(margem_x, y, "UNIDADES MÓVEIS")
+    c.drawString(margem_x, y, f"UNIDADE MÓVEL EM QUESTÃO - {produto_codigo}")
     y -= 30
-
-    # 1. Data
-    dia = data_info.get("dia")
-    mes = data_info.get("mes")
-    ano = data_info.get("ano")
-    data_str = f"{dia}/{mes}/{ano}" if dia and mes and ano else ""
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(margem_x, y, "Data")
-    y -= 14
     c.setFont("Helvetica", 10)
-    c.drawString(margem_x, y, data_str or "-")
-    y -= 20
+    y = draw_wrapped_text(
+        c,
+        "Recebi da FLEXIMEDICAL SLOUÇÕES EM SAÚDE LTDA - CNPJ: 07.384.026/0001-20, os serviços de reforma da Unidade Móvel de Saúde em Questão.",
+        margem_x,
+        y,
+        max_width,
+        max_lines=3,
+    ) - 10
 
-    # 2. Nome do Cliente
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(margem_x, y, "Nome do Cliente")
-    y -= 14
-    c.setFont("Helvetica", 10)
-    y = draw_wrapped_text(c, data.nome_cliente, margem_x, y, max_width, max_lines=2)
-    y -= 10
-
-    # 3. Empresa
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(margem_x, y, "Empresa")
-    y -= 14
-    c.setFont("Helvetica", 10)
-    y = draw_wrapped_text(c, data.empresa or "-", margem_x, y, max_width, max_lines=2)
-    y -= 10
-
-    # 4. Campos Dinamicos (Produto, Responsavel, Atendimento, Local)
-    for key, value in campos.items():
-        k_str = str(key).strip()
-        # Evita duplicar campos que ja tratamos manualmente acima
-        if k_str.upper() in ["NOME DO CLIENTE", "EMPRESA", "REGIÃO DA FOTO"]:
-            continue
-
-        if y < content_bottom() + 70:
-            c.showPage()
-            draw_header_footer(c, width, height)
-            y = content_top(height)
-        
+    for label, value in campos_ordem:
         c.setFont("Helvetica-Bold", 11)
-        c.drawString(margem_x, y, k_str.capitalize()[:80])
+        c.drawString(margem_x, y, label)
         y -= 14
         c.setFont("Helvetica", 10)
-        y = draw_wrapped_text(c, str(value), margem_x, y, max_width, max_lines=3)
-        y -= 10
+        y = draw_wrapped_text(c, str(value or "-"), margem_x, y, max_width, max_lines=2) - 8
 
-    # 5. Status da Entrega
-    status_map = {
-        "concluido": "Concluído",
-        "concluido_com_ressalva": "Concluído com Ressalva",
-    }
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(margem_x, y, "Status da Entrega")
-    y -= 14
-    c.setFont("Helvetica", 10)
-    c.drawString(margem_x, y, status_map.get(data.status_entrega, data.status_entrega or "-"))
-    y -= 25
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(margem_x, y, f"Entregue a: {comprador.get('nome') or '-'}")
+    c.drawString(margem_x + 280, y, f"CPF: {comprador.get('cpf') or '-'}")
+    y -= 16
+    c.drawString(margem_x, y, f"Representante Comercial: {representante.get('nome') or '-'}")
+    c.drawString(margem_x + 280, y, f"CPF: {representante.get('cpf') or '-'}")
+    y -= 28
+    y = draw_wrapped_text(
+        c,
+        "Por estarem assim ajustadas, as partes assinam o presente termo dando por encerradas todas as responsabilidades e atividades referentes aos serviços de customização.",
+        margem_x,
+        y,
+        max_width,
+        max_lines=3,
+    )
+    _draw_signature(
+        c,
+        margem_x,
+        y - 18,
+        termo_dados.get("assinatura_cliente_url") or termo_dados.get("assinatura_cliente_path"),
+    )
 
-    # Assinaturas
-    if y < content_bottom() + 100:
+    imagens = termo_dados.get("itens") or []
+    for offset in range(0, len(imagens), 6):
         c.showPage()
         draw_header_footer(c, width, height)
-        y = content_top(height)
+        fotos_y = content_top(height)
+        c.setFont("Helvetica-Bold", 15)
+        c.drawString(margem_x, fotos_y, "FOTOS DO TERMO")
+        _draw_image_grid(c, imagens[offset:offset + 6], margem_x, fotos_y - 20, max_width)
 
-    comprador = assinaturas.get("comprador") or {}
-    rep_comercial = assinaturas.get("representante") or {}
-
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(margem_x, y, "Assinaturas")
-    y -= 20
-    
-    c.setFont("Helvetica", 9)
-    c.drawString(margem_x, y, f"Entregue a: {comprador.get('nome', '-')}")
-    c.drawString(margem_x + 250, y, f"CPF: {comprador.get('cpf', '-')}")
-    y -= 14
-    c.drawString(margem_x, y, f"Representante Comercial: {rep_comercial.get('nome', '-')}")
-    c.drawString(margem_x + 250, y, f"CPF: {rep_comercial.get('cpf', '-')}")
-    y -= 25
-    
-    # Aprovação final
-    if aprovacao.get("representante") or aprovacao.get("cpf"):
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(margem_x, y, "Aprovação final do termo")
-        y -= 14
-        c.setFont("Helvetica", 9)
-        c.drawString(margem_x, y, f"Aprovado por: {aprovacao.get('representante', '-')}")
-        c.drawString(margem_x + 250, y, f"CPF: {aprovacao.get('cpf', '-')}")
-        y -= 20
-
-    # Fotos
-    imagens = termo_dados.get("itens") or []
-    if imagens:
-        chunk_size = 6
-        for i in range(0, len(imagens), chunk_size):
-            c.showPage()
-            draw_header_footer(c, width, height)
-            y = content_top(height)
-            c.setFont("Helvetica-Bold", 15)
-            c.drawString(margem_x, y, "FOTOS DO TERMO")
-            
-            chunk = imagens[i : i + chunk_size]
-            # Layout de grid para fotos
-            _draw_image_grid(c, chunk, margem_x, y - 20, max_width)
-
-    c.showPage()
     c.save()
     buffer.seek(0)
     return buffer
 
-def gerar_pdf_ressalvas_buffer(responsavel: str, cpf: Optional[str], imagens: List[Any]) -> BytesIO:
+
+def _draw_termo_final(c, x: float, max_width: float, termo_dados: dict, y: float) -> None:
+    c.setFont("Helvetica", 10)
+    y = draw_wrapped_text(
+        c,
+        "Por estarem assim ajustadas, as partes assinam o presente termo dando por encerradas todas as responsabilidades e atividades referentes aos serviços de customização.",
+        x,
+        y,
+        max_width,
+        max_lines=4,
+    )
+    _draw_signature(c, x, y - 20, termo_dados.get("assinatura_cliente_url") or termo_dados.get("assinatura_cliente_path"))
+
+
+def _draw_signature(c, x: float, y: float, source: str | None) -> None:
+    if source:
+        try:
+            url = source if str(source).startswith(("http", "data:")) else gerar_url_assinatura(source)
+            reader = _decode_to_image_reader(url)
+            if reader:
+                c.drawImage(reader, x, y - 55, width=180, height=55, preserveAspectRatio=True, mask="auto")
+        except Exception:
+            pass
+    c.setFont("Helvetica", 8)
+    c.line(x, y - 58, x + 180, y - 58)
+    c.drawString(x, y - 70, "Assinatura digital do cliente")
+
+
+def _gerar_pdf_termo_extra(data: dict, treinamento: bool) -> BytesIO:
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    draw_header_footer(c, width, height)
+    x, y, max_width = 40, content_top(height), width - 80
+    titulo = "TERMO DE TREINAMENTO" if treinamento else "TERMO DE RECEBIMENTO"
+    c.setFont("Helvetica-Bold", 16); c.drawString(x, y, titulo); y -= 20
+    c.setFont("Helvetica-Oblique", 11); c.drawString(x, y, "Via da Kure / Fleximedical"); y -= 28
+    c.setFont("Helvetica", 10)
+    produto_codigo = " — ".join(str(v) for v in (data.get("produto"), data.get("codigo_entrega")) if v)
+    texto_recebimento = (
+        "Recebi da FLEXIMEDICAL SLOUÇÕES EM SAÚDE LTDA - CNPJ: 07.384.026/0001-20, "
+        f"fabricante da UNIDADE MÓVEL EM QUESTÃO, {produto_codigo or '-'}, o \"MANUAL DE INSTRUÇÕES DE USO\", "
+        "que deverá ser consultado antes de qualquer intervenção de limpeza ou manuseio, sob o risco de perda da garantia."
+    )
+    data_info = data.get("data")
+    if isinstance(data_info, dict):
+        data_info = "/".join(str(data_info.get(key) or "") for key in ("dia", "mes", "ano")).strip("/")
+    for label, value in (("Data", data_info or "-"), ("Nome do Cliente", data.get("nome_cliente")),
+                         ("CPF", data.get("cpf_cliente")), ("Produto e Código da Entrega", produto_codigo),
+                         ("Representante Fleximedical", data.get("representante_nome")),
+                         ("CPF do representante", data.get("representante_cpf"))):
+        c.setFont("Helvetica-Bold", 10); c.drawString(x, y, label); y -= 13
+        c.setFont("Helvetica", 10); y = draw_wrapped_text(c, str(value or "-"), x, y, max_width, max_lines=2); y -= 8
+    texto = texto_recebimento
+    if treinamento:
+        texto += " Afirmo também ter recebido treinamento adequado para manuseio do equipamento. Tornando-me responsável pelo treinamento das pessoas envolvidas no manuseio."
+    y -= 8; y = draw_wrapped_text(c, texto, x, y, max_width, max_lines=10)
+    _draw_signature(c, x, y - 15, data.get("assinatura_cliente_url"))
+    c.showPage(); c.save(); buffer.seek(0); return buffer
+
+
+def gerar_pdf_recebimento_buffer(data: dict) -> BytesIO:
+    return _gerar_pdf_termo_extra(data, False)
+
+
+def gerar_pdf_treinamento_buffer(data: dict) -> BytesIO:
+    return _gerar_pdf_termo_extra(data, True)
+
+def gerar_pdf_ressalvas_buffer(
+    responsavel: str, cpf: Optional[str], imagens: List[Any], assinatura_cliente_url: str | None = None
+) -> BytesIO:
     """Gera o buffer do PDF para as Ressalvas."""
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -206,12 +246,9 @@ def gerar_pdf_ressalvas_buffer(responsavel: str, cpf: Optional[str], imagens: Li
             # Observação
             draw_wrapped_text(c, f"Obs: {item.observacao or ''}", tx, card_top - 49, max_width - 160)
 
-    # Assinatura final se for a ultima pagina
-    apro_y = content_bottom() + 20
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(margem_x, apro_y, f"Aprovação Final das Ressalvas: {responsavel} | CPF: {cpf or ''}")
-
     c.showPage()
+    draw_header_footer(c, width, height)
+    _draw_signature(c, margem_x, content_top(height) - 25, assinatura_cliente_url)
     c.save()
     buffer.seek(0)
     return buffer

@@ -11,9 +11,74 @@ from app.services.pdf_service import gerar_pdf_termo_buffer, gerar_pdf_ressalvas
 from app.services.upload import upload_pdf
 from app.services.final_pdf import regenerate_final_pdf_by_codigo
 from app.routers.utils import gerar_hash_imagem
+from app.services.termos import salvar_termo_extra
+from app.services.shared_data import as_dict
+from app.services.supabase_client import supabase
 
 class ProcessoService:
     """Orquestra a logica de negocio dos processos NPS."""
+
+    ETAPAS_CLIENTE = ("aceite", "ressalvas", "recebimento", "treinamento", "assinatura", "nps")
+
+    @classmethod
+    def etapa_atual_cliente(cls, processo: dict | None) -> str | None:
+        """Obtém a etapa pública sem alterar processos antigos."""
+        if not processo:
+            return None
+        nps = as_dict(processo.get("nps_dados"))
+        etapa = nps.get("_etapa_fluxo")
+        if etapa in cls.ETAPAS_CLIENTE:
+            return etapa
+        if processo.get("assinatura_cliente_url"):
+            return "nps"
+        if nps.get("_lock_termo") or nps.get("_lock_ressalvas"):
+            return "aceite"
+        return None
+
+    @classmethod
+    def proxima_etapa_cliente(cls, processo: dict, etapa: str) -> str:
+        atual = cls.etapa_atual_cliente(processo)
+        if etapa not in cls.ETAPAS_CLIENTE or atual != etapa:
+            raise ValueError("Esta etapa ainda não está liberada para conclusão.")
+        indice = cls.ETAPAS_CLIENTE.index(etapa)
+        if indice >= len(cls.ETAPAS_CLIENTE) - 1:
+            return etapa
+        proxima = cls.ETAPAS_CLIENTE[indice + 1]
+        nps = as_dict(processo.get("nps_dados"))
+        nps["_etapa_fluxo"] = proxima
+        nps["_etapa_fluxo_atualizada_em"] = datetime.utcnow().isoformat()
+        ProcessoRepository.update(processo["id"], {"nps_dados": nps, "atualizado_em": datetime.utcnow().isoformat()})
+        return proxima
+
+    @classmethod
+    def documentos_pendentes_para_etapa(cls, processo: dict, etapa: str) -> list[str]:
+        """Retorna documentos que precisam existir antes de concluir uma etapa."""
+        campos = {
+            "aceite": (("termo_dados", "termo_pdf"), "Termo de Aceite"),
+            "ressalvas": (("ressalvas_dados", "pdf_ressalvas"), "Ressalvas"),
+            "recebimento": (("recebimento_dados", "recebimento_pdf"), "Termo de Recebimento"),
+            "treinamento": (("treinamento_dados", "treinamento_pdf"), "Termo de Treinamento"),
+        }
+        pendentes = []
+        campos_documento, nome = campos.get(etapa, ((), None))
+        if campos_documento and (
+            not as_dict(processo.get(campos_documento[0]))
+            or not processo.get(campos_documento[1])
+        ):
+            pendentes.append(nome)
+
+        return pendentes
+
+    @classmethod
+    def documentos_obrigatorios_pendentes(cls, processo: dict) -> list[str]:
+        """Valida os quatro documentos exigidos para a assinatura."""
+        pendentes = cls.documentos_pendentes_para_etapa(processo, "aceite")
+        status = str(processo.get("status_entrega") or "").strip().lower()
+        if status != "concluido" and not as_dict(processo.get("ressalvas_dados")):
+            pendentes.append("Ressalvas")
+        pendentes.extend(cls.documentos_pendentes_para_etapa(processo, "recebimento"))
+        pendentes.extend(cls.documentos_pendentes_para_etapa(processo, "treinamento"))
+        return pendentes
 
     @staticmethod
     def gerar_codigo_humano(nome_cliente: str, cpf: str) -> str:
@@ -77,6 +142,11 @@ class ProcessoService:
         # 0. Normalizacao
         existing_imgs = existing_proc.get("imagens_termo") if existing_proc else []
         termo_dados = cls._normalizar_dados_termo(data, existing_imgs)
+        if existing_proc:
+            existing_termo = as_dict(existing_proc.get("termo_dados"))
+            for key in ("assinatura_cliente_path", "assinatura_cliente_url"):
+                if existing_termo.get(key) and not termo_dados.get(key):
+                    termo_dados[key] = existing_termo[key]
         data.termo_dados = termo_dados # Atualiza o objeto para o gerador de PDF
 
         # 1. Gerar PDF
@@ -108,19 +178,53 @@ class ProcessoService:
             "termo_dados": termo_dados,
             "imagens_termo": termo_dados["itens"]
         }
+        status_entrega = str(data.status_entrega or "").strip().lower()
+        if status_entrega == "concluido_com_ressalva":
+            etapa_fluxo = "ressalvas"
+        elif status_entrega == "concluido":
+            etapa_fluxo = "assinatura"
+        else:
+            etapa_fluxo = "aceite"
+        nps_dados = as_dict(existing_proc.get("nps_dados")) if existing_proc else {}
+        etapa_atual = cls.etapa_atual_cliente(existing_proc) if existing_proc else None
+        if etapa_atual in cls.ETAPAS_CLIENTE and cls.ETAPAS_CLIENTE.index(etapa_atual) > cls.ETAPAS_CLIENTE.index(etapa_fluxo):
+            etapa_fluxo = etapa_atual
+        nps_dados["_etapa_fluxo"] = etapa_fluxo
+        nps_dados["_etapa_fluxo_atualizada_em"] = datetime.utcnow().isoformat()
+        payload["nps_dados"] = nps_dados
 
         if is_update:
             payload["atualizado_em"] = datetime.utcnow().isoformat()
             result = ProcessoRepository.update(processo_uuid, payload)
-            regenerate_final_pdf_by_codigo(result["codigo"], set_status_finalizado=False)
         else:
             payload["id"] = processo_uuid
             payload["codigo"] = cls.gerar_codigo_humano(data.nome_cliente, data.cpf)
             payload["status"] = "TERMO_GERADO"
             payload["criado_em"] = datetime.utcnow().isoformat()
             result = ProcessoRepository.insert(payload)
-        
+
+        if status_entrega in ("concluido", "concluido_com_ressalva"):
+            result = cls.sincronizar_termos_derivados(result)
+            if result.get("codigo"):
+                regenerate_final_pdf_by_codigo(result["codigo"], set_status_finalizado=False)
         return result
+
+    @classmethod
+    def sincronizar_termos_derivados(cls, processo: dict) -> dict:
+        """Gera e persiste os termos derivados com os dados atuais do Aceite."""
+        if not processo or not processo.get("id"):
+            raise ValueError("Processo inválido para sincronização dos termos derivados.")
+
+        resultado = processo
+        for tipo in ("recebimento", "treinamento"):
+            try:
+                resultado = salvar_termo_extra(resultado, tipo)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Não foi possível gerar o Termo de {tipo.capitalize()}: {exc}"
+                ) from exc
+            resultado = resultado.get("processo") or resultado
+        return resultado
 
     @staticmethod
     def salvar_ressalvas_fluxo(data: Any, is_update: bool = False, existing_proc: dict = None) -> Tuple[str, str]:
@@ -129,7 +233,10 @@ class ProcessoService:
         processo_codigo = existing_proc.get("codigo") or data.processo_id
 
         # 1. Gerar PDF
-        pdf_buffer = gerar_pdf_ressalvas_buffer(data.responsavel, data.cpf, data.imagens)
+        pdf_buffer = gerar_pdf_ressalvas_buffer(
+            data.responsavel, data.cpf, data.imagens,
+            (existing_proc or {}).get("assinatura_cliente_url"),
+        )
         pdf_base64 = "data:application/pdf;base64," + base64.b64encode(pdf_buffer.read()).decode()
 
         # 2. Upload
@@ -152,7 +259,6 @@ class ProcessoService:
                 "item": img.item,
                 "descricao": img.descricao,
                 "prazo": img.prazo.isoformat() if img.prazo else None,
-                "aprovacao": img.aprovacao,
                 "imagem_hash": (
                     gerar_hash_imagem(img.imagem_base64)
                     if img.imagem_base64 and "," in img.imagem_base64 else None
@@ -177,7 +283,6 @@ class ProcessoService:
                     "prazo": img.prazo.isoformat() if img.prazo else None,
                     "responsavel": img.responsavel,
                     "observacao": img.observacao,
-                    "aprovacao": img.aprovacao,
                     "imagem_base64": img.imagem_base64
                 }
                 for img in data.imagens
@@ -190,6 +295,17 @@ class ProcessoService:
             "ressalvas_dados": ressalvas_dados,
             "atualizado_em": datetime.utcnow().isoformat()
         }
+        nps_dados = as_dict(existing_proc.get("nps_dados"))
+        etapa_atual = ProcessoService.etapa_atual_cliente(existing_proc)
+        etapa_fluxo = (
+            etapa_atual
+            if etapa_atual in ProcessoService.ETAPAS_CLIENTE
+            and ProcessoService.ETAPAS_CLIENTE.index(etapa_atual) > ProcessoService.ETAPAS_CLIENTE.index("recebimento")
+            else "recebimento"
+        )
+        nps_dados["_etapa_fluxo"] = etapa_fluxo
+        nps_dados["_etapa_fluxo_atualizada_em"] = datetime.utcnow().isoformat()
+        payload_update["nps_dados"] = nps_dados
         ProcessoRepository.update(processo_uuid, payload_update)
 
         regenerate_final_pdf_by_codigo(processo_codigo, set_status_finalizado=False)
@@ -235,3 +351,36 @@ class ProcessoService:
             return exp_dt < datetime.now(timezone.utc)
         except Exception:
             return False
+
+    @staticmethod
+    def dados_compartilhados(processo: dict) -> dict:
+        from app.services.shared_data import dados_compartilhados
+        return dados_compartilhados(processo)
+
+    @staticmethod
+    def salvar_recebimento_fluxo(existing_proc: dict, dados: dict | None = None):
+        return salvar_termo_extra(existing_proc, "recebimento", dados)
+
+    @staticmethod
+    def salvar_treinamento_fluxo(existing_proc: dict, dados: dict | None = None):
+        return salvar_termo_extra(existing_proc, "treinamento", dados)
+
+    @staticmethod
+    def salvar_assinatura_cliente_fluxo(processo: dict, caminho: str):
+        termo = dict(as_dict(processo.get("termo_dados")))
+        termo["assinatura_cliente_path"] = caminho
+        termo["assinatura_cliente_url"] = caminho
+        nps = as_dict(processo.get("nps_dados"))
+        nps["_etapa_fluxo"] = "nps"
+        nps["_etapa_fluxo_atualizada_em"] = datetime.utcnow().isoformat()
+        # A condição no banco elimina a janela de corrida entre duas abas:
+        # uma assinatura já gravada nunca é substituída.
+        result = supabase.table("processos").update({
+            "termo_dados": termo,
+            "assinatura_cliente_url": caminho,
+            "assinatura_cliente_criada_em": datetime.utcnow().isoformat(),
+            "nps_dados": nps,
+        }).eq("id", processo["id"]).is_("assinatura_cliente_url", "null").execute()
+        if not result.data:
+            raise ValueError("Este processo já possui uma assinatura digital.")
+        return result.data[0]

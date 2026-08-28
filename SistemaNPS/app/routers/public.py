@@ -15,6 +15,7 @@ from app.services.supabase_client import supabase
 # Adicionamos o servico de upload (assumindo que existe em app.services.upload)
 from app.services.upload import upload_pdf
 from app.services.processo_repository import ProcessoRepository
+from app.services.shared_data import as_dict
 from supabase import create_client
 import os
 from urllib.parse import urlparse # Importar urlparse
@@ -106,6 +107,39 @@ def _append_project_token(url: str, token: str) -> str:
         return url
     sep = "&" if "?" in url else "?"
     return f"{url}{sep}project_token={token}"
+
+
+def _flow_guard(request: Request, project_token: str, requested_stage: str):
+    """Redireciona o cliente que tentar abrir uma etapa futura por URL."""
+    if not project_token or _is_admin_mode_request(request):
+        return None
+    proc = ProcessoRepository.get_by_identifier(project_token)
+    if not proc:
+        return None
+    from app.services.processo_service import ProcessoService
+    atual = ProcessoService.etapa_atual_cliente(proc)
+    etapas = ProcessoService.ETAPAS_CLIENTE
+    nps_dados = as_dict(proc.get("nps_dados"))
+    bloqueado = bool(
+        nps_dados.get("_lock_termo")
+        or nps_dados.get("_lock_ressalvas")
+        or nps_dados.get("_lock_nps")
+        or nps_dados.get("_edicao_bloqueada")
+    )
+    documentos = {
+        "aceite": bool(proc.get("termo_dados") or proc.get("termo_pdf")),
+        "ressalvas": bool(proc.get("ressalvas_dados") or proc.get("pdf_ressalvas")),
+        "recebimento": bool(proc.get("recebimento_dados") or proc.get("recebimento_pdf")),
+        "treinamento": bool(proc.get("treinamento_dados") or proc.get("treinamento_pdf")),
+        "assinatura": bool(proc.get("assinatura_cliente_url") or as_dict(proc.get("termo_dados")).get("assinatura_cliente_path")),
+        "nps": bool(nps_dados.get("nps") is not None),
+    }
+    if bloqueado and requested_stage in etapas and documentos.get(requested_stage):
+        return None
+    if atual in etapas and requested_stage in etapas and etapas.index(requested_stage) > etapas.index(atual):
+        destinos = {"aceite":"/termo", "ressalvas":"/ressalvas", "recebimento":"/recebimento", "treinamento":"/treinamento", "assinatura":"/assinatura", "nps":"/nps"}
+        return RedirectResponse(url=_append_project_token(destinos[atual], project_token), status_code=303)
+    return None
 
 
 def _get_admin_cookie_secret() -> str:
@@ -317,6 +351,9 @@ def ressalvas(request: Request):
     expired_response = _expired_token_response(request, project_token)
     if expired_response:
         return expired_response
+    guarded = _flow_guard(request, project_token, "ressalvas")
+    if guarded:
+        return guarded
     return templates.TemplateResponse(
         request=request,
         name="Ressalvas.html",
@@ -328,12 +365,73 @@ def ressalvas(request: Request):
     )
 
 
+@router.get("/recebimento", response_class=HTMLResponse)
+def recebimento(request: Request):
+    project_token = _extract_project_token(request)
+    expired_response = _expired_token_response(request, project_token)
+    if expired_response:
+        return expired_response
+    guarded = _flow_guard(request, project_token, "recebimento")
+    if guarded:
+        return guarded
+    return templates.TemplateResponse(request=request, name="TermoRecebimento.html",
+                                      context={"request": request, "project_token": project_token,
+                                               "is_admin": _is_admin_mode_request(request)})
+
+
+@router.get("/treinamento", response_class=HTMLResponse)
+def treinamento(request: Request):
+    project_token = _extract_project_token(request)
+    expired_response = _expired_token_response(request, project_token)
+    if expired_response:
+        return expired_response
+    guarded = _flow_guard(request, project_token, "treinamento")
+    if guarded:
+        return guarded
+    return templates.TemplateResponse(request=request, name="TermoTreinamento.html",
+                                      context={"request": request, "project_token": project_token,
+                                               "is_admin": _is_admin_mode_request(request)})
+
+
+@router.get("/assinatura", response_class=HTMLResponse)
+def assinatura(request: Request):
+    project_token = _extract_project_token(request)
+    expired_response = _expired_token_response(request, project_token)
+    if expired_response:
+                                      return expired_response
+    guarded = _flow_guard(request, project_token, "assinatura")
+    if guarded:
+        return guarded
+    return templates.TemplateResponse(
+                                      request=request,
+                                      name="TermoAssinatura.html",
+                                      context={
+                                          "request": request,
+                                          "project_token": project_token,
+                                          "is_admin": _is_admin_mode_request(request),
+                                      },
+    )
+
+
 @router.get("/nps", response_class=HTMLResponse)
 def nps(request: Request):
     project_token = _extract_project_token(request)
     expired_response = _expired_token_response(request, project_token)
     if expired_response:
         return expired_response
+    guarded = _flow_guard(request, project_token, "nps")
+    if guarded:
+        return guarded
+    if project_token and not _is_admin_mode_request(request):
+        proc = ProcessoRepository.get_by_identifier(project_token, "assinatura_cliente_url,termo_dados")
+        termo_dados = (proc or {}).get("termo_dados") or {}
+        if isinstance(termo_dados, str):
+            try:
+                termo_dados = json.loads(termo_dados)
+            except Exception:
+                termo_dados = {}
+        if not ((proc or {}).get("assinatura_cliente_url") or termo_dados.get("assinatura_cliente_path")):
+            return RedirectResponse(url=_append_project_token("/assinatura", project_token), status_code=303)
     return templates.TemplateResponse(
         request=request,
         name="NPS2System.html",
@@ -359,7 +457,7 @@ def admin(request: Request):
             .select(
                 "project_token,projeto,project_token_ativo,project_token_expira_em,"
                 "nome_cliente,empresa,cpf,status,status_entrega,"
-                "criado_em,atualizado_em,termo_pdf,pdf_ressalvas,pdf_final,nps_nota,nps_dados"
+                "criado_em,atualizado_em,termo_pdf,pdf_ressalvas,recebimento_pdf,treinamento_pdf,pdf_final,nps_nota,nps_dados"
             )
             .order("criado_em", desc=True)
             .execute()
@@ -387,6 +485,8 @@ def admin(request: Request):
             p.setdefault("nps_nota", None)
             p.setdefault("atualizado_em", None)
             p.setdefault("project_token", None)
+            p.setdefault("recebimento_pdf", None)
+            p.setdefault("treinamento_pdf", None)
             p.setdefault("nps_dados", {})
 
     for p in processos:
@@ -786,6 +886,24 @@ def pdf_ressalvas(codigo: str):
             "Expires": "0"
         }
     )
+
+
+def _pdf_extra(codigo: str, tipo: str):
+    proc = ProcessoRepository.get_by_identifier(codigo, f"{tipo}_pdf")
+    if not proc or not proc.get(f"{tipo}_pdf"):
+        raise HTTPException(status_code=404, detail="PDF não encontrado")
+    return Response(content=_download_pdf(proc[f"{tipo}_pdf"]), media_type="application/pdf",
+                    headers={"Content-Disposition": f"inline; filename={tipo}.pdf", "Cache-Control": "no-store"})
+
+
+@router.get("/pdf/recebimento/{codigo}")
+def pdf_recebimento(codigo: str):
+    return _pdf_extra(codigo, "recebimento")
+
+
+@router.get("/pdf/treinamento/{codigo}")
+def pdf_treinamento(codigo: str):
+    return _pdf_extra(codigo, "treinamento")
 
 
 @router.get("/pdf/final/{codigo}")

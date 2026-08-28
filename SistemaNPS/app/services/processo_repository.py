@@ -45,6 +45,22 @@ class ProcessoRepository:
         return res.data[0]
 
     @staticmethod
+    def salvar_termo_extra(processo_id: str, tipo: str, dados: Dict[str, Any], pdf_url: str | None = None):
+        if tipo not in ("recebimento", "treinamento"):
+            raise ValueError("Tipo de termo inválido")
+        payload = {f"{tipo}_dados": dados}
+        if pdf_url:
+            payload[f"{tipo}_pdf"] = pdf_url
+        return ProcessoRepository.update(processo_id, payload)
+
+    @staticmethod
+    def get_assinatura_cliente(processo_id: str):
+        proc = ProcessoRepository.get_by_identifier(processo_id, "id,assinatura_cliente_url,termo_dados")
+        if not proc:
+            return None
+        return proc.get("assinatura_cliente_url") or (proc.get("termo_dados") or {}).get("assinatura_cliente_path")
+
+    @staticmethod
     def insert_ressalvas_itens(itens: List[Dict[str, Any]]):
         """Insere itens na tabela de ressalvas."""
         return supabase.table("ressalvas_itens").insert(itens).execute()

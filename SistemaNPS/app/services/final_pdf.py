@@ -15,6 +15,8 @@ from app.services.pdf_layout import content_bottom, content_top, draw_header_foo
 from app.services.processo_repository import ProcessoRepository
 from app.services.supabase_client import supabase
 from app.services.upload import upload_pdf
+from app.services.shared_data import dados_compartilhados
+from app.services.assinatura_service import gerar_url_assinatura
 
 
 def _safe_text(value: Any) -> str:
@@ -213,20 +215,6 @@ def _collect_ressalvas_items(proc_data: dict) -> list[dict]:
     return resultado[:6]
 
 
-def _collect_ressalvas_aprovacao(proc_data: dict) -> dict:
-    ressalvas_dados = _as_dict(proc_data.get("ressalvas_dados"))
-    aprovacao_final = _as_dict(ressalvas_dados.get("aprovacao_final"))
-    if aprovacao_final:
-        return {
-            "representante": _safe_text(aprovacao_final.get("representante", "")),
-            "cpf": _safe_text(aprovacao_final.get("cpf", "")),
-        }
-    return {
-        "representante": _safe_text(ressalvas_dados.get("responsavel", "")),
-        "cpf": _safe_text(ressalvas_dados.get("cpf", "")),
-    }
-
-
 def _draw_termo_info_page(c, width: float, height: float, proc_data: dict) -> None:
     draw_header_footer(c, width, height)
     y = content_top(height)
@@ -236,12 +224,25 @@ def _draw_termo_info_page(c, width: float, height: float, proc_data: dict) -> No
     termo_dados = _as_dict(proc_data.get("termo_dados"))
     campos = _as_dict(termo_dados.get("campos"))
     assinaturas = _as_dict(termo_dados.get("assinaturas"))
-    aprovacao = _as_dict(termo_dados.get("aprovacao"))
     data_info = _as_dict(termo_dados.get("data"))
 
+    produto_codigo = (
+        campos.get("PRODUTO E CÓDIGO DA ENTREGA")
+        or campos.get("Produto e Código da Entrega")
+        or campos.get("produto_codigo_entrega")
+        or campos.get("Produto")
+        or campos.get("produto")
+        or "-"
+    )
     c.setFont("Helvetica-Bold", 15)
     c.drawString(x, y, "1/5 - Informacoes do termo de aceite")
     y -= 22
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(x, y, "Unidade móvel em questão")
+    y -= 14
+    c.setFont("Helvetica", 10)
+    c.drawString(x, y, f"- {produto_codigo}")
+    y -= 18
 
     c.setFont("Helvetica-Bold", 11)
     c.drawString(x, y, "Nome do cliente")
@@ -294,34 +295,30 @@ def _draw_termo_info_page(c, width: float, height: float, proc_data: dict) -> No
         c.drawString(x, y, _safe_text(proc_data.get("status_entrega")))
         y -= 18
 
-    if y > content_bottom() + 65 and isinstance(assinaturas, dict):
-        comprador = assinaturas.get("comprador") or {}
-        representante = assinaturas.get("representante") or {}
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(x, y, "Assinaturas")
-        y -= 13
-        c.setFont("Helvetica", 9)
-        c.drawString(
-            x,
-            y,
-            f"Comprador: {_safe_text(comprador.get('nome'))} | CPF: {_safe_text(comprador.get('cpf'))}",
-        )
-        y -= 12
-        c.drawString(
-            x,
-            y,
-            f"Representante: {_safe_text(representante.get('nome'))} | CPF: {_safe_text(representante.get('cpf'))}",
-        )
-        y -= 14
+    c.setFont("Helvetica", 9)
+    _draw_wrapped(
+        c,
+        "Por estarem assim ajustadas, as partes assinam o presente termo dando por encerradas todas as responsabilidades e atividades referentes aos serviços de customização.",
+        x,
+        content_bottom() + 125,
+        max_width,
+        max_lines=3,
+    )
+    _draw_client_signature(c, x, content_bottom() + 20, proc_data)
 
-    if y > content_bottom() + 50 and isinstance(aprovacao, dict):
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(x, y, "Aprovacao final")
-        y -= 13
-        c.setFont("Helvetica", 9)
-        c.drawString(x, y, f"Representante: {_safe_text(aprovacao.get('representante'))}")
-        y -= 12
-        c.drawString(x, y, f"CPF: {_safe_text(aprovacao.get('cpf'))}")
+
+def _draw_client_signature(c, x: float, y: float, proc_data: dict) -> None:
+    src = proc_data.get("assinatura_cliente_url") or _as_dict(proc_data.get("termo_dados")).get("assinatura_cliente_path")
+    if src:
+        try:
+            url = src if str(src).startswith("http") else gerar_url_assinatura(src)
+            raw = _download_image(url) if url else None
+            if raw:
+                c.drawImage(ImageReader(BytesIO(raw)), x, y, width=160, height=45, preserveAspectRatio=True, mask="auto")
+        except Exception:
+            pass
+    c.setFont("Helvetica", 8); c.drawString(x, y - 8, "Assinatura digital do cliente")
+
 
 
 def _draw_termo_images_page(c, width: float, height: float, images: list[dict]) -> None:
@@ -384,8 +381,7 @@ def _draw_ressalvas_page(
     items: list[dict],
     title: str,
     start_index: int,
-    aprovacao_final: dict | None = None,
-    show_aprovacao_final: bool = False,
+    proc_data: dict | None = None,
 ) -> None:
     draw_header_footer(c, width, height)
     x = 40
@@ -398,9 +394,7 @@ def _draw_ressalvas_page(
 
     card_gap = 10
     cards = 3
-    has_aprovacao_final = bool((aprovacao_final or {}).get("representante") or (aprovacao_final or {}).get("cpf"))
-    reserva_aprovacao = 56 if show_aprovacao_final and has_aprovacao_final else 0
-    card_h = ((y - (content_bottom() + 20 + reserva_aprovacao)) - (card_gap * (cards - 1))) / cards
+    card_h = ((y - (content_bottom() + 20)) - (card_gap * (cards - 1))) / cards
 
     for i in range(cards):
         idx = start_index + i
@@ -459,15 +453,30 @@ def _draw_ressalvas_page(
             max_lines=5,
         )
 
-    if show_aprovacao_final and has_aprovacao_final:
-        apro_y = content_bottom() + 44
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(x, apro_y, "Aprovacao final das ressalvas")
-        apro_y -= 14
-        c.setFont("Helvetica", 9)
-        c.drawString(x, apro_y, f"Representante: {_safe_text((aprovacao_final or {}).get('representante'))}")
-        apro_y -= 12
-        c.drawString(x, apro_y, f"CPF: {_safe_text((aprovacao_final or {}).get('cpf'))}")
+    _draw_client_signature(c, x, content_bottom() + 18, proc_data or {})
+
+
+def _draw_extra_term_page(c, width: float, height: float, proc_data: dict, tipo: str, title: str) -> None:
+    draw_header_footer(c, width, height)
+    x, y, max_width = 40, content_top(height), width - 80
+    d = dados_compartilhados(proc_data)
+    termo_extra = _as_dict(proc_data.get(f"{tipo}_dados"))
+    d.update({key: value for key, value in termo_extra.items() if key not in d})
+    c.setFont("Helvetica-Bold", 15); c.drawString(x, y, title); y -= 25
+    c.setFont("Helvetica", 10)
+    codigo = " - ".join(str(v) for v in (d.get("produto"), d.get("codigo_entrega")) if v) or "-"
+    texto = (
+        "Recebi da FLEXIMEDICAL SLOUÇÕES EM SAÚDE LTDA - CNPJ: 07.384.026/0001-20, "
+        f"fabricante da UNIDADE MÓVEL EM QUESTÃO, {codigo}, o \"MANUAL DE INSTRUÇÕES DE USO\", "
+        "que deverá ser consultado antes de qualquer intervenção de limpeza ou manuseio, sob o risco de perda da garantia."
+    )
+    if tipo == "treinamento":
+        texto += " Afirmo também ter recebido treinamento adequado para manuseio do equipamento. Tornando-me responsável pelo treinamento das pessoas envolvidas no manuseio."
+    y = _draw_wrapped(c, texto, x, y, max_width, max_lines=8); y -= 15
+    for label, key in (("Cliente", "nome_cliente"), ("CPF", "cpf_cliente"), ("Produto e Código da Entrega", None), ("Representante", "representante_nome"), ("CPF do representante", "representante_cpf")):
+        value = codigo if key is None else d.get(key)
+        c.setFont("Helvetica-Bold", 10); c.drawString(x, y, f"{label}: {_safe_text(value)}"); y -= 14
+    _draw_client_signature(c, x, y - 5, proc_data)
 
 
 def _draw_nps_page(c, width: float, height: float, nps_dados: dict) -> None:
@@ -516,7 +525,6 @@ def _draw_nps_page(c, width: float, height: float, nps_dados: dict) -> None:
 def _build_final_pdf_bytes(proc_data: dict) -> bytes:
     termo_images = _collect_termo_images(proc_data)
     ressalvas_items = _collect_ressalvas_items(proc_data)
-    ressalvas_aprovacao = _collect_ressalvas_aprovacao(proc_data)
     nps_dados = proc_data.get("nps_dados") or {}
 
     final_buffer = BytesIO()
@@ -527,18 +535,21 @@ def _build_final_pdf_bytes(proc_data: dict) -> bytes:
     c.showPage()
     _draw_termo_images_page(c, width, height, termo_images)
     c.showPage()
-    _draw_ressalvas_page(c, width, height, ressalvas_items, "3/5 - Ressalvas (itens 1 a 3)", 0)
+    _draw_ressalvas_page(c, width, height, ressalvas_items, "2/5 - Ressalvas (itens 1 a 3)", 0, proc_data=proc_data)
     c.showPage()
     _draw_ressalvas_page(
         c,
         width,
         height,
         ressalvas_items,
-        "4/5 - Ressalvas (itens 4 a 6)",
+        "2/5 - Ressalvas (itens 4 a 6)",
         3,
-        aprovacao_final=ressalvas_aprovacao,
-        show_aprovacao_final=True,
+        proc_data=proc_data,
     )
+    c.showPage()
+    _draw_extra_term_page(c, width, height, proc_data, "recebimento", "3/5 - Termo de Recebimento")
+    c.showPage()
+    _draw_extra_term_page(c, width, height, proc_data, "treinamento", "4/5 - Termo de Treinamento")
     c.showPage()
     _draw_nps_page(c, width, height, nps_dados)
     c.showPage()
@@ -548,7 +559,7 @@ def _build_final_pdf_bytes(proc_data: dict) -> bytes:
 
 
 def regenerate_final_pdf_by_codigo(codigo: str, set_status_finalizado: bool = False) -> str | None:
-    proc = ProcessoRepository.get_by_identifier(codigo, "id,codigo,nome_cliente,empresa,cpf,status_entrega,termo_dados,ressalvas_dados,imagens_termo,nps_dados")
+    proc = ProcessoRepository.get_by_identifier(codigo, "id,codigo,nome_cliente,empresa,cpf,status_entrega,termo_dados,ressalvas_dados,imagens_termo,nps_dados,recebimento_dados,treinamento_dados,assinatura_cliente_url")
     if not proc:
         return None
 

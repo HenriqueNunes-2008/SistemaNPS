@@ -10,6 +10,7 @@ from app.routers.nps import router as nps_router
 from app.routers.termo import router as termo_router
 from app.routers.ressalvas import router as ressalvas_router
 from app.routers.processos import router as processos_router
+from app.routers.termos import router as termos_router
 
 app = FastAPI(title="Sistema NPS Simplificado")
 
@@ -24,6 +25,7 @@ app.include_router(nps_router)
 app.include_router(termo_router)
 app.include_router(ressalvas_router)
 app.include_router(processos_router)
+app.include_router(termos_router)
 
 # Admin password page
 @app.get("/", response_class=HTMLResponse)

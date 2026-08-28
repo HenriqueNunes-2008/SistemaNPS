@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/termos-flow.css">
 
 <style>
 
@@ -881,7 +882,7 @@ input.cpf-valido {
 </style>
 </head>
 
-<body>
+<body class="termos-flow">
 <div id="savingOverlay" class="saving-overlay">
     <div class="saving-box">
         <div class="saving-spinner"></div>
@@ -916,9 +917,15 @@ input.cpf-valido {
         <img src="/static/arrow.png" class="breadcrumb-arrow">
         <div class="breadcrumb-item active">Termo de Aceite</div>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
-        <a href="/ressalvas" class="breadcrumb-item" id="bc-ressalvas">Ressalva</a>
+        <a href="/ressalvas" class="breadcrumb-item is-locked" id="bc-ressalvas">Ressalva</a>
         <img src="/static/arrow.png" class="breadcrumb-arrow">
-        <a href="/nps" class="breadcrumb-item" id="bc-nps">NPS</a>
+        <a href="/recebimento" class="breadcrumb-item is-locked" id="bc-recebimento">Recebimento</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/treinamento" class="breadcrumb-item is-locked" id="bc-treinamento">Treinamento</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/assinatura" class="breadcrumb-item is-locked" id="bc-assinatura">Assinatura</a>
+        <img src="/static/arrow.png" class="breadcrumb-arrow">
+        <a href="/nps" class="breadcrumb-item is-locked" id="bc-nps">NPS</a>
     </nav>
 </div>
 <main id="capture-area">
@@ -927,6 +934,11 @@ input.cpf-valido {
 </section>
 
 <section class="form-box">
+
+ <section class="institutional-text">
+     <h2 id="institutional-title">UNIDADE MÓVEL EM QUESTÃO - Produto e código da entrega</h2>
+     <p>Recebi da FLEXIMEDICAL SLOUÇÕES EM SAÚDE LTDA - CNPJ: 07.384.026/0001-20, os serviços de reforma da Unidade Móvel de Saúde em Questão.</p>
+ </section>
 
  <div class="form-group">
 
@@ -1075,7 +1087,10 @@ input.cpf-valido {
         </div>
     </div>
 </div>
-    <div class="row" style="margin-top:40px;">
+<section class="institutional-text">
+    <p>Por estarem assim ajustadas, as partes assinam o presente termo dando por encerradas todas as responsabilidades e atividades referentes aos serviços de customização.</p>
+</section>
+<div class="row" style="margin-top:40px;">
         <div class="signature-box" style="flex:1;">
             <label>ENTREGUE A:</label>
             <input type="text" placeholder="Nome completo">
@@ -1089,15 +1104,6 @@ input.cpf-valido {
         </div>
     </div>
 
-</section>
-<section class="approval" id="approvalSection">
-    <strong>APROVAÇÃO FINAL DO TERMO:</strong>
-    <div class="approval-fields">
-        <label>REPRESENTANTE</label>
-        <input type="text" id="aprovacao-representante" placeholder="REPRESENTANTE">
-        <label>CPF/CNPJ</label>
-        <input type="text" id="aprovacao-cpf" placeholder="CPF/CNPJ">
-    </div>
 </section>
 </main>
 
@@ -1257,6 +1263,7 @@ function buildFlowUrl(path) {
     return qs.toString() ? `${path}?${qs.toString()}` : path;
 }
 
+
 function getProgressStorageKey() {
     const usuario = getCookieValue("nps_user") || "anon";
     return `nps_project_token::${usuario}`;
@@ -1354,19 +1361,10 @@ function atualizarEstadoBotao() {
 
     const statusSelecionado = document.querySelector(".status-card.active") !== null;
 
-    // Lógica para quando o admin bloqueou a edição (User Flow do Cliente para Aprovação Final)
+    // Processo bloqueado: o cliente apenas consulta e avança para a próxima etapa.
     if (userEditLocked && !isAdmin) {
-        const repVal = document.getElementById("aprovacao-representante")?.value.trim();
-        const cpfVal = document.getElementById("aprovacao-cpf")?.value.trim() || "";
-        const aprovCpfValido = validarCPF(cpfVal);
-        
-        btnSalvar.disabled = !(repVal && aprovCpfValido);
-        
-        const aprovCpfInput = document.getElementById("aprovacao-cpf");
-        if (aprovCpfInput) {
-            aprovCpfInput.classList.toggle("cpf-valido", aprovCpfValido);
-            aprovCpfInput.classList.toggle("cpf-invalido", !aprovCpfValido && cpfVal !== "");
-        }
+        btnSalvar.disabled = true;
+        btnSalvar.style.display = "none";
         return;
     }
 
@@ -1436,11 +1434,6 @@ function coletarCamposTermo() {
         }
     };
 
-    const aprovacao = {
-        representante: document.getElementById("aprovacao-representante")?.value.trim() || "",
-        cpf: document.getElementById("aprovacao-cpf")?.value.trim() || ""
-    };
-
     return {
         data: {
             dia: diaInput.value,
@@ -1448,8 +1441,7 @@ function coletarCamposTermo() {
             ano: anoInput.value
         },
         campos,
-        assinaturas,
-        aprovacao
+        assinaturas
     };
 }
 
@@ -1522,6 +1514,17 @@ async function carregarEdicao(codigoProcesso) {
         processoCarregado = data;
         adminTokenFinalizado = isAdmin && processoTokenFinalizado(data);
         userEditLocked = processoEdicaoBloqueada(data);
+        if (userEditLocked) {
+            document.querySelectorAll(".breadcrumb-item.is-locked").forEach((el) => el.classList.remove("is-locked"));
+        }
+        const campos = data.termo_dados?.campos || {};
+        const produto = campos.Produto || campos.PRODUTO || campos["PRODUTO E CÓDIGO DA ENTREGA"] || data.produto || "";
+        const codigo = campos["Código da entrega"] || campos["CÓDIGO DA ENTREGA"] || data.codigo || "";
+        const tituloPartes = [produto, codigo].filter(Boolean);
+        if (tituloPartes.length) {
+            document.getElementById("institutional-title").textContent =
+                `UNIDADE MÓVEL EM QUESTÃO - ${tituloPartes.join(" - ")}`;
+        }
 
         if (data.nome_cliente) nomeCliente.value = data.nome_cliente;
         if (data.cpf) cpfComprador.value = maskCPF(data.cpf);
@@ -1563,13 +1566,6 @@ async function carregarEdicao(codigoProcesso) {
                 if (nomeInput) nomeInput.value = data.termo_dados.assinaturas.representante?.nome || "";
                 if (cpfInput) cpfInput.value = data.termo_dados.assinaturas.representante?.cpf || "";
             }
-        }
-
-        if (data.termo_dados?.aprovacao) {
-            const rep = document.getElementById("aprovacao-representante");
-            const cpf = document.getElementById("aprovacao-cpf");
-            if (rep) rep.value = data.termo_dados.aprovacao.representante || "";
-            if (cpf) cpf.value = data.termo_dados.aprovacao.cpf || "";
         }
 
         if (data.status_entrega) {
@@ -1628,11 +1624,6 @@ async function carregarEdicao(codigoProcesso) {
             }
         }
 
-        const approvalSection = document.getElementById("approvalSection");
-        if (approvalSection) {
-            approvalSection.style.display = (!isAdmin && userEditLocked) ? "" : "none";
-        }
-
         // Representante comercial é um campo interno do administrador.
         document.querySelectorAll(".admin-only").forEach(el => {
             el.style.display = isAdmin ? "" : "none";
@@ -1660,29 +1651,12 @@ async function carregarEdicao(codigoProcesso) {
         }
         if (userEditLocked && !isAdmin) {
             desabilitarFormulario();
-            
-            const repVal = document.getElementById("aprovacao-representante")?.value.trim();
-            const cpfVal = document.getElementById("aprovacao-cpf")?.value.trim();
-
-            if (!repVal || !cpfVal) {
-                // Se ainda não foi aprovado, libera os campos de aprovação final para o cliente
-                document.querySelectorAll("section.approval input").forEach(el => {
-                    el.disabled = false;
-                    el.readOnly = false;
-                });
-                if (btnSalvar) {
-
-                    
-                    btnSalvar.disabled = true;
-                    btnSalvar.style.display = "block";
-                    btnSalvar.textContent = "APROVAR TERMO";
-                }
-            } else {
-                if (btnSalvar) {
-                    btnSalvar.style.display = "block";
-                    btnSalvar.textContent = "TERMO SALVO E APROVADO";
-                }
+            if (btnSalvar) {
+                btnSalvar.disabled = true;
+                btnSalvar.style.display = "none";
             }
+            const next = document.getElementById("next-document");
+            if (next) next.style.display = "inline-block";
             return;
         }
 
@@ -1694,9 +1668,15 @@ async function carregarEdicao(codigoProcesso) {
 document.addEventListener("DOMContentLoaded", async () => {
     const bcHome = document.getElementById("bc-home");
     const bcRessalvas = document.getElementById("bc-ressalvas");
+    const bcRecebimento = document.getElementById("bc-recebimento");
+    const bcTreinamento = document.getElementById("bc-treinamento");
+    const bcAssinatura = document.getElementById("bc-assinatura");
     const bcNps = document.getElementById("bc-nps");
     if (bcHome) bcHome.href = isAdmin ? "/admin" : buildFlowUrl("/index");
     if (bcRessalvas) bcRessalvas.href = buildFlowUrl("/ressalvas");
+    if (bcRecebimento) bcRecebimento.href = buildFlowUrl("/recebimento");
+    if (bcTreinamento) bcTreinamento.href = buildFlowUrl("/treinamento");
+    if (bcAssinatura) bcAssinatura.href = buildFlowUrl("/assinatura");
     if (bcNps) bcNps.href = buildFlowUrl("/nps");
     if (userFlow === "motorista" && bcNps) {
         const arrow = bcNps.previousElementSibling;
@@ -1927,16 +1907,6 @@ window.renderFotoGrid = function() {
         });
     }
 
-    const aprovCpf = document.getElementById("aprovacao-cpf");
-    if (aprovCpf) {
-        aprovCpf.addEventListener("input", function() {
-            this.value = maskCPF(this.value);
-            atualizarEstadoBotao();
-        });
-    }
-    const aprovRep = document.getElementById("aprovacao-representante");
-    if (aprovRep) aprovRep.addEventListener("input", atualizarEstadoBotao);
-
     processoEmAndamento = isEditMode
         ? null
         : (projectTokenParam || (await resolveDraftProcessId()) || (await resolveDraftFromServer()));
@@ -2090,6 +2060,8 @@ window.renderFotoGrid = function() {
                         delete btnSalvar.dataset.locked;
                         btnSalvar.textContent = "SALVAR TERMO DE ACEITE";
                         openMotoristaDoneModal(link);
+                    } else if (!isAdmin) {
+                        window.location.href = fluxoToken ? `/recebimento?project_token=${fluxoToken}` : "/recebimento";
                     } else {
                         window.location.href = fluxoToken ? `/nps?project_token=${fluxoToken}` : "/nps";
                     }
