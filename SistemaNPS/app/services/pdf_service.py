@@ -10,6 +10,47 @@ from app.services.pdf_layout import draw_header_footer, content_top, content_bot
 from app.routers.utils import normalize_base64
 from app.services.assinatura_service import gerar_url_assinatura
 
+
+def formatar_cpf_apresentacao(valor: Any) -> str:
+    """Apresenta CPF em formato visual sem alterar o valor persistido."""
+    raw = str(valor or '').strip()
+    if not raw or raw == 'Não informado':
+        return 'Não informado' if raw == 'Não informado' else '-'
+    digits = ''.join(ch for ch in raw if ch.isdigit())[:11]
+    if len(digits) != 11:
+        return raw
+    return f'{digits[:3]}.{digits[3:6]}.{digits[6:9]}-{digits[9:11]}'
+
+
+def formatar_data_apresentacao(valor: Any) -> str:
+    """Apresenta data em formato visual sem alterar o valor persistido."""
+    if valor is None or valor == '':
+        return '-'
+    if isinstance(valor, dict):
+        dia = valor.get('dia') or valor.get('day') or ''
+        mes = valor.get('mes') or valor.get('month') or ''
+        ano = valor.get('ano') or valor.get('year') or ''
+        if dia and mes and ano:
+            return f'{int(dia):02d}/{int(mes):02d}/{ano}'
+        return '-'
+    if hasattr(valor, 'strftime'):
+        return valor.strftime('%d/%m/%Y')
+    texto = str(valor).strip()
+    if not texto or texto == 'Não informado':
+        return '-' if not texto else 'Não informado'
+    if len(texto) == 10 and '/' in texto:
+        return texto
+    if len(texto) == 8 and texto.isdigit():
+        return f'{texto[:2]}/{texto[2:4]}/{texto[4:8]}'
+    if len(texto) == 10 and '-' in texto:
+        partes = texto.split('-')
+        if len(partes) == 3:
+            return f'{partes[2]}/{partes[1]}/{partes[0]}'
+    if len(texto) == 10 and texto[4] == '-':
+        return f'{texto[8:10]}/{texto[5:7]}/{texto[0:4]}'
+    return texto
+
+
 def _decode_to_image_reader(img_src: str) -> Optional[ImageReader]:
     """Converte uma string (Base64 ou URL) em um objeto ImageReader do ReportLab."""
     if not img_src:
@@ -54,7 +95,7 @@ def gerar_pdf_termo_buffer(data: Any) -> BytesIO:
         or campo("Produto", "produto")
         or "-"
     )
-    data_str = "/".join(str(data_info.get(key) or "") for key in ("dia", "mes", "ano")).strip("/")
+    data_str = formatar_data_apresentacao(data_info)
     comprador = assinaturas.get("comprador") or {}
     representante = assinaturas.get("representante") or {}
     campos_ordem = (
@@ -96,10 +137,10 @@ def gerar_pdf_termo_buffer(data: Any) -> BytesIO:
 
     c.setFont("Helvetica-Bold", 10)
     c.drawString(margem_x, y, f"Entregue a: {comprador.get('nome') or '-'}")
-    c.drawString(margem_x + 280, y, f"CPF: {comprador.get('cpf') or '-'}")
+    c.drawString(margem_x + 280, y, f"CPF: {formatar_cpf_apresentacao(comprador.get('cpf'))}")
     y -= 16
     c.drawString(margem_x, y, f"Representante Comercial: {representante.get('nome') or '-'}")
-    c.drawString(margem_x + 280, y, f"CPF: {representante.get('cpf') or '-'}")
+    c.drawString(margem_x + 280, y, f"CPF: {formatar_cpf_apresentacao(representante.get('cpf'))}")
     y -= 28
     y = draw_wrapped_text(
         c,
@@ -175,11 +216,13 @@ def _gerar_pdf_termo_extra(data: dict, treinamento: bool) -> BytesIO:
     )
     data_info = data.get("data")
     if isinstance(data_info, dict):
-        data_info = "/".join(str(data_info.get(key) or "") for key in ("dia", "mes", "ano")).strip("/")
-    for label, value in (("Data", data_info or "-"), ("Nome do Cliente", data.get("nome_cliente")),
-                         ("CPF", data.get("cpf_cliente")), ("Produto e Código da Entrega", produto_codigo),
+        data_info = formatar_data_apresentacao(data_info)
+    elif data_info is None:
+        data_info = '-'
+    for label, value in (("Data", formatar_data_apresentacao(data_info)), ("Nome do Cliente", data.get("nome_cliente")),
+                         ("CPF", formatar_cpf_apresentacao(data.get("cpf_cliente"))), ("Produto e Código da Entrega", produto_codigo),
                          ("Representante Fleximedical", data.get("representante_nome")),
-                         ("CPF do representante", data.get("representante_cpf"))):
+                         ("CPF do representante", formatar_cpf_apresentacao(data.get("representante_cpf")))):
         c.setFont("Helvetica-Bold", 10); c.drawString(x, y, label); y -= 13
         c.setFont("Helvetica", 10); y = draw_wrapped_text(c, str(value or "-"), x, y, max_width, max_lines=2); y -= 8
     texto = texto_recebimento

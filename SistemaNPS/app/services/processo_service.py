@@ -182,7 +182,7 @@ class ProcessoService:
         if status_entrega == "concluido_com_ressalva":
             etapa_fluxo = "ressalvas"
         elif status_entrega == "concluido":
-            etapa_fluxo = "assinatura"
+            etapa_fluxo = "recebimento"
         else:
             etapa_fluxo = "aceite"
         nps_dados = as_dict(existing_proc.get("nps_dados")) if existing_proc else {}

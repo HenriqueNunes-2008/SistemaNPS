@@ -7,8 +7,46 @@ const token="{{ project_token or '' }}", query=encodeURIComponent(token), flow=p
 const ids={home:'/index',aceite:'/termo',ressalvas:'/ressalvas',treinamento:'/treinamento',assinatura:'/assinatura',nps:'/nps'};
 Object.entries(ids).forEach(([id,path])=>document.getElementById(id).href=flow(path));
 const fields=[['DATA','data'],['NOME DO CLIENTE','nome_cliente'],['CPF','cpf_cliente'],['PRODUTO E CÓDIGO DA ENTREGA','produto_codigo_entrega'],['REPRESENTANTE FLEXIMEDICAL','representante_nome'],['CPF DO REPRESENTANTE','representante_cpf']];
-const maskCpf=v=>{const d=String(v||'').replace(/\D/g,'').slice(0,11);return d.replace(/^(\d{3})(\d)/,'$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2')},format=v=>typeof v==='object'&&v?`${v.dia||''}/${v.mes||''}/${v.ano||''}`.replace(/^\/|\/$/g,''):v||'Não informado';
+const formatCpf = value => {
+    const raw = String(value ?? '').trim();
+    if (!raw || raw === 'Não informado') return 'Não informado';
+    const digits = raw.replace(/\D/g, '').slice(0, 11);
+    if (!digits) return 'Não informado';
+    return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+};
+const formatDate = value => {
+    if (value === null || value === undefined || value === '') return 'Não informado';
+    if (typeof value === 'object') {
+        const dia = value.dia ?? value.day ?? '';
+        const mes = value.mes ?? value.month ?? '';
+        const ano = value.ano ?? value.year ?? '';
+        if (dia || mes || ano) return `${String(dia).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
+        if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toLocaleDateString('pt-BR');
+    }
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed || trimmed === 'Não informado') return 'Não informado';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+            const [ano, mes, dia] = trimmed.split('-');
+            return `${dia}/${mes}/${ano}`;
+        }
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) return trimmed;
+        if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
+            const [dia, mes, ano] = trimmed.split('-');
+            return `${dia}/${mes}/${ano}`;
+        }
+        const compact = trimmed.replace(/\D/g, '');
+        if (compact.length === 8) return `${compact.slice(0,2)}/${compact.slice(2,4)}/${compact.slice(4,8)}`;
+    }
+    return String(value);
+};
+const renderValue = (key, value) => {
+    if (key === 'data') return formatDate(value);
+    if (String(key).toLowerCase().includes('cpf')) return formatCpf(value);
+    return value || 'Não informado';
+};
+const podeAvancarEtapa = (etapaAtual, documentosProntos) => etapaAtual === 'recebimento' && !!documentosProntos;
 let etapa='recebimento';
-fetch(`/termos/recebimento/dados/${query}`,{cache:'no-store'}).then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.detail||'Não foi possível carregar o documento.');etapa=j.etapa_atual||etapa;continuar.disabled=etapa!=='recebimento';const combinado=[j.dados?.produto,j.dados?.codigo_entrega].filter(Boolean).join(' — ');dados.innerHTML=fields.map(([label,key])=>`<div class="dado-card"><b>${label}</b><span>${key==='cpf_cliente'?maskCpf(j.dados?.[key]):format(key==='produto_codigo_entrega'?combinado:j.dados?.[key])}</span></div>`).join('');if(j.bloqueado){status.textContent='Documento disponível somente para leitura.';status.className='document-status info';document.querySelectorAll('.breadcrumb-item.is-locked').forEach(el=>el.classList.remove('is-locked'))}}).catch(e=>{status.textContent=e.message;status.className='document-status error';continuar.disabled=true});
+fetch(`/termos/recebimento/dados/${query}`,{cache:'no-store'}).then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.detail||'Não foi possível carregar o documento.');etapa=j.etapa_atual || etapa;continuar.disabled=!podeAvancarEtapa(etapa, j.documentos_prontos);const combinado=[j.dados?.produto,j.dados?.codigo_entrega].filter(Boolean).join(' — ');dados.innerHTML=fields.map(([label,key])=>`<div class="dado-card"><b>${label}</b><span>${renderValue(key, key==='produto_codigo_entrega'?combinado:j.dados?.[key])}</span></div>`).join('');if(j.bloqueado){status.textContent='Documento disponível somente para leitura.';status.className='document-status info';document.querySelectorAll('.breadcrumb-item.is-locked').forEach(el=>el.classList.remove('is-locked'))}}).catch(e=>{status.textContent=e.message;status.className='document-status error';continuar.disabled=true});
 continuar.onclick=async()=>{continuar.disabled=true;try{const r=await fetch('/termos/avancar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({processo_id:token,etapa})}),j=await r.json();if(!r.ok)throw Error(j.detail||'Não foi possível avançar.');location.href=flow('/treinamento')}catch(e){status.textContent=e.message;status.className='document-status error';continuar.disabled=false}};
 </script></body></html>

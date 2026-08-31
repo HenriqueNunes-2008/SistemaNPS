@@ -19,6 +19,42 @@ from app.services.shared_data import dados_compartilhados
 from app.services.assinatura_service import gerar_url_assinatura
 
 
+def _format_cpf_display(value: Any) -> str:
+    raw = str(value or '').strip()
+    if not raw or raw == 'Não informado':
+        return 'Não informado' if raw == 'Não informado' else '-'
+    digits = ''.join(ch for ch in raw if ch.isdigit())[:11]
+    if len(digits) != 11:
+        return raw
+    return f'{digits[:3]}.{digits[3:6]}.{digits[6:9]}-{digits[9:11]}'
+
+
+def _format_date_display(value: Any) -> str:
+    if value is None or value == '':
+        return '-'
+    if isinstance(value, dict):
+        dia = value.get('dia') or value.get('day') or ''
+        mes = value.get('mes') or value.get('month') or ''
+        ano = value.get('ano') or value.get('year') or ''
+        if dia and mes and ano:
+            return f'{int(dia):02d}/{int(mes):02d}/{ano}'
+        return '-'
+    if hasattr(value, 'strftime'):
+        return value.strftime('%d/%m/%Y')
+    texto = str(value).strip()
+    if not texto or texto == 'Não informado':
+        return '-' if not texto else 'Não informado'
+    if len(texto) == 10 and '/' in texto:
+        return texto
+    if len(texto) == 8 and texto.isdigit():
+        return f'{texto[:2]}/{texto[2:4]}/{texto[4:8]}'
+    if len(texto) == 10 and '-' in texto:
+        partes = texto.split('-')
+        if len(partes) == 3:
+            return f'{partes[2]}/{partes[1]}/{partes[0]}'
+    return texto
+
+
 def _safe_text(value: Any) -> str:
     if value is None:
         return ""
@@ -259,11 +295,8 @@ def _draw_termo_info_page(c, width: float, height: float, proc_data: dict) -> No
     y -= 4
 
     if isinstance(data_info, dict):
-        dia = data_info.get("dia")
-        mes = data_info.get("mes")
-        ano = data_info.get("ano")
-        data_str = f"{dia or ''}/{mes or ''}/{ano or ''}".strip("/")
-        if data_str:
+        data_str = _format_date_display(data_info)
+        if data_str and data_str != '-':
             c.setFont("Helvetica-Bold", 11)
             c.drawString(x, y, "Data")
             y -= 14
@@ -475,6 +508,8 @@ def _draw_extra_term_page(c, width: float, height: float, proc_data: dict, tipo:
     y = _draw_wrapped(c, texto, x, y, max_width, max_lines=8); y -= 15
     for label, key in (("Cliente", "nome_cliente"), ("CPF", "cpf_cliente"), ("Produto e Código da Entrega", None), ("Representante", "representante_nome"), ("CPF do representante", "representante_cpf")):
         value = codigo if key is None else d.get(key)
+        if label.upper().startswith("CPF"):
+            value = _format_cpf_display(value)
         c.setFont("Helvetica-Bold", 10); c.drawString(x, y, f"{label}: {_safe_text(value)}"); y -= 14
     _draw_client_signature(c, x, y - 5, proc_data)
 

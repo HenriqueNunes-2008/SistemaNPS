@@ -12,10 +12,11 @@ body.termos-flow {
 .termos-flow .logo-link { position:absolute; top:50%; left:calc(1% + 85px); transform:translateY(-50%); width:190px; height:50px; z-index:45; }
 .termos-flow .topbar-content { height:100%; display:flex; align-items:center; justify-content:flex-end; padding:0 60px 0 200px; }
 .termos-flow .header-info { display:flex; align-items:center; justify-content:flex-end; gap:32px; margin-right:5%; color:#1e3a8a; font-size:14px; line-height:1.4; }
+.termos-flow .header-info .address, .termos-flow .header-info .contact { white-space: nowrap; }
 .termos-flow .logout-link { color:#1e3a8a; font-weight:800; text-decoration:none; margin-left:20px; font-size:14px; }
-.termos-flow .breadcrumb-wrapper, .termos-flow main { max-width:900px; margin-left:auto; margin-right:auto; }
+.termos-flow .breadcrumb-wrapper, .termos-flow main { width:min(100%, 900px); margin-left:auto; margin-right:auto; padding-left:clamp(16px, 3vw, 28px); padding-right:clamp(16px, 3vw, 28px); box-sizing:border-box; }
 .termos-flow .breadcrumb-wrapper { margin-top:24px; margin-bottom:16px; }
-.termos-flow .breadcrumb { display:flex; align-items:center; gap:16px; overflow-x:auto; padding-bottom:4px; white-space:nowrap; scrollbar-width:thin; }
+.termos-flow .breadcrumb { display:flex; align-items:center; flex-wrap:wrap; gap:12px 16px; overflow:visible; padding-bottom:0; white-space:normal; }
 .termos-flow .breadcrumb-item { font-weight:800; color:#e0e7ff; text-decoration:none; }
 .termos-flow .breadcrumb-item.active { color:#fde047; }
 .termos-flow .breadcrumb-item.is-locked { opacity:.55; pointer-events:none; }
@@ -41,5 +42,42 @@ body.termos-flow {
 .termos-flow .signature-actions { display:flex; justify-content:flex-end; gap:12px; margin-top:16px; }
 .termos-flow .checklist { list-style:none; margin:24px 0; padding:0; border:1px solid #dbe4f0; border-radius:12px; overflow:hidden; }
 .termos-flow .checklist li { padding:14px 16px; border-bottom:1px solid #dbe4f0; font-weight:700; }.termos-flow .checklist li:last-child{border:0}.termos-flow .check{color:#15803d;margin-right:8px}
-@media (max-width:1240px){.termos-flow{padding-top:100px}.termos-flow .topbar{height:100px;border-radius:0 0 32px 32px}.termos-flow .logo-fixed{height:200%;left:16px}.termos-flow .logo-link{left:calc(16px + 75px)}.termos-flow .header-info{font-size:12px;gap:16px}.termos-flow .topbar-content{padding:0 24px 0 140px}}
-@media (max-width:700px){.termos-flow .header-info .address,.termos-flow .header-info .contact{display:none}.termos-flow .topbar-content{padding-right:22px}.termos-flow .breadcrumb-wrapper,.termos-flow main{margin-left:16px;margin-right:16px}.termos-flow .breadcrumb{gap:10px}.termos-flow .breadcrumb-arrow{width:20px}.termos-flow .form-box{padding:22px}.termos-flow .dados-grid{grid-template-columns:1fr}.termos-flow .title h1{font-size:23px}.termos-flow .title span{font-size:21px}.termos-flow .signature-actions,.termos-flow .document-navigation{flex-direction:column}.termos-flow .flow-button{width:100%;text-align:center}.termos-flow .signature-canvas{height:210px}}
+@media (max-width:1240px){
+    .termos-flow{padding-top:100px}
+    .termos-flow .topbar{height:100px;border-radius:0 0 32px 32px}
+    .termos-flow .logo-fixed{height:200%;left:16px}
+    .termos-flow .logo-link{left:calc(16px + 75px)}
+    .termos-flow .header-info{font-size:12px;gap:16px}
+    .termos-flow .header-info .address{line-height:1.2}
+    .termos-flow .topbar-content{padding:0 24px 0 140px}
+}
+@media (max-width:1024px){
+    .termos-flow{padding-top:90px}
+    .termos-flow .topbar{height:90px;border-radius:0 0 26px 26px}
+    .termos-flow .logo-fixed{left:50%;transform:translate(-50%, -50%);height:180%}
+    .termos-flow .logo-link{left:50%;transform:translate(-50%, -50%);width:160px;height:44px}
+    .termos-flow .topbar-content{justify-content:center;padding:0 18px}
+    .termos-flow .header-info{display:none}
+    .termos-flow .logout-link{margin-left:0}
+}
+@media (max-width:700px){
+    .termos-flow .topbar-content{padding-right:22px}
+    .termos-flow .breadcrumb{gap:10px}
+    .termos-flow .breadcrumb-arrow{width:20px}
+    .termos-flow .form-box{padding:22px}
+    .termos-flow .dados-grid{grid-template-columns:1fr}
+    .termos-flow .title h1{font-size:23px}
+    .termos-flow .title span{font-size:21px}
+    .termos-flow .signature-actions,.termos-flow .document-navigation{flex-direction:column}
+    .termos-flow .flow-button{width:100%;text-align:center}
+    .termos-flow .signature-canvas{height:210px}
+}
+@media (max-width:480px){
+    .termos-flow .breadcrumb-wrapper, .termos-flow main{padding-left:14px;padding-right:14px}
+    .termos-flow .form-box{padding:18px 16px}
+    .termos-flow .title h1{font-size:20px}
+    .termos-flow .title span{font-size:18px}
+    .termos-flow .breadcrumb{gap:8px}
+    .termos-flow .breadcrumb-item{font-size:12px}
+    .termos-flow .breadcrumb-arrow{width:14px}
+}

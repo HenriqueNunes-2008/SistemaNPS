@@ -157,11 +157,45 @@ body {
     }
 }
 
+@media (max-width: 1024px) {
+    body {
+        padding-top: 90px;
+    }
+
+    .topbar {
+        height: 90px;
+        border-radius: 0 0 26px 26px;
+    }
+
+    .logo-fixed {
+        left: 50%;
+        transform: translate(-50%, -50%);
+        height: 180%;
+    }
+
+    .logo-link {
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 160px;
+        height: 44px;
+    }
+
+    .topbar-content {
+        justify-content: center;
+        padding: 0 18px;
+    }
+
+    .header-info {
+        display: none;
+    }
+}
+
 /* ================= CONTAINER PADRÃO ================= */
 .page-container {
     max-width: 900px; /* mesmo valor usado no Termo de Aceite */
     margin: 0 auto;
-    padding: 0;
+    padding: 0 clamp(16px, 3vw, 28px);
+    box-sizing: border-box;
 }
 
 /* ================= BREADCRUMB ================= */
