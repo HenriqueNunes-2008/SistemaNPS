@@ -1,52 +1,228 @@
-<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Termo de Recebimento</title><link rel="stylesheet" href="/static/termos-flow.css"></head>
-<body class="termos-flow"><div class="topbar"><img src="/static/LogoFlexcolor2.png" class="logo-fixed" alt="Fleximedical | Kure"><a class="logo-link" href="/index" aria-label="Página inicial"></a><div class="topbar-content"><div class="header-info"><div class="address">R. José Antônio Valadares, 285 – Vila Liviero<br>São Paulo – SP. CEP: 04185-020</div><div class="contact">comercial@soukure.com.br<br>(11) 2372-7444</div><a class="logout-link" href="/logout">SAIR</a></div></div></div>
-<div class="breadcrumb-wrapper"><nav class="breadcrumb"><a id="home" class="breadcrumb-item">Página Inicial</a><img src="/static/arrow.png" class="breadcrumb-arrow"><a id="aceite" class="breadcrumb-item">Termo de Aceite</a><img src="/static/arrow.png" class="breadcrumb-arrow"><a id="ressalvas" class="breadcrumb-item">Ressalva</a><img src="/static/arrow.png" class="breadcrumb-arrow"><span class="breadcrumb-item active">Recebimento</span><img src="/static/arrow.png" class="breadcrumb-arrow"><a id="treinamento" class="breadcrumb-item is-locked">Treinamento</a><img src="/static/arrow.png" class="breadcrumb-arrow"><a id="assinatura" class="breadcrumb-item is-locked">Assinatura</a><img src="/static/arrow.png" class="breadcrumb-arrow"><a id="nps" class="breadcrumb-item is-locked">NPS</a></nav></div>
-<main><section class="title"><h1>TERMO DE RECEBIMENTO</h1><span>Via da Kure / Fleximedical</span></section><section class="form-box"><section class="institutional-text"><h2>MANUAL DE INSTRUÇÕES DE USO</h2><p>Recebi da FLEXIMEDICAL SOLUÇÕES EM SAÚDE LTDA — CNPJ: 07.384.026/0001-20, fabricante da unidade móvel em questão, o manual de instruções de uso, que deverá ser consultado antes de qualquer intervenção de limpeza ou manuseio, sob o risco de perda da garantia.</p></section><div id="status" class="document-status"></div><div id="dados" class="dados-grid"><div class="dado-card">Carregando dados do processo…</div></div><p class="document-navigation"><button id="continuar" class="flow-button">IR PARA TREINAMENTO</button></p></section></main>
-<script>
-const token="{{ project_token or '' }}", query=encodeURIComponent(token), flow=p=>`${p}?project_token=${query}`;
-const ids={home:'/index',aceite:'/termo',ressalvas:'/ressalvas',treinamento:'/treinamento',assinatura:'/assinatura',nps:'/nps'};
-Object.entries(ids).forEach(([id,path])=>document.getElementById(id).href=flow(path));
-const fields=[['DATA','data'],['NOME DO CLIENTE','nome_cliente'],['CPF','cpf_cliente'],['PRODUTO E CÓDIGO DA ENTREGA','produto_codigo_entrega'],['REPRESENTANTE FLEXIMEDICAL','representante_nome'],['CPF DO REPRESENTANTE','representante_cpf']];
-const formatCpf = value => {
-    const raw = String(value ?? '').trim();
-    if (!raw || raw === 'Não informado') return 'Não informado';
-    const digits = raw.replace(/\D/g, '').slice(0, 11);
-    if (!digits) return 'Não informado';
-    return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
-};
-const formatDate = value => {
-    if (value === null || value === undefined || value === '') return 'Não informado';
-    if (typeof value === 'object') {
-        const dia = value.dia ?? value.day ?? '';
-        const mes = value.mes ?? value.month ?? '';
-        const ano = value.ano ?? value.year ?? '';
-        if (dia || mes || ano) return `${String(dia).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
-        if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toLocaleDateString('pt-BR');
-    }
-    if (typeof value === 'string') {
-        const trimmed = value.trim();
-        if (!trimmed || trimmed === 'Não informado') return 'Não informado';
-        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-            const [ano, mes, dia] = trimmed.split('-');
-            return `${dia}/${mes}/${ano}`;
-        }
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) return trimmed;
-        if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
-            const [dia, mes, ano] = trimmed.split('-');
-            return `${dia}/${mes}/${ano}`;
-        }
-        const compact = trimmed.replace(/\D/g, '');
-        if (compact.length === 8) return `${compact.slice(0,2)}/${compact.slice(2,4)}/${compact.slice(4,8)}`;
-    }
-    return String(value);
-};
-const renderValue = (key, value) => {
-    if (key === 'data') return formatDate(value);
-    if (String(key).toLowerCase().includes('cpf')) return formatCpf(value);
-    return value || 'Não informado';
-};
-const podeAvancarEtapa = (etapaAtual, documentosProntos) => etapaAtual === 'recebimento' && !!documentosProntos;
-let etapa='recebimento';
-fetch(`/termos/recebimento/dados/${query}`,{cache:'no-store'}).then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.detail||'Não foi possível carregar o documento.');etapa=j.etapa_atual || etapa;continuar.disabled=!podeAvancarEtapa(etapa, j.documentos_prontos);const combinado=[j.dados?.produto,j.dados?.codigo_entrega].filter(Boolean).join(' — ');dados.innerHTML=fields.map(([label,key])=>`<div class="dado-card"><b>${label}</b><span>${renderValue(key, key==='produto_codigo_entrega'?combinado:j.dados?.[key])}</span></div>`).join('');if(j.bloqueado){status.textContent='Documento disponível somente para leitura.';status.className='document-status info';document.querySelectorAll('.breadcrumb-item.is-locked').forEach(el=>el.classList.remove('is-locked'))}}).catch(e=>{status.textContent=e.message;status.className='document-status error';continuar.disabled=true});
-continuar.onclick=async()=>{continuar.disabled=true;try{const r=await fetch('/termos/avancar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({processo_id:token,etapa})}),j=await r.json();if(!r.ok)throw Error(j.detail||'Não foi possível avançar.');location.href=flow('/treinamento')}catch(e){status.textContent=e.message;status.className='document-status error';continuar.disabled=false}};
-</script></body></html>
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Termo de Recebimento</title>
+    <link rel="stylesheet" href="/static/termos-flow.css">
+</head>
+<body class="termos-flow">
+    <div class="topbar">
+        <img src="/static/LogoFlexcolor2.png" class="logo-fixed" alt="Fleximedical | Kure">
+        <a class="logo-link" href="/index" aria-label="Página inicial"></a>
+
+        <div class="topbar-content">
+            <div class="header-info">
+                <div class="address">
+                    R. José Antônio Valadares, 285 – Vila Liviero<br>
+                    São Paulo – SP. CEP: 04185-020
+                </div>
+                <div class="contact">
+                    comercial@soukure.com.br<br>
+                    (11) 2372-7444
+                </div>
+                <a class="logout-link" href="/logout">SAIR</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="breadcrumb-wrapper">
+        <nav class="breadcrumb">
+            <a id="home" class="breadcrumb-item">Página Inicial</a>
+            <img src="/static/arrow.png" class="breadcrumb-arrow">
+            <a id="aceite" class="breadcrumb-item">Termo de Aceite</a>
+            <img src="/static/arrow.png" class="breadcrumb-arrow">
+            <a id="ressalvas" class="breadcrumb-item">Ressalva</a>
+            <img src="/static/arrow.png" class="breadcrumb-arrow">
+            <span class="breadcrumb-item active">Recebimento</span>
+            <img src="/static/arrow.png" class="breadcrumb-arrow">
+            <a id="treinamento" class="breadcrumb-item is-locked">Treinamento</a>
+            <img src="/static/arrow.png" class="breadcrumb-arrow">
+            <a id="assinatura" class="breadcrumb-item is-locked">Assinatura</a>
+            <img src="/static/arrow.png" class="breadcrumb-arrow">
+            <a id="nps" class="breadcrumb-item is-locked">NPS</a>
+        </nav>
+    </div>
+
+    <main>
+        <section class="title">
+            <h1>TERMO DE RECEBIMENTO</h1>
+            <span>Via da Kure / Fleximedical</span>
+        </section>
+
+        <section class="form-box">
+            <section class="institutional-text">
+                <h2>MANUAL DE INSTRUÇÕES DE USO</h2>
+                <p>
+                    Recebi da FLEXIMEDICAL SOLUÇÕES EM SAÚDE LTDA — CNPJ: 07.384.026/0001-20,
+                    fabricante da unidade móvel em questão, o manual de instruções de uso,
+                    que deverá ser consultado antes de qualquer intervenção de limpeza ou manuseio,
+                    sob o risco de perda da garantia.
+                </p>
+            </section>
+
+            <div id="status" class="document-status"></div>
+
+            <div id="dados" class="dados-grid">
+                <div class="dado-card">Carregando dados do processo…</div>
+            </div>
+
+            <p class="document-navigation">
+                <button id="continuar" class="flow-button">IR PARA TREINAMENTO</button>
+            </p>
+        </section>
+    </main>
+
+    <script>
+        const token = "{{ project_token or '' }}";
+        const query = encodeURIComponent(token);
+        const flow = (p) => `${p}?project_token=${query}`;
+
+        const ids = {
+            home: '/index',
+            aceite: '/termo',
+            ressalvas: '/ressalvas',
+            treinamento: '/treinamento',
+            assinatura: '/assinatura',
+            nps: '/nps'
+        };
+
+        Object.entries(ids).forEach(([id, path]) => {
+            const el = document.getElementById(id);
+            if (el) el.href = flow(path);
+        });
+
+        const fields = [
+            ['DATA', 'data'],
+            ['NOME DO CLIENTE', 'nome_cliente'],
+            ['CPF', 'cpf_cliente'],
+            ['PRODUTO E CÓDIGO DA ENTREGA', 'produto_codigo_entrega'],
+            ['REPRESENTANTE FLEXIMEDICAL', 'representante_nome'],
+            ['CPF DO REPRESENTANTE', 'representante_cpf']
+        ];
+
+        const formatCpf = (value) => {
+            const raw = String(value ?? '').trim();
+            if (!raw || raw === 'Não informado') return 'Não informado';
+
+            const digits = raw.replace(/\D/g, '').slice(0, 11);
+            if (!digits) return 'Não informado';
+
+            return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+        };
+
+        const formatDate = (value) => {
+            if (value === null || value === undefined || value === '') return 'Não informado';
+
+            if (typeof value === 'object') {
+                const dia = value.dia ?? value.day ?? '';
+                const mes = value.mes ?? value.month ?? '';
+                const ano = value.ano ?? value.year ?? '';
+
+                if (dia || mes || ano) {
+                    return `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`;
+                }
+
+                if (value instanceof Date && !Number.isNaN(value.getTime())) {
+                    return value.toLocaleDateString('pt-BR');
+                }
+            }
+
+            if (typeof value === 'string') {
+                const trimmed = value.trim();
+                if (!trimmed || trimmed === 'Não informado') return 'Não informado';
+
+                if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                    const [ano, mes, dia] = trimmed.split('-');
+                    return `${dia}/${mes}/${ano}`;
+                }
+
+                if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) return trimmed;
+
+                if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
+                    const [dia, mes, ano] = trimmed.split('-');
+                    return `${dia}/${mes}/${ano}`;
+                }
+
+                const compact = trimmed.replace(/\D/g, '');
+                if (compact.length === 8) {
+                    return `${compact.slice(0, 2)}/${compact.slice(2, 4)}/${compact.slice(4, 8)}`;
+                }
+            }
+
+            return String(value);
+        };
+
+        const renderValue = (key, value) => {
+            if (key === 'data') return formatDate(value);
+            if (String(key).toLowerCase().includes('cpf')) return formatCpf(value);
+            return value || 'Não informado';
+        };
+
+        const podeAvancarEtapa = (etapaAtual, documentosProntos) =>
+            etapaAtual === 'recebimento' && !!documentosProntos;
+
+        let etapa = 'recebimento';
+
+        fetch(`/termos/recebimento/dados/${query}`, { cache: 'no-store' })
+            .then(async (r) => {
+                const j = await r.json();
+                if (!r.ok) throw Error(j.detail || 'Não foi possível carregar o documento.');
+
+                etapa = j.etapa_atual || etapa;
+                continuar.disabled = !podeAvancarEtapa(etapa, j.documentos_prontos);
+
+                const combinado = [j.dados?.produto, j.dados?.codigo_entrega]
+                    .filter(Boolean)
+                    .join(' — ');
+
+                dados.innerHTML = fields
+                    .map(([label, key]) => {
+                        const value = key === 'produto_codigo_entrega'
+                            ? combinado
+                            : j.dados?.[key];
+
+                        return `
+                            <div class="dado-card">
+                                <b>${label}</b>
+                                <span>${renderValue(key, value)}</span>
+                            </div>
+                        `;
+                    })
+                    .join('');
+
+                if (j.bloqueado) {
+                    status.textContent = 'Documento disponível somente para leitura.';
+                    status.className = 'document-status info';
+                    document.querySelectorAll('.breadcrumb-item.is-locked')
+                        .forEach((el) => el.classList.remove('is-locked'));
+                }
+            })
+            .catch((e) => {
+                status.textContent = e.message;
+                status.className = 'document-status error';
+                continuar.disabled = true;
+            });
+
+        continuar.onclick = async () => {
+            continuar.disabled = true;
+
+            try {
+                const r = await fetch('/termos/avancar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ processo_id: token, etapa })
+                });
+                const j = await r.json();
+
+                if (!r.ok) throw Error(j.detail || 'Não foi possível avançar.');
+                location.href = flow('/treinamento');
+            } catch (e) {
+                status.textContent = e.message;
+                status.className = 'document-status error';
+                continuar.disabled = false;
+            }
+        };
+    </script>
+</body>
+</html>
