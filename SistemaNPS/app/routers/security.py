@@ -37,10 +37,5 @@ def is_admin_activation_granted(request: Request) -> bool:
         return False
 
 def is_admin_mode_request(request: Request) -> bool:
-    """Verifica se a requisicao possui permissao de admin e se o modo admin foi solicitado."""
-    is_granted = is_admin_activation_granted(request)
-    has_admin_param = (
-        request.query_params.get("admin") == "1" 
-        or request.query_params.get("return") == "/admin"
-    )
-    return is_granted and has_admin_param
+    """Identifica o contexto administrativo pela sessão autenticada."""
+    return is_admin_activation_granted(request)

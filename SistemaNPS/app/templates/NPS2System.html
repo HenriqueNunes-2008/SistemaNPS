@@ -913,7 +913,8 @@ function setStar(name, value) {
 
 function processoEdicaoBloqueada(data) {
     const npsDados = data && typeof data === "object" ? (data.nps_dados || {}) : {};
-    return Boolean(npsDados && (npsDados._lock_nps || npsDados._edicao_bloqueada));
+    // O bloqueio dos documentos não impede o cliente de preencher o NPS após assinar.
+    return Boolean(npsDados && npsDados._lock_nps);
 }
 
 async function carregarEdicaoNps(codigoProcesso) {

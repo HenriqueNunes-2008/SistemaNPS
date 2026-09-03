@@ -251,10 +251,7 @@ def _is_admin_activation_granted(request: Request) -> bool:
 
 
 def _is_admin_mode_request(request: Request) -> bool:
-    is_granted = _is_admin_activation_granted(request)
-    # Considera modo admin apenas se tiver o cookie E (parâmetro admin=1 OU vindo do painel /admin)
-    has_admin_param = request.query_params.get("admin") == "1" or request.query_params.get("return") == "/admin"
-    return is_granted and has_admin_param
+    return _is_admin_activation_granted(request)
 
 
 def _expired_token_response(request: Request, project_token: str):
@@ -315,6 +312,8 @@ def admin_password_post(email: str = Form(...), password: str = Form(...)):
 
 @router.get("/index", response_class=HTMLResponse)
 def index(request: Request):
+    if _is_admin_activation_granted(request):
+        return RedirectResponse(url="/admin", status_code=303)
     project_token = _extract_project_token(request)
     expired_response = _expired_token_response(request, project_token)
     if expired_response:

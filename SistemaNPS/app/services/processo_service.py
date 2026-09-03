@@ -43,11 +43,11 @@ class ProcessoService:
         if not processo:
             return None
         nps = as_dict(processo.get("nps_dados"))
+        if processo.get("assinatura_cliente_url") or as_dict(processo.get("termo_dados")).get("assinatura_cliente_path"):
+            return "nps"
         etapa = nps.get("_etapa_fluxo")
         if etapa in cls.ETAPAS_CLIENTE:
             return etapa
-        if processo.get("assinatura_cliente_url"):
-            return "nps"
         if nps.get("_lock_termo") or nps.get("_lock_ressalvas"):
             return "aceite"
         return None
@@ -202,7 +202,14 @@ class ProcessoService:
         else:
             etapa_fluxo = "aceite"
         nps_dados = as_dict(existing_proc.get("nps_dados")) if existing_proc else {}
+        etapa_existente = nps_dados.get("_etapa_fluxo")
         nps_dados["_etapa_fluxo"] = etapa_fluxo
+        if (
+            etapa_existente in cls.ETAPAS_CLIENTE
+            and cls.ETAPAS_CLIENTE.index(etapa_existente)
+            > cls.ETAPAS_CLIENTE.index(etapa_fluxo)
+        ):
+            nps_dados["_etapa_fluxo"] = etapa_existente
         nps_dados["_etapa_fluxo_atualizada_em"] = datetime.utcnow().isoformat()
         payload["nps_dados"] = nps_dados
 
