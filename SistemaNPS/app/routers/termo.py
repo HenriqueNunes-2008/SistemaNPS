@@ -1,4 +1,5 @@
 import re
+from urllib.parse import unquote, urlparse
 from types import SimpleNamespace
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -11,9 +12,61 @@ from app.routers.utils import parse_json_object, parse_json_list
 from app.routers.security import is_admin_mode_request
 from app.services.assinatura_service import salvar_assinatura
 from app.services.termos import salvar_termo_extra
+from app.services.supabase_client import supabase
 
 
 router = APIRouter(prefix="/termo", tags=["Termo"])
+
+
+def _imagem_storage_path(value: str) -> str | None:
+    """Extrai o caminho do bucket de uma URL Supabase ou retorna um path."""
+    if not value:
+        return None
+    parsed = urlparse(value)
+    if parsed.scheme and parsed.netloc:
+        marker = "/storage/v1/object/"
+        if marker not in parsed.path:
+            return None
+        suffix = parsed.path.split(marker, 1)[1]
+        for prefix in ("public/", "sign/"):
+            if suffix.startswith(prefix):
+                return unquote(suffix[len(prefix):]).split("/", 1)[1]
+        return None
+    return value.lstrip("/")
+
+
+def _resolver_url_imagem_termo(item: dict) -> str | None:
+    """Gera URL assinada para fotos do bucket privado, preservando data URLs."""
+    source = item.get("imagem_base64") or item.get("imagem") or item.get("url")
+    if not source or str(source).startswith("data:"):
+        return source
+
+    path = item.get("path") or item.get("storage_path") or item.get("caminho")
+    path = path or _imagem_storage_path(str(source))
+    if not path:
+        return source
+
+    try:
+        result = supabase.storage.from_("processos").create_signed_url(path, 3600)
+        if isinstance(result, dict):
+            return result.get("signedURL") or result.get("signedUrl") or result.get("signed_url")
+        return getattr(result, "signedURL", None) or getattr(result, "signedUrl", None)
+    except Exception:
+        return None
+
+
+def _resolver_imagens_termo(items: list) -> list:
+    resolved = []
+    for item in items:
+        if not isinstance(item, dict):
+            resolved.append(item)
+            continue
+        normalized = dict(item)
+        image_url = _resolver_url_imagem_termo(normalized)
+        if image_url:
+            normalized["imagem_url"] = image_url
+        resolved.append(normalized)
+    return resolved
 
 
 # ============================================================
@@ -22,7 +75,7 @@ router = APIRouter(prefix="/termo", tags=["Termo"])
 
 def _is_user_edit_locked(proc: dict | None) -> bool:
     nps_dados = parse_json_object((proc or {}).get("nps_dados"))
-    return bool(nps_dados.get("_lock_termo"))
+    return bool(nps_dados.get("_lock_termo") or nps_dados.get("_edicao_bloqueada"))
 
 
 def _extract_user_flow(request: Request) -> str:
@@ -95,6 +148,11 @@ def salvar_termo(data: TermoRequest, request: Request):
             if data.processo_id
             else None
         )
+        if existing_proc and _is_user_edit_locked(existing_proc):
+            raise HTTPException(
+                status_code=403,
+                detail="Termo bloqueado para edição."
+            )
 
         # ----------------------------------------------------
         # Validações
@@ -120,7 +178,7 @@ def salvar_termo(data: TermoRequest, request: Request):
 
         result = ProcessoService.salvar_termo_fluxo(
             data,
-            is_update=False,
+            is_update=bool(existing_proc),
             existing_proc=existing_proc
         )
 
@@ -161,75 +219,17 @@ def atualizar_termo(
                 detail="Processo não encontrado"
             )
 
-        if ProcessoService.is_token_expired(proc) or str(proc.get("status", "")).lower() == "finalizado":
+        if (
+            (ProcessoService.is_token_expired(proc) and not is_admin_mode_request(request))
+            or str(proc.get("status", "")).lower() == "finalizado"
+        ):
             raise HTTPException(status_code=403, detail="Token expirado ou processo finalizado.")
 
-        is_admin = is_admin_mode_request(request)
-
-        if _is_user_edit_locked(proc) and not is_admin:
+        if _is_user_edit_locked(proc):
             raise HTTPException(
                 status_code=403,
                 detail="Termo bloqueado. Use a etapa de assinatura digital."
             )
-
-        # ----------------------------------------------------
-        # ADMIN
-        #
-        # Mantém os dados originais e permite somente alterar
-        # a assinatura do representante.
-        # ----------------------------------------------------
-
-        if is_admin and data.termo_dados:
-
-            dados_originais = parse_json_object(
-                proc.get("termo_dados")
-            )
-
-            if dados_originais:
-
-                assinaturas_originais = (
-                    dados_originais.get("assinaturas")
-                    or {}
-                )
-
-                assinaturas_recebidas = (
-                    data.termo_dados.get("assinaturas")
-                    or {}
-                )
-
-                representante = (
-                    assinaturas_recebidas.get("representante")
-                    or {}
-                )
-
-                data.termo_dados = dict(
-                    dados_originais
-                )
-
-                data.termo_dados["assinaturas"] = dict(
-                    assinaturas_originais
-                )
-
-                data.termo_dados["assinaturas"][
-                    "representante"
-                ] = representante
-
-                data.cpf = (
-                    proc.get("cpf")
-                    or data.cpf
-                )
-
-                data.nome_cliente = (
-                    proc.get("nome_cliente")
-                    or data.nome_cliente
-                )
-
-                data.empresa = proc.get("empresa")
-
-                data.status_entrega = (
-                    proc.get("status_entrega")
-                    or data.status_entrega
-                )
 
         # ----------------------------------------------------
         # Serviço
@@ -292,6 +292,9 @@ def obter_dados_termo(
         termo_dados = parse_json_object(
             proc.get("termo_dados")
         )
+        termo_dados["itens"] = _resolver_imagens_termo(
+            termo_dados.get("itens") or []
+        )
 
         nps_dados = parse_json_object(
             proc.get("nps_dados")
@@ -312,7 +315,9 @@ def obter_dados_termo(
             "termo_dados": termo_dados,
             "nps_dados": nps_dados,
 
-            "imagens": proc.get("imagens_termo") or [],
+            "imagens": _resolver_imagens_termo(
+                parse_json_list(proc.get("imagens_termo"))
+            ),
 
             "bloqueado": bool(
                 nps_dados.get("_lock_termo")
@@ -408,19 +413,6 @@ def salvar_assinatura_cliente(
     try:
 
         # ----------------------------------------------------
-        # Somente cliente pode assinar.
-        # ----------------------------------------------------
-
-        if is_admin_mode_request(request):
-            raise HTTPException(
-                status_code=403,
-                detail=(
-                    "A assinatura digital deve ser "
-                    "realizada pelo cliente."
-                )
-            )
-
-        # ----------------------------------------------------
         # Localiza processo.
         # ----------------------------------------------------
 
@@ -434,15 +426,28 @@ def salvar_assinatura_cliente(
                 detail="Processo não encontrado."
             )
 
-        if ProcessoService.is_token_expired(proc) or str(proc.get("status", "")).lower() == "finalizado":
+        if (
+            (ProcessoService.is_token_expired(proc) and not is_admin_mode_request(request))
+            or str(proc.get("status", "")).lower() == "finalizado"
+        ):
             raise HTTPException(status_code=403, detail="Token expirado ou processo finalizado.")
 
         # ----------------------------------------------------
-        # O bloqueio dos termos anteriores não impede a assinatura única.
+        # Assinatura somente após o bloqueio explícito da edição.
         # ----------------------------------------------------
+        nps_dados = parse_json_object(proc.get("nps_dados"))
+        if not (
+            nps_dados.get("_edicao_bloqueada")
+            or nps_dados.get("_lock_termo")
+            or nps_dados.get("_lock_ressalvas")
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Bloqueie a edição dos documentos antes de assinar."
+            )
 
         etapa_atual = ProcessoService.etapa_atual_cliente(proc)
-        if etapa_atual != "assinatura":
+        if etapa_atual != "assinatura" and not is_admin_mode_request(request):
             raise HTTPException(status_code=409, detail="A assinatura ainda não está liberada.")
         documentos_pendentes = ProcessoService.documentos_obrigatorios_pendentes(proc)
         if documentos_pendentes:

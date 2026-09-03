@@ -505,7 +505,6 @@ def admin(request: Request):
             nps_dados.get("_edicao_bloqueada")
             or nps_dados.get("_lock_termo")
             or nps_dados.get("_lock_ressalvas")
-            or nps_dados.get("_lock_nps")
         )
         
         # AJUSTE: Garante que p["codigo"] nunca seja None para os links de PDF no admin.html
@@ -796,7 +795,11 @@ def admin_toggle_edit_lock(
         nps_dados = {}
 
     # Logica simplificada: se Termo ou Ressalvas estao travados, consideramos bloqueado (estado de envio pro cliente)
-    is_locked_for_client = bool(nps_dados.get("_lock_termo") or nps_dados.get("_lock_ressalvas"))
+    is_locked_for_client = bool(
+        nps_dados.get("_edicao_bloqueada")
+        or nps_dados.get("_lock_termo")
+        or nps_dados.get("_lock_ressalvas")
+    )
     now_iso = datetime.utcnow().isoformat()
     actor = "Administrador"
 
@@ -804,6 +807,7 @@ def admin_toggle_edit_lock(
         nps_dados["_lock_termo"] = False
         nps_dados["_lock_ressalvas"] = False
         nps_dados["_lock_nps"] = False
+        nps_dados["_edicao_bloqueada"] = False
         nps_dados["_edicao_liberada_em"] = now_iso
         nps_dados["_edicao_liberada_por"] = actor
         is_editable_by_admin = True
@@ -812,6 +816,7 @@ def admin_toggle_edit_lock(
         nps_dados["_lock_termo"] = True
         nps_dados["_lock_ressalvas"] = True
         nps_dados["_lock_nps"] = False
+        nps_dados["_edicao_bloqueada"] = True
         nps_dados["_edicao_fechada_em"] = now_iso
         nps_dados["_edicao_fechada_por"] = actor
         is_editable_by_admin = False

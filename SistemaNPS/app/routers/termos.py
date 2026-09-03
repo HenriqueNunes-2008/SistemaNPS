@@ -106,8 +106,15 @@ def salvar(tipo: str, data: TermoExtraRequest, request: Request):
     if not is_admin_mode_request(request):
         raise HTTPException(403, "Somente o administrador pode preencher este termo.")
     proc = _get(data.processo_id)
-    if ProcessoService.is_token_expired(proc) or str(proc.get("status", "")).lower() == "finalizado":
+    if str(proc.get("status", "")).lower() == "finalizado":
         raise HTTPException(403, "Processo bloqueado ou finalizado.")
+    nps_dados = as_dict(proc.get("nps_dados"))
+    if (
+        nps_dados.get("_edicao_bloqueada")
+        or nps_dados.get("_lock_termo")
+        or nps_dados.get("_lock_ressalvas")
+    ):
+        raise HTTPException(403, "Edição dos documentos bloqueada.")
     return {"success": True, **salvar_termo_extra(proc, tipo, data.dados)}
 
 

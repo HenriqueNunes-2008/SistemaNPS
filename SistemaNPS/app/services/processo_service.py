@@ -20,6 +20,23 @@ class ProcessoService:
 
     ETAPAS_CLIENTE = ("aceite", "ressalvas", "recebimento", "treinamento", "assinatura", "nps")
 
+    @staticmethod
+    def _normalizar_prazo(value: Any) -> str | None:
+        """Converte prazos vindos do banco ou do frontend para ISO sem perder nulos."""
+        if value is None or value == "":
+            return None
+        if isinstance(value, (datetime, date)):
+            return value.isoformat()
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00")).date().isoformat()
+            except ValueError as exc:
+                try:
+                    return date.fromisoformat(value).isoformat()
+                except ValueError:
+                    raise ValueError("Prazo inválido; use uma data ISO.") from exc
+        raise TypeError("Prazo deve ser date, datetime, string ISO ou nulo.")
+
     @classmethod
     def etapa_atual_cliente(cls, processo: dict | None) -> str | None:
         """Obtém a etapa pública sem alterar processos antigos."""
@@ -122,7 +139,7 @@ class ProcessoService:
             
             img_b64 = item_dict.get("imagem_base64")
             # Se nao enviou nova imagem, tenta recuperar a existente (URL do storage)
-            if (not img_b64 or "," not in img_b64) and item_key in mapa_existente:
+            if not img_b64 and item_key in mapa_existente:
                 item_dict["imagem_base64"] = mapa_existente[item_key].get("imagem_base64")
                 item_dict["imagem_hash"] = mapa_existente[item_key].get("imagem_hash")
             elif img_b64 and "," in img_b64:
@@ -147,24 +164,23 @@ class ProcessoService:
             for key in ("assinatura_cliente_path", "assinatura_cliente_url"):
                 if existing_termo.get(key) and not termo_dados.get(key):
                     termo_dados[key] = existing_termo[key]
-        data.termo_dados = termo_dados # Atualiza o objeto para o gerador de PDF
+        folder = f"{processo_uuid}/termo"
+
+        # Persiste as imagens antes do PDF para que o gerador trabalhe com as
+        # mesmas referências que ficam armazenadas no processo.
+        for img in termo_dados["itens"]:
+            img_src = img.get("imagem_base64")
+            if img_src and str(img_src).startswith("data:"):
+                img["imagem_base64"] = upload_pdf(img_src, folder)
+
+        data.termo_dados = termo_dados
 
         # 1. Gerar PDF
         buffer = gerar_pdf_termo_buffer(data)
         pdf_base64 = "data:application/pdf;base64," + base64.b64encode(buffer.read()).decode()
-        
-        # 2. Upload
-        folder = f"{processo_uuid}/termo"
+
+        # 2. Upload do PDF
         termo_url = upload_pdf(pdf_base64, folder)
-        
-        # Upload de imagens de itens (opcional/background)
-        for img in termo_dados["itens"]:
-            if img.get("imagem_base64") and "," in img["imagem_base64"]:
-                try: 
-                    # Persiste a URL pública de volta no campo da imagem para salvar no banco
-                    img_url = upload_pdf(img["imagem_base64"], folder)
-                    img["imagem_base64"] = img_url
-                except: pass
 
         # 3. Preparar Payload
         cpf_limpo = re.sub(r"\D", "", data.cpf)
@@ -186,9 +202,6 @@ class ProcessoService:
         else:
             etapa_fluxo = "aceite"
         nps_dados = as_dict(existing_proc.get("nps_dados")) if existing_proc else {}
-        etapa_atual = cls.etapa_atual_cliente(existing_proc) if existing_proc else None
-        if etapa_atual in cls.ETAPAS_CLIENTE and cls.ETAPAS_CLIENTE.index(etapa_atual) > cls.ETAPAS_CLIENTE.index(etapa_fluxo):
-            etapa_fluxo = etapa_atual
         nps_dados["_etapa_fluxo"] = etapa_fluxo
         nps_dados["_etapa_fluxo_atualizada_em"] = datetime.utcnow().isoformat()
         payload["nps_dados"] = nps_dados
@@ -258,7 +271,7 @@ class ProcessoService:
                 "processo_id": processo_uuid,
                 "item": img.item,
                 "descricao": img.descricao,
-                "prazo": img.prazo.isoformat() if img.prazo else None,
+                "prazo": ProcessoService._normalizar_prazo(img.prazo),
                 "imagem_hash": (
                     gerar_hash_imagem(img.imagem_base64)
                     if img.imagem_base64 and "," in img.imagem_base64 else None
@@ -280,7 +293,7 @@ class ProcessoService:
                 {
                     "item": img.item,
                     "descricao": img.descricao,
-                    "prazo": img.prazo.isoformat() if img.prazo else None,
+                    "prazo": ProcessoService._normalizar_prazo(img.prazo),
                     "responsavel": img.responsavel,
                     "observacao": img.observacao,
                     "imagem_base64": img.imagem_base64

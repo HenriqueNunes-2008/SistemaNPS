@@ -9,7 +9,7 @@
 <body class="termos-flow">
     <div class="topbar">
         <img src="/static/LogoFlexcolor2.png" class="logo-fixed" alt="Fleximedical | Kure">
-        <a class="logo-link" href="/index" aria-label="Página inicial"></a>
+        <a class="logo-link" href="{{ '/admin' if is_admin else '/index' }}" aria-label="Página inicial"></a>
 
         <div class="topbar-content">
             <div class="header-info">
@@ -88,10 +88,13 @@
     <script>
         const token = "{{ project_token or '' }}";
         const q = encodeURIComponent(token);
-        const flow = (p) => `${p}?project_token=${q}`;
+        const isAdmin = "{{ is_admin }}" === "True";
+        const flow = (p) => isAdmin
+            ? `${p}?processo=${q}&return=/admin`
+            : `${p}?project_token=${q}`;
 
         for (const [id, path] of Object.entries({
-            home: '/index',
+            home: isAdmin ? '/admin' : '/index',
             aceite: '/termo',
             ressalvas: '/ressalvas',
             recebimento: '/recebimento',
@@ -102,6 +105,10 @@
             const el = document.getElementById(id);
             if (el) el.href = flow(path);
         }
+        {% if is_admin %}
+        document.querySelectorAll('.breadcrumb-item.is-locked')
+            .forEach((el) => el.classList.remove('is-locked'));
+        {% endif %}
 
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
@@ -161,6 +168,20 @@
             .then(async (r) => {
                 const j = await r.json();
                 if (!r.ok) throw Error(j.detail || 'Não foi possível validar a etapa.');
+
+                if (!j.bloqueado) {
+                    message('A edição precisa ser bloqueada antes da assinatura.', 'error');
+                    signatureForm.hidden = true;
+                    continueWrap.hidden = true;
+                    return;
+                }
+
+                if (!j.documentos_prontos) {
+                    message(`Documentos pendentes: ${j.documentos_pendentes.join(', ')}.`, 'error');
+                    signatureForm.hidden = true;
+                    continueWrap.hidden = true;
+                    return;
+                }
 
                 if (j.bloqueado) {
                     document.querySelectorAll('.breadcrumb-item.is-locked')

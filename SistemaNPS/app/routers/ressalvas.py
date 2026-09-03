@@ -18,7 +18,7 @@ router = APIRouter(prefix="/ressalvas", tags=["Ressalvas"])
 
 def _is_user_edit_locked(proc: dict | None) -> bool:
     nps_dados = parse_json_object((proc or {}).get("nps_dados"))
-    return bool(nps_dados.get("_lock_ressalvas"))
+    return bool(nps_dados.get("_lock_ressalvas") or nps_dados.get("_edicao_bloqueada"))
 
 
 def _extract_user_flow(request: Request) -> str:
@@ -86,7 +86,7 @@ def salvar_ressalvas(data: RessalvasRequest, request: Request):
                 detail="Processo não encontrado"
             )
 
-        if ProcessoService.is_token_expired(proc):
+        if ProcessoService.is_token_expired(proc) and not is_admin_mode_request(request):
             raise HTTPException(
                 status_code=403,
                 detail="Token expirado: processo bloqueado para edição"
@@ -133,7 +133,7 @@ def atualizar_ressalvas(
                 detail="Processo não encontrado"
             )
 
-        if ProcessoService.is_token_expired(proc):
+        if ProcessoService.is_token_expired(proc) and not is_admin_mode_request(request):
             raise HTTPException(
                 status_code=403,
                 detail="Token expirado: processo bloqueado para edição"
@@ -149,7 +149,7 @@ def atualizar_ressalvas(
         # CLIENTE APROVANDO RESSALVAS
         # ========================================================
 
-        if _is_user_edit_locked(proc) and not is_admin:
+        if _is_user_edit_locked(proc):
             raise HTTPException(
                 status_code=403,
                 detail="Ressalvas bloqueadas. A assinatura única é feita na etapa de assinatura."

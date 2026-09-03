@@ -926,7 +926,7 @@ input.cpf-valido {
 <!-- TOPBAR -->
 <div class="topbar">
     <img src="/static/LogoFlexcolor2.png" class="logo-fixed" alt="Logo">
-    <a href="/" class="logo-link" aria-label="PÃ¡gina inicial"></a>
+    <a href="{{ '/admin' if is_admin else '/index' }}" class="logo-link" aria-label="PÃ¡gina inicial"></a>
     <div class="topbar-content">
         <div class="header-info">
             <div class="address">
@@ -969,7 +969,7 @@ input.cpf-valido {
 
  <section class="institutional-text">
      <h2 id="institutional-title">UNIDADE MÓVEL EM QUESTÃO - Produto e código da entrega</h2>
-     <p>Recebi da FLEXIMEDICAL SLOUÇÕES EM SAÚDE LTDA - CNPJ: 07.384.026/0001-20, os serviços de reforma da Unidade Móvel de Saúde em Questão.</p>
+     <p>Recebi da FLEXIMEDICAL SOLUÇÕES EM SAÚDE LTDA - CNPJ: 07.384.026/0001-20, os serviços de reforma da Unidade Móvel de Saúde em Questão.</p>
  </section>
 
  <div class="form-group">
@@ -1257,6 +1257,16 @@ const savingOverlay = document.getElementById("savingOverlay");
 const savingText = document.getElementById("savingText");
 let fotoPorRegiao = {};
 
+function formatFotoLogUrl(value) {
+    if (!value) return null;
+    try {
+        const parsed = new URL(value, window.location.href);
+        return `${parsed.origin}${parsed.pathname}`;
+    } catch {
+        return "[fonte inválida]";
+    }
+}
+
 const urlParams = new URLSearchParams(window.location.search);
 const processoParam = urlParams.get("processo");
 const projectTokenParam = urlParams.get("project_token") || "{{ project_token or '' }}";
@@ -1264,7 +1274,6 @@ const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
 let processoEmAndamento = null;
 let processoCarregado = null;
-let adminTokenFinalizado = false;
 let userEditLocked = false;
 
 function getCookieValue(name) {
@@ -1314,11 +1323,6 @@ function saveCurrentProcessId(processoId) {
 function clearCurrentProcessId() {
     localStorage.removeItem(getProgressStorageKey());
     sessionStorage.removeItem("project_token");
-}
-
-function processoTokenFinalizado(data) {
-    if (!data || typeof data !== "object") return false;
-    return data.project_token_ativo === false || Boolean(data.project_token_expira_em);
 }
 
 function processoEdicaoBloqueada(data) {
@@ -1394,7 +1398,7 @@ function atualizarEstadoBotao() {
     const statusSelecionado = document.querySelector(".status-card.active") !== null;
 
     // Processo bloqueado: o cliente apenas consulta e avança para a próxima etapa.
-    if (userEditLocked && !isAdmin) {
+    if (userEditLocked) {
         btnSalvar.disabled = true;
         btnSalvar.style.display = "none";
         return;
@@ -1544,7 +1548,6 @@ async function carregarEdicao(codigoProcesso) {
         const json = await res.json();
         const data = json.dados || json; // Garante acesso aos dados corretos
         processoCarregado = data;
-        adminTokenFinalizado = isAdmin && processoTokenFinalizado(data);
         userEditLocked = processoEdicaoBloqueada(data);
         if (userEditLocked) {
             document.querySelectorAll(".breadcrumb-item.is-locked").forEach((el) => el.classList.remove("is-locked"));
@@ -1629,7 +1632,7 @@ async function carregarEdicao(codigoProcesso) {
             ];
             imagensTermo.forEach((img, idx) => {
                 const regiao = img?.regiao_foto || ordemRegioes[idx];
-                const url = img?.imagem_base64 || img?.url || img?.imagem;
+                const url = img?.imagem_url || img?.imagem_base64 || img?.url || img?.imagem;
                 if (regiao && url) {
                     fotoPorRegiao[regiao] = url;
                 }
@@ -1662,26 +1665,7 @@ async function carregarEdicao(codigoProcesso) {
         });
 
         if (!isAdmin) atualizarEstadoBotao();
-        if (adminTokenFinalizado) {
-            habilitarModoSomenteLeituraAdminTokenFinalizado();
-            return;
-        }
-        if (isAdmin && isEditMode) {
-            // Ao editar um termo já salvo, somente o representante comercial
-            // pode ser complementado; o restante é apenas visualização.
-            desabilitarFormulario();
-            document.querySelectorAll(".admin-only input").forEach(el => {
-                el.disabled = false;
-                el.readOnly = false;
-            });
-            if (btnSalvar) {
-                btnSalvar.style.display = "block";
-                btnSalvar.disabled = false;
-                btnSalvar.textContent = "SALVAR REPRESENTANTE COMERCIAL";
-            }
-            return;
-        }
-        if (userEditLocked && !isAdmin) {
+        if (userEditLocked) {
             desabilitarFormulario();
             if (btnSalvar) {
                 btnSalvar.disabled = true;
@@ -1710,6 +1694,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (bcTreinamento) bcTreinamento.href = buildFlowUrl("/treinamento");
     if (bcAssinatura) bcAssinatura.href = buildFlowUrl("/assinatura");
     if (bcNps) bcNps.href = buildFlowUrl("/nps");
+    if (isAdmin) {
+        document.querySelectorAll(".breadcrumb-item.is-locked").forEach((el) => el.classList.remove("is-locked"));
+    }
     if (userFlow === "motorista" && bcNps) {
         const arrow = bcNps.previousElementSibling;
         if (arrow && arrow.classList.contains("breadcrumb-arrow")) arrow.style.display = "none";
@@ -1775,6 +1762,12 @@ const preview = document.getElementById('preview');
 const previewImg = document.getElementById('previewImg');
 const video = document.getElementById('video');
 const captureBtn = document.getElementById('captureBtn');
+
+previewImg.addEventListener('error', () => {
+    previewImg.src = '';
+    preview.classList.add('hidden');
+    placeholder.classList.remove('hidden');
+});
 
 /* Upload por botão */
 window.openFile = function () {
@@ -1871,14 +1864,34 @@ window.renderFotoGrid = function() {
         const vazio = item.querySelector(".foto-vazia");
         const imgSrc = fotoPorRegiao[regiao];
         if (imgSrc) {
+            const mostrarSemFoto = (event) => {
+                console.error("[FOTO] Falha ao carregar", {
+                    regiao,
+                    src: formatFotoLogUrl(event.currentTarget.src),
+                    originalSrc: formatFotoLogUrl(imgSrc)
+                });
+                event.currentTarget.remove();
+                if (!item.querySelector(".foto-vazia")) {
+                    const v = document.createElement("div");
+                    v.className = "foto-vazia";
+                    v.textContent = "Sem foto";
+                    item.appendChild(v);
+                }
+            };
             if (vazio) vazio.remove();
-            if (existente) {
-                existente.src = imgSrc;
-            } else {
-                const img = document.createElement("img");
-                img.src = imgSrc;
-                item.appendChild(img);
-            }
+            const img = existente || document.createElement("img");
+            img.alt = "";
+            img.setAttribute("aria-label", `Foto ${regiao}`);
+            img.style.objectFit = "contain";
+            img.style.visibility = "hidden";
+            img.onload = () => {
+                const currentEmpty = item.querySelector(".foto-vazia");
+                if (currentEmpty) currentEmpty.remove();
+                img.style.visibility = "visible";
+            };
+            img.onerror = mostrarSemFoto;
+            img.src = imgSrc;
+            if (!existente) item.appendChild(img);
         } else {
             if (existente) existente.remove();
             if (!vazio) {

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 from datetime import date, datetime, timezone
 from io import BytesIO
 from typing import Any
+from urllib.parse import unquote, urlparse
 
 import httpx
 from reportlab.lib.pagesizes import A4
@@ -17,6 +19,8 @@ from app.services.supabase_client import supabase
 from app.services.upload import upload_pdf
 from app.services.shared_data import dados_compartilhados
 from app.services.assinatura_service import gerar_url_assinatura
+
+logger = logging.getLogger(__name__)
 
 
 def _format_cpf_display(value: Any) -> str:
@@ -97,10 +101,16 @@ def _decode_base64_image(image_base64: str) -> bytes | None:
 
 def _download_image(url: str) -> bytes | None:
     try:
-        resp = httpx.get(url, timeout=30)
+        parsed = urlparse(url)
+        public_prefix = "/storage/v1/object/public/processos/"
+        if parsed.path.startswith(public_prefix):
+            path = unquote(parsed.path[len(public_prefix):])
+            return supabase.storage.from_("processos").download(path)
+        resp = httpx.get(url, timeout=30, follow_redirects=True)
         resp.raise_for_status()
         return resp.content
-    except Exception:
+    except Exception as exc:
+        logger.warning("Falha ao baixar imagem do termo para o PDF final: fonte=%s erro=%s", url[:200], exc)
         return None
 
 
@@ -181,10 +191,14 @@ def _collect_termo_images(proc_data: dict) -> list[dict]:
         if img_src:
             if str(img_src).startswith("data:"):
                 raw_bytes = _decode_base64_image(img_src)
-            elif str(img_src).startswith("http"):
+            elif str(img_src).startswith(("http://", "https://")):
                 raw_bytes = _download_image(img_src)
-        elif img.get("url"):
-            raw_bytes = _download_image(img.get("url"))
+            else:
+                try:
+                    raw_bytes = supabase.storage.from_("processos").download(str(img_src))
+                except Exception as exc:
+                    logger.warning("Falha ao baixar caminho de imagem do termo: fonte=%s erro=%s", img_src, exc)
+                    raw_bytes = None
 
         if not raw_bytes:
             continue
@@ -206,20 +220,23 @@ def _collect_termo_images(proc_data: dict) -> list[dict]:
         else:
             extras.append(payload)
 
-    resultado: list[dict] = []
-    for regiao in ordered_regions:
-        if regiao in por_regiao:
-            resultado.append(por_regiao[regiao])
+    resultado = [
+        por_regiao.get(
+            regiao,
+            {"label": label_map[regiao], "bytes": None, "order": idx + 1},
+        )
+        for idx, regiao in enumerate(ordered_regions)
+    ]
 
-    # Completa eventuais faltas com imagens sem regiao conhecida.
-    if len(resultado) < 6 and extras:
-        extras.sort(key=lambda x: x.get("order", 999))
-        for extra in extras:
-            if len(resultado) >= 6:
-                break
-            resultado.append(extra)
+    # Mantém compatibilidade com registros antigos sem região.
+    extras.sort(key=lambda x: x.get("order", 999))
+    for index, extra in enumerate(extras):
+        if index >= len(resultado):
+            break
+        if resultado[index].get("bytes") is None:
+            resultado[index] = extra
 
-    return resultado[:6]
+    return resultado
 
 
 def _collect_ressalvas_items(proc_data: dict) -> list[dict]:
@@ -404,7 +421,7 @@ def _draw_termo_images_page(c, width: float, height: float, images: list[dict]) 
                 pass
         else:
             c.setFont("Helvetica", 8)
-            c.drawString(cx + 6, img_y + (cell_h / 2) - 6, "Imagem nao informada")
+            c.drawCentredString(cx + cell_w / 2, img_y + (cell_h / 2) - 6, "Sem foto")
 
 
 def _draw_ressalvas_page(
@@ -499,7 +516,7 @@ def _draw_extra_term_page(c, width: float, height: float, proc_data: dict, tipo:
     c.setFont("Helvetica", 10)
     codigo = " - ".join(str(v) for v in (d.get("produto"), d.get("codigo_entrega")) if v) or "-"
     texto = (
-        "Recebi da FLEXIMEDICAL SLOUÇÕES EM SAÚDE LTDA - CNPJ: 07.384.026/0001-20, "
+        "Recebi da FLEXIMEDICAL SOLUÇÕES EM SAÚDE LTDA - CNPJ: 07.384.026/0001-20, "
         f"fabricante da UNIDADE MÓVEL EM QUESTÃO, {codigo}, o \"MANUAL DE INSTRUÇÕES DE USO\", "
         "que deverá ser consultado antes de qualquer intervenção de limpeza ou manuseio, sob o risco de perda da garantia."
     )

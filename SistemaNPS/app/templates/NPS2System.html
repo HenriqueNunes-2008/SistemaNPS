@@ -576,7 +576,7 @@ textarea {
 
 <div class="topbar">
     <img src="static/LogoFlexcolor2.png" class="logo-fixed" alt="Logo">
-    <a href="/" class="logo-link" aria-label="Pagina inicial"></a>
+    <a href="{{ '/admin' if is_admin else '/index' }}" class="logo-link" aria-label="Pagina inicial"></a>
     <div class="topbar-content">
         <div class="header-info">
             <div class="address">
@@ -782,7 +782,7 @@ const processoParam = urlParams.get("processo");
 const projectTokenParam = urlParams.get("project_token") || "{{ project_token or '' }}";
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
-let isAdmin = returnTo === "/admin";
+let isAdmin = returnTo === "/admin" && "{{ is_admin }}" === "True";
 let processoEmAndamento = null;
 let userEditLocked = false;
 
@@ -805,10 +805,6 @@ function getProgressStorageKey() {
 
 const userFlow = (getCookieValue("nps_tipo_acesso") || "cliente").toLowerCase();
 
-const roleCookie = (getCookieValue("nps_role") || "").toLowerCase();
-if (roleCookie === "admin") {
-    isAdmin = true;
-}
 
 function buildFlowUrl(path) {
     const qs = new URLSearchParams();

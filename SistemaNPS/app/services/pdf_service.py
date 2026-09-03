@@ -1,7 +1,9 @@
 import base64
 import httpx
+import logging
 from io import BytesIO
 from typing import List, Optional, Any
+from urllib.parse import unquote, urlparse
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import HexColor
 from reportlab.lib.pagesizes import A4
@@ -9,6 +11,9 @@ from reportlab.lib.utils import ImageReader
 from app.services.pdf_layout import draw_header_footer, content_top, content_bottom, draw_wrapped_text
 from app.routers.utils import normalize_base64
 from app.services.assinatura_service import gerar_url_assinatura
+from app.services.supabase_client import supabase
+
+logger = logging.getLogger(__name__)
 
 
 def formatar_cpf_apresentacao(valor: Any) -> str:
@@ -52,18 +57,27 @@ def formatar_data_apresentacao(valor: Any) -> str:
 
 
 def _decode_to_image_reader(img_src: str) -> Optional[ImageReader]:
-    """Converte uma string (Base64 ou URL) em um objeto ImageReader do ReportLab."""
+    """Converte uma fonte de imagem em bytes aceitos pelo ReportLab."""
     if not img_src:
         return None
     try:
         if img_src.startswith("data:"):
             _, raw = img_src.split(",", 1)
             return ImageReader(BytesIO(base64.b64decode(normalize_base64(raw))))
-        else:
-            resp = httpx.get(img_src, timeout=10)
+        if img_src.startswith(("http://", "https://")):
+            parsed = urlparse(img_src)
+            public_prefix = "/storage/v1/object/public/processos/"
+            if parsed.path.startswith(public_prefix):
+                path = unquote(parsed.path[len(public_prefix):])
+                raw = supabase.storage.from_("processos").download(path)
+                return ImageReader(BytesIO(raw))
+            resp = httpx.get(img_src, timeout=30, follow_redirects=True)
             resp.raise_for_status()
             return ImageReader(BytesIO(resp.content))
-    except Exception:
+        raw = supabase.storage.from_("processos").download(img_src)
+        return ImageReader(BytesIO(raw))
+    except Exception as exc:
+        logger.warning("Falha ao carregar imagem do termo para o PDF: fonte=%s erro=%s", img_src[:200], exc)
         return None
 
 def gerar_pdf_termo_buffer(data: Any) -> BytesIO:
@@ -121,7 +135,7 @@ def gerar_pdf_termo_buffer(data: Any) -> BytesIO:
     c.setFont("Helvetica", 10)
     y = draw_wrapped_text(
         c,
-        "Recebi da FLEXIMEDICAL SLOUÇÕES EM SAÚDE LTDA - CNPJ: 07.384.026/0001-20, os serviços de reforma da Unidade Móvel de Saúde em Questão.",
+        "Recebi da FLEXIMEDICAL SOLUÇÕES EM SAÚDE LTDA - CNPJ: 07.384.026/0001-20, os serviços de reforma da Unidade Móvel de Saúde em Questão.",
         margem_x,
         y,
         max_width,
@@ -158,7 +172,7 @@ def gerar_pdf_termo_buffer(data: Any) -> BytesIO:
     )
 
     imagens = termo_dados.get("itens") or []
-    for offset in range(0, len(imagens), 6):
+    for offset in range(0, max(len(imagens), 1), 6):
         c.showPage()
         draw_header_footer(c, width, height)
         fotos_y = content_top(height)
@@ -210,7 +224,7 @@ def _gerar_pdf_termo_extra(data: dict, treinamento: bool) -> BytesIO:
     c.setFont("Helvetica", 10)
     produto_codigo = " — ".join(str(v) for v in (data.get("produto"), data.get("codigo_entrega")) if v)
     texto_recebimento = (
-        "Recebi da FLEXIMEDICAL SLOUÇÕES EM SAÚDE LTDA - CNPJ: 07.384.026/0001-20, "
+        "Recebi da FLEXIMEDICAL SOLUÇÕES EM SAÚDE LTDA - CNPJ: 07.384.026/0001-20, "
         f"fabricante da UNIDADE MÓVEL EM QUESTÃO, {produto_codigo or '-'}, o \"MANUAL DE INSTRUÇÕES DE USO\", "
         "que deverá ser consultado antes de qualquer intervenção de limpeza ou manuseio, sob o risco de perda da garantia."
     )
@@ -307,12 +321,33 @@ def _draw_image_grid(c, images: List[Any], x: float, top_y: float, max_width: fl
         "inferior": "Inferior",
     }
 
+    ordered_regions = [
+        "frontal",
+        "traseira",
+        "lateral-esquerda",
+        "lateral-direita",
+        "superior",
+        "inferior",
+    ]
+    by_region = {
+        str(img_data.get("regiao_foto") or "").strip().lower(): img_data
+        for img_data in images
+        if isinstance(img_data, dict)
+    }
+    ordered_images = [by_region.get(region) for region in ordered_regions]
+    ordered_images.extend(
+        img_data
+        for img_data in images
+        if isinstance(img_data, dict)
+        and str(img_data.get("regiao_foto") or "").strip().lower() not in ordered_regions
+    )
+
     cols, rows = 2, 3
     gap = 20
     cell_w = (max_width - gap) / cols
     cell_h = (top_y - content_bottom() - (gap * 3)) / rows
 
-    for idx, img_data in enumerate(images):
+    for idx, img_data in enumerate(ordered_images[:6]):
         col = idx % cols
         row = idx // cols
         cx = x + (col * (cell_w + gap))
@@ -322,11 +357,17 @@ def _draw_image_grid(c, images: List[Any], x: float, top_y: float, max_width: fl
         c.setStrokeColor(HexColor("#D1D1D1"))
         c.rect(cx, cy - cell_h, cell_w, cell_h, stroke=1, fill=0)
         
-        img_reader = _decode_to_image_reader(img_data.get("imagem_base64"))
+        img_reader = None
+        if img_data:
+            img_src = img_data.get("imagem_base64") or img_data.get("imagem") or img_data.get("url")
+            img_reader = _decode_to_image_reader(img_src)
         if img_reader:
             c.drawImage(img_reader, cx + 2, cy - cell_h + 2, width=cell_w - 4, height=cell_h - 4, preserveAspectRatio=True, anchor="c")
+        else:
+            c.setFont("Helvetica", 8)
+            c.drawCentredString(cx + cell_w / 2, cy - cell_h / 2, "Sem foto")
         
-        regiao = img_data.get("regiao_foto")
+        regiao = ordered_regions[idx]
         label = label_map.get(regiao, regiao or f"Foto {idx + 1}")
         c.setFont("Helvetica-Bold", 9)
         c.setFillColor(HexColor("#000000"))

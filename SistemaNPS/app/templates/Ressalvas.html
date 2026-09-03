@@ -763,7 +763,7 @@ input.item-duplicado { border: 2px solid #dc2626; }
 
 <div class="topbar">
     <img src="/static/LogoFlexcolor2.png" class="logo-fixed" alt="Logo">
-    <a href="/" class="logo-link" aria-label="Página inicial"></a>
+    <a href="{{ '/admin' if is_admin else '/index' }}" class="logo-link" aria-label="Página inicial"></a>
     <div class="topbar-content">
         <div class="header-info">
             <div class="address">
@@ -882,11 +882,6 @@ document.getElementById("btnSalvar").addEventListener("click", function () {
 
 async function executarSalvarRessalvas() {
     closeConfirmSaveModal();
-    if (isAdmin && adminTokenFinalizado) {
-        alert("Token expirado: o admin pode apenas visualizar este processo.");
-        return;
-    }
-
     const btn = document.getElementById("btnSalvar");
     const savingOverlay = document.getElementById("savingOverlay");
     const savingText = document.getElementById("savingText");
@@ -1061,7 +1056,6 @@ const projectTokenParam = urlParams.get("project_token") || "{{ project_token or
 const returnTo = urlParams.get("return");
 const isEditMode = Boolean(processoParam);
 let isAdmin = returnTo === "/admin" && "{{ is_admin }}" === "True";
-let adminTokenFinalizado = false;
 let userEditLocked = false;
 const userFlowCookie = (getCookieValue("nps_tipo_acesso") || "").toLowerCase();
 const userFlow = ["cliente", "motorista"].includes(userFlowCookie) ? userFlowCookie : "";
@@ -1098,11 +1092,6 @@ function saveCurrentProcessId(processoId) {
 function clearCurrentProcessId() {
     localStorage.removeItem(getProgressStorageKey());
     sessionStorage.removeItem("project_token");
-}
-
-function processoTokenFinalizado(data) {
-    if (!data || typeof data !== "object") return false;
-    return data.project_token_ativo === false || Boolean(data.project_token_expira_em);
 }
 
 function processoEdicaoBloqueada(data) {
@@ -1463,7 +1452,6 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         if (!res.ok) return;
         const json = await res.json();
         const data = json.dados || json; // Garante acesso aos dados corretos
-        adminTokenFinalizado = isAdmin && processoTokenFinalizado(data);
         userEditLocked = processoEdicaoBloqueada(data);
         if (userEditLocked) {
             document.querySelectorAll(".breadcrumb-item.is-locked").forEach((el) => el.classList.remove("is-locked"));
@@ -1493,15 +1481,11 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
             addRow();
         }
 
-        if (adminTokenFinalizado) {
-            habilitarModoSomenteLeituraAdminTokenFinalizado();
-            return;
-        }
         if (concluidoSemRessalva) {
             habilitarModoRessalvasNaoEncontradas();
             return;
         }
-        if (userEditLocked && !isAdmin) {
+        if (userEditLocked) {
             habilitarModoSomenteLeituraUsuario();
             if (btnSalvar) {
                 btnSalvar.style.display = "none";
@@ -1516,10 +1500,6 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
     }
 }
 
-const roleCookie = (getCookieValue("nps_role") || "").toLowerCase();
-if (roleCookie === "admin" && (isEditMode || returnTo === "/admin")) {
-    isAdmin = true;
-}
 if (projectTokenParam && !isEditMode && returnTo !== "/admin") {
     isAdmin = false;
 }
@@ -1642,6 +1622,9 @@ async function inicializarPagina() {
     if (bcTreinamento) bcTreinamento.href = buildFlowUrl("/treinamento");
     if (bcAssinatura) bcAssinatura.href = buildFlowUrl("/assinatura");
     if (bcNps) bcNps.href = buildFlowUrl("/nps");
+    if (isAdmin) {
+        document.querySelectorAll(".breadcrumb-item.is-locked").forEach((el) => el.classList.remove("is-locked"));
+    }
     if (approvalSection) {
         approvalSection.style.display = "none";
     }
