@@ -38,4 +38,8 @@ def is_admin_activation_granted(request: Request) -> bool:
 
 def is_admin_mode_request(request: Request) -> bool:
     """Identifica o contexto administrativo pela sessão autenticada."""
+    # Um token explícito na URL representa acesso público, mesmo no navegador
+    # que mantém uma sessão administrativa ativa.
+    if request.query_params.get("project_token"):
+        return False
     return is_admin_activation_granted(request)

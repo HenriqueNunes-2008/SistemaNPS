@@ -251,6 +251,8 @@ def _is_admin_activation_granted(request: Request) -> bool:
 
 
 def _is_admin_mode_request(request: Request) -> bool:
+    if request.query_params.get("project_token"):
+        return False
     return _is_admin_activation_granted(request)
 
 
@@ -312,7 +314,11 @@ def admin_password_post(email: str = Form(...), password: str = Form(...)):
 
 @router.get("/index", response_class=HTMLResponse)
 def index(request: Request):
-    if _is_admin_activation_granted(request):
+    has_public_process_context = any(
+        request.query_params.get(name)
+        for name in ("project_token", "processo", "id")
+    )
+    if _is_admin_activation_granted(request) and not has_public_process_context:
         return RedirectResponse(url="/admin", status_code=303)
     project_token = _extract_project_token(request)
     expired_response = _expired_token_response(request, project_token)
