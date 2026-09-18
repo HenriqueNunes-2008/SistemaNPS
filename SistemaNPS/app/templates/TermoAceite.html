@@ -911,6 +911,26 @@ input.cpf-valido {
     border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;
 }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* Botão de avanço do fluxo - mesmo padrão dos Termos de Recebimento/Treinamento */
+.btn-next-document {
+    border: 0;
+    border-radius: 10px;
+    background: #5b2fa6;
+    color: #fff;
+    padding: 13px 18px;
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    text-decoration: none;
+    align-items: center;
+    justify-content: center;
+}
+.btn-next-document:hover { background: #4d278f; }
+@media (max-width: 768px) {
+    .btn-next-document { width: 100%; text-align: center; }
+}
 </style>
 </head>
 
@@ -1141,6 +1161,7 @@ input.cpf-valido {
 
 <div class="footer">
     <button type="submit" id="btnSalvar" disabled>SALVAR TERMO DE ACEITE</button>
+    <button type="button" id="next-document" class="btn-next-document" style="display:none;">CONTINUAR</button>
 
     <img src="/static/logozinha.png"
  alt="Fleximedical_logo"
@@ -1549,9 +1570,6 @@ async function carregarEdicao(codigoProcesso) {
         const data = json.dados || json; // Garante acesso aos dados corretos
         processoCarregado = data;
         userEditLocked = processoEdicaoBloqueada(data);
-        if (userEditLocked) {
-            document.querySelectorAll(".breadcrumb-item.is-locked").forEach((el) => el.classList.remove("is-locked"));
-        }
         const campos = data.termo_dados?.campos || {};
         const produto = campos.Produto || campos.PRODUTO || campos["PRODUTO E CÓDIGO DA ENTREGA"] || data.produto || "";
         const codigo = campos["Código da entrega"] || campos["CÓDIGO DA ENTREGA"] || data.codigo || "";
@@ -1672,7 +1690,38 @@ async function carregarEdicao(codigoProcesso) {
                 btnSalvar.style.display = "none";
             }
             const next = document.getElementById("next-document");
-            if (next) next.style.display = "inline-block";
+            if (next) {
+                const avancarDoAceite = async (destino) => {
+                    next.disabled = true;
+                    try {
+                        const processoId = processoParam || projectTokenParam || getCurrentProcessId();
+                        const response = await fetch("/termos/avancar", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ processo_id: processoId, etapa: "aceite" })
+                        });
+                        const result = await response.json();
+                        if (!response.ok) throw new Error(result.detail || "Não foi possível avançar para a próxima etapa.");
+                        window.location.href = buildFlowUrl(destino);
+                    } catch (erro) {
+                        console.error(erro);
+                        alert(erro.message);
+                        next.disabled = false;
+                    }
+                };
+
+                if (!isAdmin && data.status_entrega === "concluido_com_ressalva") {
+                    next.textContent = "IR PARA RESSALVAS";
+                    next.onclick = () => avancarDoAceite("/ressalvas");
+                    next.style.display = "inline-flex";
+                } else if (!isAdmin && data.status_entrega === "concluido") {
+                    next.textContent = "IR PARA RECEBIMENTO";
+                    next.onclick = () => avancarDoAceite("/recebimento");
+                    next.style.display = "inline-flex";
+                } else {
+                    next.style.display = "none";
+                }
+            }
             return;
         }
 
@@ -2171,59 +2220,10 @@ window.renderFotoGrid = function() {
     window.closeMotoristaDoneModal = closeMotoristaDoneModal;
     window.copySupervisorLink = copySupervisorLink;
 });
-const campoStatus = document.getElementById('status_entrega'); // Ajuste o ID conforme seu HTML
-const areaRessalvas = document.getElementById('termo_dados_ressalvas'); // Onde ficam os inputs de ressalva
-
-function gerenciarBloqueioRessalvas() {
-    const status = campoStatus.value;
-    
-    // Se o Admin permitiu edição, mas o status é 'concluido', bloqueamos as ressalvas.
-    // Se for 'concluido_com_ressalva', liberamos.
-    if (status === 'concluido') {
-        areaRessalvas.style.pointerEvents = 'none';
-        areaRessalvas.style.opacity = '0.6';
-        // Opcional: desabilitar todos os inputs dentro da área
-        areaRessalvas.querySelectorAll('input, textarea').forEach(el => el.disabled = true);
-    } else {
-        areaRessalvas.style.pointerEvents = 'auto';
-        areaRessalvas.style.opacity = '1';
-        areaRessalvas.querySelectorAll('input, textarea').forEach(el => el.disabled = false);
-    }
-}
-
-campoStatus.addEventListener('change', gerenciarBloqueioRessalvas);
-
-async function carregarDadosIniciais() {
-    const overlay = document.getElementById('loadingOverlay');
-    overlay.style.display = 'flex';
-    
-    try {
-        const response = await fetch(`/termo/dados/${processoId}`); 
-        const result = await response.json();
-        
-        if (result.success) {
-            const d = result.dados;
-            // Preenchimento dos campos básicos
-            document.getElementById('nome_cliente').value = d.nome_cliente || '';
-            document.getElementById('status_entrega').value = d.status_entrega || 'concluido';
-            
-            // ... Preencher outros campos de termo_dados ...
-
-            // SE estiver bloqueado pelo Admin, desabilita o formulário INTEIRO
-            if (d.bloqueado) {
-                document.getElementById('meuFormulario').style.pointerEvents = 'none';
-                document.getElementById('btnSalvar').display = 'none';
-            } else {
-                // SE NÃO estiver bloqueado, roda a lógica das ressalvas baseada no status
-                gerenciarBloqueioRessalvas(); 
-            }
-        }
-    } catch (err) {
-        console.error("Erro ao carregar dados", err);
-    } finally {
-        setTimeout(() => { overlay.style.display = 'none'; }, 500);
-    }
-}
+// O controle do status da entrega é feito pelos cards e pela rotina principal
+// carregarEdicao(). O bloco legado removido aqui procurava elementos inexistentes
+// (#status_entrega e #termo_dados_ressalvas), causando addEventListener em null
+// e uma chamada antiga para /termo/dados/... (404).
 </script>
 <div id="loadingOverlay" class="loading-overlay" style="display:none;">
     <div class="loader-content">

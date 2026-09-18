@@ -72,7 +72,21 @@ def avancar_fluxo(data: AvancarFluxoRequest, request: Request):
     proc = _get(data.processo_id)
     if ProcessoService.is_token_expired(proc) or str(proc.get("status", "")).lower() == "finalizado":
         raise HTTPException(403, "Token expirado ou processo finalizado.")
-    if ProcessoService.etapa_atual_cliente(proc) != data.etapa:
+    etapa_atual = ProcessoService.etapa_atual_cliente(proc)
+    if etapa_atual != data.etapa:
+        # Compatibilidade com processos que já foram bloqueados antes da correção:
+        # se o backend já estiver exatamente na etapa seguinte, tratar o clique
+        # anterior como concluído (idempotência), sem permitir pular etapas.
+        status_entrega = str(proc.get("status_entrega") or "").strip().lower()
+        seguinte_da_solicitada = {
+            "aceite": "recebimento" if status_entrega == "concluido" else "ressalvas",
+            "ressalvas": "recebimento",
+            "recebimento": "treinamento",
+            "treinamento": "assinatura",
+            "assinatura": "nps",
+        }.get(data.etapa)
+        if etapa_atual == seguinte_da_solicitada:
+            return {"success": True, "proxima_etapa": etapa_atual}
         raise HTTPException(409, "Esta etapa não está liberada para avanço.")
     try:
         proxima = ProcessoService.proxima_etapa_cliente(proc, data.etapa)

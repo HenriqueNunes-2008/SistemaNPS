@@ -126,16 +126,6 @@ def _flow_guard(request: Request, project_token: str, requested_stage: str):
         or nps_dados.get("_lock_nps")
         or nps_dados.get("_edicao_bloqueada")
     )
-    documentos = {
-        "aceite": bool(proc.get("termo_dados") or proc.get("termo_pdf")),
-        "ressalvas": bool(proc.get("ressalvas_dados") or proc.get("pdf_ressalvas")),
-        "recebimento": bool(proc.get("recebimento_dados") or proc.get("recebimento_pdf")),
-        "treinamento": bool(proc.get("treinamento_dados") or proc.get("treinamento_pdf")),
-        "assinatura": bool(proc.get("assinatura_cliente_url") or as_dict(proc.get("termo_dados")).get("assinatura_cliente_path")),
-        "nps": bool(nps_dados.get("nps") is not None),
-    }
-    if bloqueado and requested_stage in etapas and documentos.get(requested_stage):
-        return None
     if atual in etapas and requested_stage in etapas and etapas.index(requested_stage) > etapas.index(atual):
         destinos = {"aceite":"/termo", "ressalvas":"/ressalvas", "recebimento":"/recebimento", "treinamento":"/treinamento", "assinatura":"/assinatura", "nps":"/nps"}
         return RedirectResponse(url=_append_project_token(destinos[atual], project_token), status_code=303)
@@ -808,23 +798,22 @@ def admin_toggle_edit_lock(
     now_iso = datetime.utcnow().isoformat()
     actor = "Administrador"
 
-    if is_locked_for_client:
-        nps_dados["_lock_termo"] = False
-        nps_dados["_lock_ressalvas"] = False
-        nps_dados["_lock_nps"] = False
-        nps_dados["_edicao_bloqueada"] = False
-        nps_dados["_edicao_liberada_em"] = now_iso
-        nps_dados["_edicao_liberada_por"] = actor
-        is_editable_by_admin = True
-    else:
-        # Bloqueia Termo/Ressalvas (para admin nao mexer sem querer) e Libera NPS (para cliente preencher)
+    # O bloqueio e definitivo para este fluxo: depois de aplicado, atualizar a
+    # pagina ou repetir a requisicao nao pode reabrir Termo/Ressalvas.
+    if not is_locked_for_client:
         nps_dados["_lock_termo"] = True
         nps_dados["_lock_ressalvas"] = True
         nps_dados["_lock_nps"] = False
         nps_dados["_edicao_bloqueada"] = True
+        # O bloqueio inicia oficialmente o fluxo do cliente no Termo de Aceite.
+        # Antes disso, o salvamento administrativo pode ter preparado os termos
+        # derivados e deixado _etapa_fluxo em recebimento/ressalvas.
+        nps_dados["_etapa_fluxo"] = "aceite"
+        nps_dados["_etapa_fluxo_atualizada_em"] = now_iso
         nps_dados["_edicao_fechada_em"] = now_iso
         nps_dados["_edicao_fechada_por"] = actor
-        is_editable_by_admin = False
+
+    is_editable_by_admin = False
 
     upd = (
         supabase

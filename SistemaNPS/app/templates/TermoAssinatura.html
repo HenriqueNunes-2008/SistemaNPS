@@ -103,7 +103,9 @@
             continuar: '/nps'
         })) {
             const el = document.getElementById(id);
-            if (el) el.href = flow(path);
+            if (el && (isAdmin || !el.classList.contains('is-locked'))) {
+                el.href = flow(path);
+            }
         }
         {% if is_admin %}
         document.querySelectorAll('.breadcrumb-item.is-locked')
@@ -181,11 +183,6 @@
                     signatureForm.hidden = true;
                     continueWrap.hidden = true;
                     return;
-                }
-
-                if (j.bloqueado) {
-                    document.querySelectorAll('.breadcrumb-item.is-locked')
-                        .forEach((el) => el.classList.remove('is-locked'));
                 }
 
                 if (j.assinatura_concluida) {

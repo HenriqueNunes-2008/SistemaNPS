@@ -92,7 +92,9 @@
 
         Object.entries(ids).forEach(([id, path]) => {
             const el = document.getElementById(id);
-            if (el) el.href = flow(path);
+            if (el && (isAdmin || !el.classList.contains('is-locked'))) {
+                el.href = flow(path);
+            }
         });
         {% if is_admin %}
         document.querySelectorAll('.breadcrumb-item.is-locked')
@@ -166,8 +168,8 @@
             return value || 'Não informado';
         };
 
-        const podeAvancarEtapa = (etapaAtual, documentosProntos) =>
-            etapaAtual === 'recebimento' && !!documentosProntos;
+        const podeAvancarEtapa = (etapaAtual) =>
+            etapaAtual === 'recebimento';
 
         let etapa = 'recebimento';
 
@@ -177,7 +179,7 @@
                 if (!r.ok) throw Error(j.detail || 'Não foi possível carregar o documento.');
 
                 etapa = j.etapa_atual || etapa;
-                continuar.disabled = !podeAvancarEtapa(etapa, j.documentos_prontos);
+                continuar.disabled = !podeAvancarEtapa(etapa);
 
                 const combinado = [j.dados?.produto, j.dados?.codigo_entrega]
                     .filter(Boolean)
@@ -201,8 +203,6 @@
                 if (j.bloqueado) {
                     status.textContent = 'Documento disponível somente para leitura.';
                     status.className = 'document-status info';
-                    document.querySelectorAll('.breadcrumb-item.is-locked')
-                        .forEach((el) => el.classList.remove('is-locked'));
                 }
             })
             .catch((e) => {

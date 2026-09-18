@@ -60,7 +60,15 @@ class ProcessoService:
         indice = cls.ETAPAS_CLIENTE.index(etapa)
         if indice >= len(cls.ETAPAS_CLIENTE) - 1:
             return etapa
-        proxima = cls.ETAPAS_CLIENTE[indice + 1]
+
+        # O Termo de Aceite define se a etapa de Ressalvas faz parte do fluxo.
+        # Entrega concluída segue diretamente para Recebimento; entrega com
+        # ressalvas exige a confirmação da página de Ressalvas primeiro.
+        if etapa == "aceite":
+            status_entrega = str(processo.get("status_entrega") or "").strip().lower()
+            proxima = "recebimento" if status_entrega == "concluido" else "ressalvas"
+        else:
+            proxima = cls.ETAPAS_CLIENTE[indice + 1]
         nps = as_dict(processo.get("nps_dados"))
         nps["_etapa_fluxo"] = proxima
         nps["_etapa_fluxo_atualizada_em"] = datetime.utcnow().isoformat()

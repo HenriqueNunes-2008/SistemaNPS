@@ -749,6 +749,26 @@ input.item-duplicado { border: 2px solid #dc2626; }
     font-weight: 700;
     cursor: pointer;
 }
+
+/* Botão de avanço do fluxo - mesmo padrão dos Termos de Recebimento/Treinamento */
+.btn-next-document {
+    border: 0;
+    border-radius: 10px;
+    background: #5b2fa6;
+    color: #fff;
+    padding: 13px 18px;
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    text-decoration: none;
+    align-items: center;
+    justify-content: center;
+}
+.btn-next-document:hover { background: #4d278f; }
+@media (max-width: 768px) {
+    .btn-next-document { width: 100%; text-align: center; }
+}
 </style>
 </head>
 
@@ -822,6 +842,7 @@ input.item-duplicado { border: 2px solid #dc2626; }
 </main>
 <div class="footer">
     <button type="submit" id="btnSalvar" class="save" disabled>SALVAR RESSALVA</button>
+    <button type="button" id="next-document" class="btn-next-document" style="display:none;">IR PARA RECEBIMENTO</button>
 
     <img src="/static/logozinha.png" alt="Fleximedical_logo" class="footer-logo">
     <div class="mobile-contact-info">
@@ -1049,6 +1070,7 @@ if (!isAdmin || (isAdmin && isEditMode)) {
     
 const tableBody = document.getElementById('tableBody');
 const btnSalvar = document.getElementById('btnSalvar');
+const nextDocument = document.getElementById('next-document');
 
 const urlParams = new URLSearchParams(window.location.search);
 const processoParam = urlParams.get("processo");
@@ -1453,9 +1475,6 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
         const json = await res.json();
         const data = json.dados || json; // Garante acesso aos dados corretos
         userEditLocked = processoEdicaoBloqueada(data);
-        if (userEditLocked) {
-            document.querySelectorAll(".breadcrumb-item.is-locked").forEach((el) => el.classList.remove("is-locked"));
-        }
         const statusEntrega = String(data?.status_entrega || "").toLowerCase();
         const lockFlow = String(
             data?.nps_dados?._lock_termo_por ||
@@ -1491,7 +1510,7 @@ async function carregarEdicaoRessalvas(codigoProcesso) {
                 btnSalvar.style.display = "none";
                 btnSalvar.disabled = true;
             }
-            if (nextDocument) nextDocument.style.display = "inline-block";
+            if (nextDocument) nextDocument.style.display = "inline-flex";
             return;
         }
     } catch (e) {
@@ -1605,6 +1624,27 @@ function buildFlowUrl(path) {
     const fluxo = projectTokenParam || getCurrentProcessId();
     if (fluxo) qs.set("project_token", fluxo);
     return qs.toString() ? `${path}?${qs.toString()}` : path;
+}
+
+if (nextDocument) {
+    nextDocument.addEventListener("click", async () => {
+        nextDocument.disabled = true;
+        try {
+            const processoId = processoParam || processoEmAndamento || projectTokenParam || getCurrentProcessId();
+            const response = await fetch("/termos/avancar", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ processo_id: processoId, etapa: "ressalvas" })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail || "Não foi possível avançar para Recebimento.");
+            window.location.href = buildFlowUrl("/recebimento");
+        } catch (erro) {
+            console.error(erro);
+            alert(erro.message);
+            nextDocument.disabled = false;
+        }
+    });
 }
 
 /* linha inicial */
