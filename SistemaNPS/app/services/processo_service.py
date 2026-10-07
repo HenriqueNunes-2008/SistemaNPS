@@ -42,13 +42,15 @@ class ProcessoService:
         """Obtém a etapa pública sem alterar processos antigos."""
         if not processo:
             return None
+        if str(processo.get("status") or "").lower() == "finalizado":
+            return None
         nps = as_dict(processo.get("nps_dados"))
         if processo.get("assinatura_cliente_url") or as_dict(processo.get("termo_dados")).get("assinatura_cliente_path"):
             return "nps"
         etapa = nps.get("_etapa_fluxo")
         if etapa in cls.ETAPAS_CLIENTE:
             return etapa
-        if nps.get("_lock_termo") or nps.get("_lock_ressalvas"):
+        if nps.get("_edicao_bloqueada") or nps.get("_lock_termo") or nps.get("_lock_ressalvas"):
             return "aceite"
         return None
 
@@ -203,23 +205,8 @@ class ProcessoService:
             "imagens_termo": termo_dados["itens"]
         }
         status_entrega = str(data.status_entrega or "").strip().lower()
-        if status_entrega == "concluido_com_ressalva":
-            etapa_fluxo = "ressalvas"
-        elif status_entrega == "concluido":
-            etapa_fluxo = "recebimento"
-        else:
-            etapa_fluxo = "aceite"
-        nps_dados = as_dict(existing_proc.get("nps_dados")) if existing_proc else {}
-        etapa_existente = nps_dados.get("_etapa_fluxo")
-        nps_dados["_etapa_fluxo"] = etapa_fluxo
-        if (
-            etapa_existente in cls.ETAPAS_CLIENTE
-            and cls.ETAPAS_CLIENTE.index(etapa_existente)
-            > cls.ETAPAS_CLIENTE.index(etapa_fluxo)
-        ):
-            nps_dados["_etapa_fluxo"] = etapa_existente
-        nps_dados["_etapa_fluxo_atualizada_em"] = datetime.utcnow().isoformat()
-        payload["nps_dados"] = nps_dados
+        # Preparar documentos não conclui nenhuma etapa do cliente.
+        # O fluxo é iniciado pelo bloqueio e avança somente por ação do cliente.
 
         if is_update:
             payload["atualizado_em"] = datetime.utcnow().isoformat()
@@ -323,17 +310,7 @@ class ProcessoService:
             "ressalvas_dados": ressalvas_dados,
             "atualizado_em": datetime.utcnow().isoformat()
         }
-        nps_dados = as_dict(existing_proc.get("nps_dados"))
-        etapa_atual = ProcessoService.etapa_atual_cliente(existing_proc)
-        etapa_fluxo = (
-            etapa_atual
-            if etapa_atual in ProcessoService.ETAPAS_CLIENTE
-            and ProcessoService.ETAPAS_CLIENTE.index(etapa_atual) > ProcessoService.ETAPAS_CLIENTE.index("recebimento")
-            else "recebimento"
-        )
-        nps_dados["_etapa_fluxo"] = etapa_fluxo
-        nps_dados["_etapa_fluxo_atualizada_em"] = datetime.utcnow().isoformat()
-        payload_update["nps_dados"] = nps_dados
+        # Manter o progresso do cliente intacto ao preparar as ressalvas.
         ProcessoRepository.update(processo_uuid, payload_update)
 
         regenerate_final_pdf_by_codigo(processo_codigo, set_status_finalizado=False)

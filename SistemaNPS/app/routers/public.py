@@ -770,7 +770,7 @@ def admin_toggle_edit_lock(
     proc = (
         supabase
         .table("processos")
-        .select("id,nps_dados")
+        .select("id,nps_dados,status,assinatura_cliente_url,termo_dados")
         .eq("project_token", token)
         .limit(1)
         .execute()
@@ -789,12 +789,11 @@ def admin_toggle_edit_lock(
     if not isinstance(nps_dados, dict):
         nps_dados = {}
 
-    # Logica simplificada: se Termo ou Ressalvas estao travados, consideramos bloqueado (estado de envio pro cliente)
-    is_locked_for_client = bool(
-        nps_dados.get("_edicao_bloqueada")
-        or nps_dados.get("_lock_termo")
-        or nps_dados.get("_lock_ressalvas")
-    )
+    # A publicação completa é independente dos locks antigos por documento.
+    # Repetir o bloqueio não reinicia um fluxo que já foi publicado.
+    is_locked_for_client = bool(nps_dados.get("_edicao_bloqueada"))
+    if str(row.get("status") or "").lower() == "finalizado":
+        raise HTTPException(status_code=403, detail="Processo finalizado.")
     now_iso = datetime.utcnow().isoformat()
     actor = "Administrador"
 
@@ -806,9 +805,12 @@ def admin_toggle_edit_lock(
         nps_dados["_lock_nps"] = False
         nps_dados["_edicao_bloqueada"] = True
         # O bloqueio inicia oficialmente o fluxo do cliente no Termo de Aceite.
-        # Antes disso, o salvamento administrativo pode ter preparado os termos
-        # derivados e deixado _etapa_fluxo em recebimento/ressalvas.
-        nps_dados["_etapa_fluxo"] = "aceite"
+        # Processos já assinados mantêm seu progresso para a pesquisa.
+        termo_dados = row.get("termo_dados") or {}
+        if isinstance(termo_dados, str):
+            termo_dados = json.loads(termo_dados)
+        ja_assinado = row.get("assinatura_cliente_url") or termo_dados.get("assinatura_cliente_path")
+        nps_dados["_etapa_fluxo"] = "nps" if ja_assinado else "aceite"
         nps_dados["_etapa_fluxo_atualizada_em"] = now_iso
         nps_dados["_edicao_fechada_em"] = now_iso
         nps_dados["_edicao_fechada_por"] = actor
