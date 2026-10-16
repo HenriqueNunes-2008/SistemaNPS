@@ -79,6 +79,16 @@
                 </div>
             </section>
 
+            <section id="documentos-cliente" class="institutional-text" hidden aria-label="Baixar documentos assinados">
+                <h2>BAIXE SUA VIA DOS DOCUMENTOS</h2>
+                <p>Guarde uma cópia dos documentos assinados para sua consulta.</p>
+                <div class="signature-actions" style="flex-wrap: wrap; gap: 12px;">
+                    <a id="download-termo" class="flow-button secondary" download="Termo_de_Aceite.pdf">BAIXAR TERMO DE ACEITE</a>
+                    <a id="download-recebimento" class="flow-button secondary" download="Termo_de_Recebimento.pdf">BAIXAR RECEBIMENTO</a>
+                    <a id="download-treinamento" class="flow-button secondary" download="Termo_de_Treinamento.pdf">BAIXAR TREINAMENTO</a>
+                </div>
+            </section>
+
             <p id="continue-wrap" class="document-navigation" hidden>
                 <a id="continuar" class="flow-button">CONTINUAR PARA NPS</a>
             </p>
@@ -107,10 +117,10 @@
                 el.href = flow(path);
             }
         }
-        {% if is_admin %}
-        document.querySelectorAll('.breadcrumb-item.is-locked')
+        if (isAdmin) {
+         document.querySelectorAll('.breadcrumb-item.is-locked')
             .forEach((el) => el.classList.remove('is-locked'));
-        {% endif %}
+        }
 
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
@@ -118,6 +128,19 @@
         const signatureForm = document.getElementById('signature-form');
         const continueWrap = document.getElementById('continue-wrap');
         const confirmar = document.getElementById('confirmar');
+        const documentosCliente = document.getElementById('documentos-cliente');
+        function liberarDownloads() {
+            const pdfs = {
+                'download-termo': 'termo',
+                'download-recebimento': 'recebimento',
+                'download-treinamento': 'treinamento'
+            };
+            for (const [id, tipo] of Object.entries(pdfs)) {
+                document.getElementById(id).href = `/pdf/${tipo}/${q}`;
+            }
+            documentosCliente.hidden = false;
+        }
+
 
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
@@ -189,6 +212,7 @@
                     message('Assinatura já realizada. Documento disponível somente para leitura.', 'info');
                     signatureForm.hidden = true;
                     continueWrap.hidden = false;
+                    liberarDownloads();
                 }
             })
             .catch((e) => {
@@ -221,6 +245,7 @@
                 message('Assinatura realizada com sucesso. Os quatro documentos foram atualizados.', 'success');
                 signatureForm.hidden = true;
                 continueWrap.hidden = false;
+                liberarDownloads();
             } catch (e) {
                 message(e.message, 'error');
                 confirmar.disabled = false;
